@@ -45,24 +45,63 @@
           overlays = [ unstableOverlay ];
         };
 
+      bootstrapPackages =
+        pkgs:
+        with pkgs; [
+          git
+          gh
+          jq
+          neovim
+          pcSetupUnstable.infisical
+        ];
+
       mkBootstrapShell =
         system:
         let
           pkgs = mkPkgs system;
         in
         pkgs.mkShell {
-          packages = with pkgs; [
-            git
-            gh
-            jq
-            neovim
-            pcSetupUnstable.infisical
-          ];
+          packages = bootstrapPackages pkgs;
 
           shellHook = ''
             printf '%s\n' 'pc-setup bootstrap shell'
-            printf '%s\n' 'tools: git gh jq nvim infisical'
+            printf '%s\n' 'tools are provided by this flake; no manual package list is needed'
           '';
+        };
+
+      mkBootstrapApp =
+        system:
+        let
+          pkgs = mkPkgs system;
+          app = pkgs.writeShellApplication {
+            name = "pc-setup-bootstrap";
+            runtimeInputs = bootstrapPackages pkgs;
+            text = ''
+              dotfiles_dir="${DOTFILES_DIR:-$HOME/.dotfiles}"
+
+              if [[ ! -e "$dotfiles_dir" ]]; then
+                printf 'cloning dotfiles -> %s\n' "$dotfiles_dir"
+                git clone https://github.com/rebuildup/dotfiles.git "$dotfiles_dir"
+              elif [[ ! -d "$dotfiles_dir/.git" ]]; then
+                printf 'refusing to overwrite non-git path: %s\n' "$dotfiles_dir" >&2
+                exit 1
+              else
+                printf 'using existing dotfiles checkout: %s\n' "$dotfiles_dir"
+              fi
+
+              if [[ ! -x "$dotfiles_dir/script/bootstrap" ]]; then
+                printf 'dotfiles bootstrap is unavailable in %s\n' "$dotfiles_dir" >&2
+                printf 'update the checkout to a release containing script/bootstrap, then retry\n' >&2
+                exit 1
+              fi
+
+              exec "$dotfiles_dir/script/bootstrap"
+            '';
+          };
+        in
+        {
+          type = "app";
+          program = "${app}/bin/pc-setup-bootstrap";
         };
     in
     {
@@ -113,6 +152,11 @@
           ]
           ++ modules;
         };
+
+      apps = forAllSystems (system: {
+        default = mkBootstrapApp system;
+        bootstrap = mkBootstrapApp system;
+      });
 
       devShells = forAllSystems (system: {
         default = mkBootstrapShell system;
