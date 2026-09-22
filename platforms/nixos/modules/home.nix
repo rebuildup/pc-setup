@@ -6,8 +6,6 @@ in
 {
   home.packages = with pkgs; [
     gh
-    sops
-    age
 
     curl
     wget
@@ -44,6 +42,7 @@ in
     unstable.clippy
     unstable.rust-analyzer
 
+    unstable.infisical
     unstable.claude-code
     unstable.opencode
     unstable.worktrunk
