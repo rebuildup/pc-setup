@@ -51,8 +51,7 @@ check_command nixos-version
 commands=(
   git
   gh
-  sops
-  age-keygen
+  infisical
   curl
   wget
   rg
@@ -87,8 +86,7 @@ for command_name in "${commands[@]}"; do
 done
 
 if command -v nix >/dev/null 2>&1; then
-  if nix --extra-experimental-features 'nix-command flakes' flake metadata \
-    --no-write-lock-file "$SCRIPT_DIR" >/dev/null 2>&1; then
+  if nix --extra-experimental-features 'nix-command flakes' flake metadata     --no-write-lock-file "$SCRIPT_DIR" >/dev/null 2>&1; then
     ok "pc-setup NixOS flake evaluates metadata"
   else
     fail "pc-setup NixOS flake metadata evaluation failed"
@@ -109,6 +107,18 @@ if command -v gh >/dev/null 2>&1; then
   fi
 fi
 
+if command -v infisical >/dev/null 2>&1; then
+  if [[ -d "$HOME/.dotfiles" ]] && [[ -x "$HOME/.dotfiles/script/secrets-doctor" ]]; then
+    if "$HOME/.dotfiles/script/secrets-doctor" >/dev/null 2>&1; then
+      ok "Infisical dotfiles project access"
+    else
+      warn "Infisical dotfiles access is not ready; run ~/.dotfiles/script/bootstrap"
+    fi
+  else
+    warn "dotfiles Infisical access is validated after ~/.dotfiles is bootstrapped"
+  fi
+fi
+
 if command -v opencode >/dev/null 2>&1; then
   if opencode auth list >/dev/null 2>&1; then
     warn "Review OpenCode provider authentication with: opencode auth list"
@@ -121,16 +131,16 @@ if command -v claude >/dev/null 2>&1; then
   warn "Claude Code login is interactive; run: claude and confirm the active account"
 fi
 
-if git config --global --get user.name >/dev/null 2>&1; then
-  ok "global Git user.name is configured"
+if git config --get user.name >/dev/null 2>&1; then
+  ok "effective Git user.name is configured"
 else
-  warn "global Git user.name is not configured"
+  warn "effective Git user.name is not configured; dotfiles bootstrap stores it in ~/.gitconfig.local"
 fi
 
-if git config --global --get user.email >/dev/null 2>&1; then
-  ok "global Git user.email is configured"
+if git config --get user.email >/dev/null 2>&1; then
+  ok "effective Git user.email is configured"
 else
-  warn "global Git user.email is not configured"
+  warn "effective Git user.email is not configured; dotfiles bootstrap stores it in ~/.gitconfig.local"
 fi
 
 printf '\nResult: %d failure(s), %d warning(s)\n' "$failures" "$warnings"
