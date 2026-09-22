@@ -31,7 +31,7 @@ If executable behavior and documentation disagree, treat the mismatch as a defec
 Each supported platform SHOULD have:
 
 - a human-readable setup guide
-- an idempotent or safely re-runnable bootstrap
+- an idempotent/safely re-runnable bootstrap or a declarative platform definition that replaces imperative bootstrap
 - deterministic verification
 - explicit manual/authentication steps
 - official source links for version-sensitive installers
@@ -41,12 +41,16 @@ Do not add an OS/platform directory merely as a placeholder. Capture it when the
 
 ## 4. Desired state vs snapshots
 
-Desired state describes the installation channel and required capability, for example:
+Desired state describes the installation channel and required capability. Installation mechanism is platform-specific.
+
+Ubuntu/WSL examples:
 
 - Rust: `rustup` stable
 - Claude Code: official native installer
 - OpenCode: official stable installer
 - Worktrunk: Cargo package
+
+NixOS uses the declared Nix package graph instead of those imperative installers.
 
 A point-in-time version inventory is evidence only. Store version snapshots separately under `snapshots/` when useful.
 
@@ -70,7 +74,23 @@ For `platforms/ubuntu-wsl`:
 
 Changing these defaults is an ADR-level decision when it changes the long-lived reproduction model.
 
-## 6. Bootstrap safety
+## 6. NixOS invariants
+
+For `platforms/nixos`:
+
+- primary system baseline tracks NixOS 26.05 stable
+- Home Manager tracks the matching `release-26.05`
+- fast-moving developer tools use the separately exposed `nixos-unstable` package set
+- Claude Code, OpenCode, Worktrunk, Bun, and Rust tooling are Nix-managed, not installed through self-installers
+- Home Manager owns user development packages and Worktrunk Bash integration
+- hardware configuration, boot, disk layout, hostname, credentials, passwords, and original stateVersion values remain host-specific
+- provider credentials and other secrets must not be embedded in Flakes, Nix expressions, or Nix store paths
+- concrete hosts commit a `flake.lock` to select exact input revisions
+- project-specific runtime/native dependencies remain owned by each project rather than being accumulated into the machine-wide profile
+
+Changing stable/unstable split, package ownership, or host/profile boundary is an ADR-level decision.
+
+## 7. Bootstrap safety
 
 Bootstrap scripts must:
 
@@ -86,27 +106,32 @@ Bootstrap scripts must:
 
 Do not perform a full OS upgrade as an incidental side effect of environment bootstrap.
 
-## 7. Validation
+## 8. Validation
 
-Canonical local validation:
+Shell validation:
 
 ```bash
 ./scripts/ci.sh
 ```
 
-It validates shell syntax and ShellCheck findings for repository scripts.
+NixOS profile evaluation:
+
+```bash
+nix flake check --no-build ./platforms/nixos
+```
 
 Platform verification:
 
 ```bash
 ./platforms/ubuntu-wsl/verify.sh
+./platforms/nixos/verify.sh
 ```
 
 Missing required tools are failures. Missing account authentication and unset personal Git identity are warnings because they require user interaction.
 
-A green CI run validates repository script quality; it does not prove a fresh WSL machine completed the external installers successfully.
+A green CI run validates repository-controlled shell quality and Nix profile evaluation; it does not prove a fresh WSL machine completed external installers or that an arbitrary physical NixOS host can boot.
 
-## 8. Delivery workflow
+## 9. Delivery workflow
 
 Use the current `project-init` release-driven profile:
 
@@ -121,7 +146,7 @@ Use the current `project-init` release-driven profile:
 
 The repository was initially empty, so creating the first `main` commit is a one-time bootstrap prerequisite, not a normal delivery path.
 
-## 9. ADR policy
+## 10. ADR policy
 
 Create or revise an ADR when changing a long-lived decision about:
 
@@ -136,14 +161,14 @@ Create or revise an ADR when changing a long-lived decision about:
 
 ADRs describe the final decision and rationale, not the chronological work log.
 
-## 10. Writing policy
+## 11. Writing policy
 
 Persistent prose must stand on its own for a future reader. Do not serialize conversation history, temporary branch state, investigation order, or transient tool output into README/ADR/Issue/PR text unless it is required for auditability or reproducibility.
 
 When documenting a command, verify it against current official documentation when the command is version-sensitive.
 
 
-## 11. Project-local Skills
+## 12. Project-local Skills
 
 Use progressive disclosure: load only the Skill needed for the current task.
 
