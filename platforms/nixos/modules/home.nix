@@ -20,6 +20,7 @@ in
     xz
     rsync
     shellcheck
+    neovim
 
     python3
 
