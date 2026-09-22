@@ -135,7 +135,7 @@ EOF
   fi
 
   # Make the paths available to the remainder of this process as well.
-  # shellcheck disable=SC1090
+  # shellcheck disable=SC1091
   . "$HOME/.config/pc-setup/env.sh"
 }
 
