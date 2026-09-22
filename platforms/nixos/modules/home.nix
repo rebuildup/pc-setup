@@ -6,6 +6,8 @@ in
 {
   home.packages = with pkgs; [
     gh
+    sops
+    age
 
     curl
     wget
