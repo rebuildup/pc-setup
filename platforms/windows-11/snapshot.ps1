@@ -6,7 +6,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-if (-not $IsWindows) { throw 'This snapshot script targets Windows.' }
+if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw 'This snapshot script targets Windows.' }
 
 New-Item -ItemType Directory -Force -Path $OutputDirectory | Out-Null
 $stamp = Get-Date -Format 'yyyy-MM-dd-HHmmss'
