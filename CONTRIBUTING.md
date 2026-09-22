@@ -34,13 +34,27 @@
 ./scripts/ci.sh
 ```
 
-Ubuntu/WSL 実機では追加で:
+実機では対象 platform の verify も実行します。
+
+Ubuntu/WSL:
 
 ```bash
 ./platforms/ubuntu-wsl/verify.sh
 ```
 
-外部 installer、ログイン、WSL host integration は GitHub Actions だけでは証明できません。実機でしか確認できないものは、その境界を documentation に明記します。
+Windows 11:
+
+```powershell
+.\platforms\windows-11\verify.ps1
+```
+
+Windows の実機 inventory を比較したい場合:
+
+```powershell
+.\platforms\windows-11\snapshot.ps1
+```
+
+外部 installer、ログイン、ライセンス、WSL host integration、Microsoft Store availability、vendor-managed child applications は GitHub Actions だけでは証明できません。実機でしか確認できないものは、その境界を documentation に明記します。
 
 ## Secrets
 
