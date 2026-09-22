@@ -54,7 +54,7 @@ function Install-WingetPackage {
     }
 }
 
-if (-not $IsWindows) {
+if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     throw 'This bootstrap targets Windows 11.'
 }
 
