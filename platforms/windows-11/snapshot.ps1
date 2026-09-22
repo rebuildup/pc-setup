@@ -60,11 +60,11 @@ $commands = @(
 
 $versionOutput = foreach ($entry in $commands) {
     $name = $entry[0]
-    $args = if ($entry.Count -gt 1) { $entry[1..($entry.Count - 1)] } else { @() }
+    $commandArgs = if ($entry.Count -gt 1) { $entry[1..($entry.Count - 1)] } else { @() }
     if (Get-Command $name -ErrorAction SilentlyContinue) {
         try {
-            $value = & $name @args 2>&1
-            "$name $($args -join ' ')`n$value`n"
+            $value = & $name @commandArgs 2>&1
+            "$name $($commandArgs -join ' ')`n$value`n"
         } catch {
             "$name`nERROR: $($_.Exception.Message)`n"
         }
