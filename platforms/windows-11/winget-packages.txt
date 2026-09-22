@@ -1,0 +1,36 @@
+# One package ID per line. Blank lines and comments are ignored.
+# Desktop / communication
+Vivaldi.Vivaldi
+Discord.Discord
+Microsoft.PowerToys
+AntibodySoftware.WizTree
+Google.JapaneseIME
+Logitech.GHUB
+LinearOrbit.Linear
+SlackTechnologies.Slack
+Microsoft.Teams
+Anysphere.Cursor
+Microsoft.VisualStudioCode
+Warp.Warp
+
+# Creative manager
+Adobe.CreativeCloud
+
+# Development
+Google.AndroidStudio
+Microsoft.VisualStudio.2022.Community
+Microsoft.DotNet.SDK.10
+Git.Git
+GitHub.cli
+Microsoft.PowerShell
+OpenJS.NodeJS.LTS
+Oven-sh.Bun
+Rustlang.Rustup
+BurntSushi.ripgrep.MSVC
+sharkdp.fd
+junegunn.fzf
+jqlang.jq
+sharkdp.bat
+
+# Keyboard / input
+jtroo.kanata_gui
