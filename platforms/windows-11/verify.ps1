@@ -52,7 +52,7 @@ function Test-InstalledDisplayName {
     if ($script:InstalledDisplayNames | Where-Object { $_ -match $Pattern }) { Write-Ok "$Label installed" } else { Write-Fail "$Label not found in uninstall inventory" }
 }
 
-if (-not $IsWindows) { throw 'This verification targets Windows.' }
+if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw 'This verification targets Windows.' }
 
 Write-Host "pc-setup Windows 11 verification`n"
 
