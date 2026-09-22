@@ -1,0 +1,328 @@
+# NixOS setup
+
+NixOS では Ubuntu/WSL のような imperative installer を canonical setup にしません。
+
+`pc-setup` の NixOS profile を Flake input として読み込み、NixOS module + Home Manager module から開発環境を宣言的に構成します。
+
+## Policy
+
+- OS baseline: NixOS 26.05 stable
+- Home Manager: `release-26.05`
+- fast-moving development tools: `nixos-unstable`
+- host hardware / boot / disk / hostname / passwords / secrets: host-specific configuration
+- development environment: `pc-setup`
+- credentials: Nix store の外
+- exact input revisions: concrete host の `flake.lock`
+
+詳細な判断理由は [`ADR-0003`](../../docs/adr/ADR-0003.md) を参照してください。
+
+## What this profile installs
+
+Stable package set:
+
+- Git / Git LFS / GitHub CLI
+- curl / wget
+- ripgrep / fd / fzf / jq / bat / tree
+- zip / unzip / xz / rsync
+- ShellCheck
+- Python
+- GCC / Clang / LLDB / CMake / Ninja / Make / pkg-config
+- Node.js 24 / pnpm
+
+Unstable package set:
+
+- Bun
+- Rust / Cargo / rustfmt / Clippy / rust-analyzer
+- Claude Code
+- OpenCode
+- Worktrunk
+
+Worktrunk の Bash integration も Home Manager で宣言します。
+
+## Repository layout
+
+```text
+platforms/nixos/
+├── README.md
+├── flake.nix
+├── modules/
+│   ├── system.nix
+│   └── home.nix
+└── verify.sh
+```
+
+### `flake.nix`
+
+reusable outputs:
+
+- `overlays.default`
+- `nixosModules.default`
+- `homeManagerModules.default`
+- `lib.mkPcSetupHost`
+- `checks.<system>.home-profile`
+- `checks.<system>.nixos-profile`
+
+### `modules/system.nix`
+
+Nix-level system defaultsだけを所有します。
+
+現在は:
+
+- `nix-command`
+- Flakes
+- Nix store auto optimisation
+
+を有効にします。
+
+### `modules/home.nix`
+
+ユーザー単位の development toolchain と shell integration を所有します。
+
+## Recommended host integration
+
+actual NixOS host の config repository / `/etc/nixos` に Flake を作り、`pc-setup` を input にします。
+
+例:
+
+```nix
+{
+  description = "my NixOS host";
+
+  inputs = {
+    pc-setup.url = "github:rebuildup/pc-setup";
+  };
+
+  outputs =
+    { pc-setup, ... }:
+    {
+      nixosConfigurations.my-host = pc-setup.lib.mkPcSetupHost {
+        system = "x86_64-linux";
+        username = "YOUR_USER";
+
+        # 初回インストール時の値を維持する。
+        stateVersion = "26.05";
+        homeStateVersion = "26.05";
+
+        modules = [
+          ./hardware-configuration.nix
+          ./configuration.nix
+        ];
+      };
+    };
+}
+```
+
+`configuration.nix` には host固有情報だけを置きます。
+
+例:
+
+```nix
+{ ... }:
+
+{
+  networking.hostName = "my-host";
+
+  users.users.YOUR_USER.extraGroups = [
+    "networkmanager"
+    "wheel"
+  ];
+
+  networking.networkmanager.enable = true;
+
+  # boot loader / desktop / GPU / locale 等も host 側で定義する。
+}
+```
+
+`hardware-configuration.nix` は:
+
+```bash
+sudo nixos-generate-config
+```
+
+などで actual machine から生成し、別マシンの内容をコピーしません。
+
+## First install
+
+NixOS installation 自体は公式 Installation Guide に従います。
+
+system が起動した後、host config で `pc-setup` を参照し:
+
+```bash
+sudo nixos-rebuild test --flake /etc/nixos#my-host
+sudo nixos-rebuild switch --flake /etc/nixos#my-host
+```
+
+の順で反映します。
+
+`test` は boot default を書き換えずに current system へ構成を適用できるため、`switch` 前の確認として使います。
+
+## Update
+
+OS baseline / Home Manager / unstable tooling の exact revision は host側 `flake.lock` が固定します。
+
+更新時:
+
+```bash
+cd /etc/nixos
+nix flake update
+
+sudo nixos-rebuild test --flake .#my-host
+/path/to/pc-setup/platforms/nixos/verify.sh
+
+sudo nixos-rebuild switch --flake .#my-host
+```
+
+差分確認前に blindly `switch` しないことを推奨します。
+
+## Worktrunk
+
+NixOSでは:
+
+```bash
+wt config shell install
+```
+
+を canonical setup として実行しません。
+
+Home Manager が Bash に次を宣言します。
+
+```bash
+eval "$(wt config shell init bash)"
+```
+
+したがって Worktrunk update 後も shell wrapper は次の Home Manager generation で current package から生成されます。
+
+確認:
+
+```bash
+type wt
+wt --version
+wt config show
+```
+
+## Authentication
+
+package installation と authentication は分離します。
+
+### GitHub
+
+```bash
+gh auth login
+gh auth setup-git
+gh auth status
+```
+
+### Claude Code
+
+```bash
+claude
+```
+
+browser login 等の対話手順で認証します。
+
+### OpenCode
+
+```bash
+opencode auth login
+opencode auth list
+```
+
+API key / token / provider credential を `flake.nix`、Home Manager module、Nix store path に直接書きません。
+
+## Git identity
+
+Git identity は machine/user-specific state なのでこの reusable profile では固定しません。
+
+必要なら host/user config 側で明示します。
+
+```nix
+programs.git = {
+  enable = true;
+  settings = {
+    user.name = "YOUR_NAME";
+    user.email = "YOUR_EMAIL";
+  };
+};
+```
+
+または手動:
+
+```bash
+git config --global user.name "YOUR_NAME"
+git config --global user.email "YOUR_EMAIL"
+```
+
+## Verify
+
+```bash
+./platforms/nixos/verify.sh
+```
+
+verify は:
+
+- NixOS であること
+- Flakes capability
+- baseline CLI
+- JS/TS toolchain
+- Rust toolchain
+- Claude Code / OpenCode / Worktrunk
+- GitHub auth
+- Git identity
+
+を確認します。
+
+toolが無い場合は FAIL、対話認証や Git identity 未設定は WARN です。
+
+## Evaluate the reusable profile
+
+repository から:
+
+```bash
+nix flake check --no-build ./platforms/nixos
+```
+
+これにより NixOS module と Home Manager profile を両方評価します。
+
+formatter:
+
+```bash
+nix fmt ./platforms/nixos
+```
+
+## Secrets
+
+FlakeやNix expressionの内容は Nix store に入り得るため、secret を直接記述しません。
+
+commitしないもの:
+
+- API key
+- GitHub token
+- Claude / OpenCode provider credentials
+- SSH private key
+- browser cookie
+- cloud credentials
+
+必要になった場合は sops-nix / agenix 等の導入を別decisionとして検討します。現時点では、secret managerを使っていないのに形だけ導入することはしません。
+
+## Project-specific dependencies
+
+この profile は machine-wide の development baseline です。
+
+各 project が要求する:
+
+- PostgreSQL
+- specific OpenSSL/native library
+- framework-specific compiler
+- pinned Node/Rust toolchain
+- database/cache/runtime
+
+などは project側の Flake / devShell / container / toolchain definition で管理します。
+
+global profile に全projectの依存を集約しません。
+
+## References
+
+- NixOS Manual: https://nixos.org/manual/nixos/stable/
+- Flakes: https://wiki.nixos.org/wiki/Flakes
+- Home Manager: https://github.com/nix-community/home-manager
+- Worktrunk shell integration: https://worktrunk.dev/shell-integration/
