@@ -60,6 +60,7 @@ commands=(
   jq
   bat
   shellcheck
+  nvim
   python3
   gcc
   clang
