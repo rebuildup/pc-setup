@@ -21,7 +21,6 @@ NixOS では Ubuntu/WSL のような imperative installer を canonical setup �
 Stable package set:
 
 - Git / Git LFS / GitHub CLI
-- SOPS / age
 - curl / wget
 - ripgrep / fd / fzf / jq / bat / tree
 - zip / unzip / xz / rsync
@@ -36,6 +35,7 @@ Unstable package set:
 - Rust / Cargo / rustfmt / Clippy / rust-analyzer
 - Claude Code
 - OpenCode
+- Infisical CLI
 - Worktrunk
 
 Worktrunk の Bash integration も Home Manager で宣言します。
@@ -246,12 +246,13 @@ programs.git = {
 };
 ```
 
-または手動:
+dotfiles を使用する環境では `~/.gitconfig` 自体が symlink-managed なので、`git config --global user.*` は使用しません。初回 identity/auth setup は:
 
 ```bash
-git config --global user.name "YOUR_NAME"
-git config --global user.email "YOUR_EMAIL"
+~/.dotfiles/script/bootstrap
 ```
+
+で行い、identity は `~/.gitconfig.local` に保持します。
 
 ## Verify
 
@@ -296,25 +297,28 @@ FlakeやNix expressionの内容は Nix store に入り得るため、secret を�
 
 commitしないもの:
 
-- API key
+- API key / provider token
+- `INFISICAL_TOKEN` / Infisical client secret
 - GitHub token
-- Claude / OpenCode provider credentials
 - SSH private key
 - browser cookie
 - cloud credentials
+- plaintext `.env`
 
-portable secret の canonical storage / runtime injection は `rebuildup/dotfiles` の SOPS + age policy が所有します。
+portable secret の source of truth / runtime injection は `rebuildup/dotfiles` の Infisical policy が所有します。
 
-この NixOS profile はその runtime dependency として `sops` / `age` を導入しますが、secret value や age private identity 自体は Nix expression / Nix store に入れません。
+この NixOS profile は runtime dependency として `infisical` CLI を `nixos-unstable` から導入します。Secret valuesやInfisical user/session credentialsは Nix expression / Nix store に入れません。
 
-dotfiles bootstrap 後:
+dotfiles bootstrap:
 
 ```bash
-~/.dotfiles/script/secrets-init
+~/.dotfiles/script/bootstrap
 ~/.dotfiles/script/secrets-doctor
 ```
 
-既存の `.sops.yaml` がある環境では、新しい age identity を生成せず、保管済みの root identity を `~/.config/sops/age/keys.txt` へ復元します。
+ローカル開発者はInfisical user loginを使用します。CI / agent / cloud workload は専用Machine Identityを使い、runtimeが対応する場合はOIDC / cloud-native identityなどの短期認証を優先します。
+
+Infisical CLIはLinuxではOS Secret Serviceを利用し、利用できない環境ではCLI側のencrypted-file keyring fallbackを使用できます。そのlocal credential/cache stateもdotfilesやNix storeへ取り込みません。
 
 ## Project-specific dependencies
 
@@ -396,7 +400,7 @@ sudo nixos-rebuild switch --flake /etc/nixos#nixos
 まだ Git が無い fresh distribution では、canonical profile を適用するまでの bootstrap に一時 shell を使えます:
 
 ```bash
-nix-shell -p git sops age
+nix-shell -p git gh infisical
 ```
 
-この shell 内で repositories を clone し、declarative NixOS config を用意したら `nixos-rebuild test/switch` へ移行します。恒久的な package install に `nix-env` は使いません。
+この shell 内で repositories を clone し、dotfiles bootstrap / declarative NixOS config を用意したら `nixos-rebuild test/switch` へ移行します。恒久的な package install に `nix-env` は使いません。
