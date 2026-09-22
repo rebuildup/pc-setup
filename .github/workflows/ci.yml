@@ -82,7 +82,8 @@ jobs:
             Where-Object { $_ -and -not $_.StartsWith('#') }
 
           foreach ($line in $storeLines) {
-            if ($line -notmatch '^[^|]+\|[^|]+) {
+            $parts = $line.Split('|', 2)
+            if ($parts.Count -ne 2 -or [string]::IsNullOrWhiteSpace($parts[0]) -or [string]::IsNullOrWhiteSpace($parts[1])) {
               throw "Invalid Store manifest line: $line"
             }
           }
