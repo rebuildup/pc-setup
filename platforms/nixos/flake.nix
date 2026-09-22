@@ -44,6 +44,26 @@
           inherit system;
           overlays = [ unstableOverlay ];
         };
+
+      mkBootstrapShell =
+        system:
+        let
+          pkgs = mkPkgs system;
+        in
+        pkgs.mkShell {
+          packages = with pkgs; [
+            git
+            gh
+            jq
+            neovim
+            pcSetupUnstable.infisical
+          ];
+
+          shellHook = ''
+            printf '%s\n' 'pc-setup bootstrap shell'
+            printf '%s\n' 'tools: git gh jq nvim infisical'
+          '';
+        };
     in
     {
       overlays.default = unstableOverlay;
@@ -94,6 +114,10 @@
           ++ modules;
         };
 
+      devShells = forAllSystems (system: {
+        default = mkBootstrapShell system;
+      });
+
       checks = forAllSystems (
         system:
         let
@@ -125,6 +149,7 @@
           };
         in
         {
+          bootstrap-shell = self.devShells.${system}.default;
           home-profile = homeProfile.activationPackage;
           nixos-profile = nixosProfile.config.system.build.toplevel;
         }
