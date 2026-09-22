@@ -30,17 +30,26 @@
 
 ## Validation
 
+Shell:
+
 ```bash
 ./scripts/ci.sh
 ```
 
-Ubuntu/WSL 実機では追加で:
+NixOS profile:
+
+```bash
+nix flake check --no-build ./platforms/nixos
+```
+
+実機では対象 platform の verify も実行します。
 
 ```bash
 ./platforms/ubuntu-wsl/verify.sh
+./platforms/nixos/verify.sh
 ```
 
-外部 installer、ログイン、WSL host integration は GitHub Actions だけでは証明できません。実機でしか確認できないものは、その境界を documentation に明記します。
+外部 installer、ログイン、WSL host integration、physical NixOS host の bootability は GitHub Actions だけでは証明できません。実機でしか確認できないものは、その境界を documentation に明記します。
 
 ## Secrets
 
