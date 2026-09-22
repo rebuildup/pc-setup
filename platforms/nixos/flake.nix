@@ -77,7 +77,7 @@
             name = "pc-setup-bootstrap";
             runtimeInputs = bootstrapPackages pkgs;
             text = ''
-              dotfiles_dir="${DOTFILES_DIR:-$HOME/.dotfiles}"
+              dotfiles_dir="''${DOTFILES_DIR:-$HOME/.dotfiles}"
 
               if [[ ! -e "$dotfiles_dir" ]]; then
                 printf 'cloning dotfiles -> %s\n' "$dotfiles_dir"
