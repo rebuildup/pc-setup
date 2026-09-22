@@ -1,0 +1,16 @@
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local scratch
+.tmp/
+.reference/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
