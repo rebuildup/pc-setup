@@ -9,10 +9,11 @@
 | Platform | Status | Entry point |
 | --- | --- | --- |
 | Ubuntu on WSL2 | Active | [`platforms/ubuntu-wsl/README.md`](./platforms/ubuntu-wsl/README.md) |
+| NixOS | Active | [`platforms/nixos/README.md`](./platforms/nixos/README.md) |
 | Windows 11 | Not captured yet | future work |
 | macOS | Not captured yet | future work |
 
-現在の最優先対象は Ubuntu/WSL2 です。
+現在の active platform は Ubuntu/WSL2 と NixOS です。
 
 ## Repository model
 
@@ -27,10 +28,15 @@
 ```text
 .
 ├── platforms/
-│   └── ubuntu-wsl/
+│   ├── ubuntu-wsl/
+│   │   ├── README.md
+│   │   ├── apt-packages.txt
+│   │   ├── bootstrap.sh
+│   │   └── verify.sh
+│   └── nixos/
 │       ├── README.md
-│       ├── apt-packages.txt
-│       ├── bootstrap.sh
+│       ├── flake.nix
+│       ├── modules/
 │       └── verify.sh
 ├── config/
 │   └── shell/
@@ -74,11 +80,19 @@ bootstrap は以下を整備します。
 
 認証は意図的に自動化しません。インストール後に GitHub / Claude / OpenCode の各アカウントへ対話的にログインします。詳細は [`platforms/ubuntu-wsl/README.md`](./platforms/ubuntu-wsl/README.md) を参照してください。
 
+## NixOS quick start
+
+NixOS は imperative bootstrap ではなく、Flakes + Home Manager の reusable profile として管理します。
+
+host-specific Flake から `pc-setup.lib.mkPcSetupHost` を呼び出し、hardware / boot / hostname / stateVersion 等だけ host 側で与えます。
+
+詳細は [`platforms/nixos/README.md`](./platforms/nixos/README.md) を参照してください。
+
 ## Principles
 
 - password、API key、token、cookie、private key 等は commit しない。
 - WSL の開発 repository は原則 `/mnt/c` ではなく Linux filesystem (`~/src` 等) に置く。
-- official installer / official package repository を優先する。
+- platform native の declarative package graph が使える場合はそれを優先し、そうでない場合は official installer / official package repository を優先する。
 - 「latest stable を追うもの」と「version pin するもの」を区別する。
 - setup 手順の変更理由が長期的に残る場合は ADR を追加する。
 - automation が壊れても人間が README から復旧できる状態を維持する。
@@ -88,13 +102,20 @@ bootstrap は以下を整備します。
 
 - [`ADR-0001`](./docs/adr/ADR-0001.md) — personal environment を platform guide + bootstrap + verify で管理する
 - [`ADR-0002`](./docs/adr/ADR-0002.md) — Ubuntu/WSL2 の baseline toolchain と installation channel
+- [`ADR-0003`](./docs/adr/ADR-0003.md) — NixOS の declarative stable-system / unstable-tooling profile
 
 ## Development
 
 この repository 自体の変更は `project-init` の release-driven workflow に従います。詳細は [`CONTRIBUTING.md`](./CONTRIBUTING.md) と [`AGENTS.md`](./AGENTS.md) を参照してください。
 
-Local validation:
+Shell validation:
 
 ```bash
 ./scripts/ci.sh
+```
+
+NixOS profile evaluation:
+
+```bash
+nix flake check --no-build ./platforms/nixos
 ```
