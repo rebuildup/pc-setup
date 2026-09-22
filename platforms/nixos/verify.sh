@@ -51,6 +51,8 @@ check_command nixos-version
 commands=(
   git
   gh
+  sops
+  age-keygen
   curl
   wget
   rg
