@@ -86,7 +86,13 @@ if ($script:InstalledDisplayNames | Where-Object { $_ -match 'Steinberg Download
 Write-WarnLocal 'ChgKey is portable/legacy and must be verified manually together with its active scan-code mapping.'
 Write-WarnLocal 'kanata package presence does not prove the intended config/service/autostart state; verify those separately.'
 
-if (gh auth status *> $null) { Write-Ok 'GitHub CLI authenticated' } else { Write-WarnLocal 'GitHub CLI is not authenticated' }
+gh auth status *> $null
+if ($LASTEXITCODE -eq 0) {
+    Write-Ok 'GitHub CLI authenticated'
+}
+else {
+    Write-WarnLocal 'GitHub CLI is not authenticated'
+}
 if (-not (git config --global --get user.name)) { Write-WarnLocal 'global Git user.name is not configured' }
 if (-not (git config --global --get user.email)) { Write-WarnLocal 'global Git user.email is not configured' }
 
