@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | Ubuntu on WSL2 | Active | [`platforms/ubuntu-wsl/README.md`](./platforms/ubuntu-wsl/README.md) |
 | Windows 11 | Active | [`platforms/windows-11/README.md`](./platforms/windows-11/README.md) |
-| macOS | Not captured yet | future work |
+| macOS | Candidate / planning | [`plans/macos/README.md`](./plans/macos/README.md) |
 
 現在の active platform は Ubuntu/WSL2 と Windows 11 です。
 
@@ -45,6 +45,11 @@
 │       └── env.sh
 ├── docs/
 │   └── adr/
+├── plans/
+│   └── macos/
+│       ├── README.md
+│       ├── Brewfile.candidate
+│       └── manual-apps.md
 ├── snapshots/
 ├── scripts/
 ├── AGENTS.md
@@ -93,6 +98,12 @@ Windows は CLI だけでなく GUI / creative / communication / input tooling �
 
 実機 inventory は `snapshot.ps1` で取得できます。Adobe After Effects / Illustrator / Cubase / ChgKey など package manager 外の項目も明示的に管理します。
 
+## macOS planning
+
+macOS はまだ actual daily environment が確定していないため active platform にはしていません。
+
+[`plans/macos/`](./plans/macos/README.md) に candidate profile を置き、Ghostty / Amphetamine などの高確度候補と cross-platform 候補を区別しています。実機導入後に inventory を採取し、採用内容を確定してから `platforms/macos` へ昇格します。
+
 ## Principles
 
 - password、API key、token、cookie、private key 等は commit しない。
@@ -108,6 +119,7 @@ Windows は CLI だけでなく GUI / creative / communication / input tooling �
 - [`ADR-0001`](./docs/adr/ADR-0001.md) — personal environment を platform guide + bootstrap + verify で管理する
 - [`ADR-0002`](./docs/adr/ADR-0002.md) — Ubuntu/WSL2 の baseline toolchain と installation channel
 - [`ADR-0004`](./docs/adr/ADR-0004.md) — Windows の complete application inventory と mixed installation channels
+- [`ADR-0005`](./docs/adr/ADR-0005.md) — macOS は実機観測まで candidate profile として管理する
 
 ## Development
 
