@@ -13,6 +13,7 @@ NixOS では Ubuntu/WSL のような imperative installer を canonical setup �
 - development environment: `pc-setup`
 - credentials: Nix store の外
 - exact input revisions: concrete host の `flake.lock`
+- bootstrap中に実際に必要になった汎用CLI/エディタは、一時導入で終わらせず baseline 候補として profile に昇格する
 
 詳細な判断理由は [`ADR-0003`](../../docs/adr/ADR-0003.md) を参照してください。
 
@@ -24,7 +25,7 @@ Stable package set:
 - curl / wget
 - ripgrep / fd / fzf / jq / bat / tree
 - zip / unzip / xz / rsync
-- ShellCheck
+- ShellCheck / Neovim
 - Python
 - GCC / Clang / LLDB / CMake / Ninja / Make / pkg-config
 - Node.js 24 / pnpm
@@ -400,7 +401,7 @@ sudo nixos-rebuild switch --flake /etc/nixos#nixos
 まだ Git が無い fresh distribution では、canonical profile を適用するまでの bootstrap に一時 shell を使えます:
 
 ```bash
-nix-shell -p git gh infisical
+nix-shell -p git gh infisical jq neovim
 ```
 
-この shell 内で repositories を clone し、dotfiles bootstrap / declarative NixOS config を用意したら `nixos-rebuild test/switch` へ移行します。恒久的な package install に `nix-env` は使いません。
+この shell は canonical profile 適用前だけの bootstrap です。`jq` や `nvim` のように bootstrap 中に実際に必要になった汎用ツールは Home Manager profile 側にも宣言し、次回からは自動的に入る状態にします。repositories を clone し、dotfiles bootstrap / declarative NixOS config を用意したら `nixos-rebuild test/switch` へ移行します。恒久的な package install に `nix-env` は使いません。
