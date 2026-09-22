@@ -80,7 +80,7 @@ Nix-level system defaultsだけを所有します。
 
 ## Recommended host integration
 
-actual NixOS host の config repository / `/etc/nixos` に Flake を作り、`pc-setup` を input にします。
+actual NixOS host の config repository / `/etc/nixos` に Flake を作り、`pc-setup` の `platforms/nixos` subdirectory を input にします。Nix の flake reference は `dir` attribute で repository 内の subdirectory flake を指定できます。
 
 例:
 
@@ -89,7 +89,7 @@ actual NixOS host の config repository / `/etc/nixos` に Flake を作り、`pc
   description = "my NixOS host";
 
   inputs = {
-    pc-setup.url = "github:rebuildup/pc-setup";
+    pc-setup.url = "github:rebuildup/pc-setup?dir=platforms/nixos";
   };
 
   outputs =
