@@ -17,6 +17,17 @@ NixOS では Ubuntu/WSL のような imperative installer を canonical setup �
 
 詳細な判断理由は [`ADR-0003`](../../docs/adr/ADR-0003.md) を参照してください。
 
+
+## Quick start
+
+fresh NixOS / NixOS-WSL の入口はこれだけです:
+
+```bash
+nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+```
+
+必要な bootstrap tools は Flake が解決します。個別 package 名を覚えたり、`nix-shell -p ...` を組み立てたりしません。
+
 ## What this profile installs
 
 Stable package set:
