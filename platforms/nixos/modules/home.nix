@@ -5,8 +5,6 @@ let
 in
 {
   home.packages = with pkgs; [
-    git
-    git-lfs
     gh
 
     curl
@@ -52,6 +50,11 @@ in
   home.sessionPath = [
     "$HOME/.local/bin"
   ];
+
+  programs.git = {
+    enable = true;
+    lfs.enable = true;
+  };
 
   programs.bash = {
     enable = true;
