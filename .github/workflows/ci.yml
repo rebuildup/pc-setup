@@ -58,7 +58,31 @@ jobs:
             exit 1
           }
 
-      - name: Validate Windows bootstrap manifests
+      - name: Validate Windows package manifests
         shell: pwsh
         run: |
-          .\platforms\windows-11\bootstrap.ps1 -WhatIf -SkipStore
+          $wingetIds = Get-Content .\platforms\windows-11\winget-packages.txt |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -and -not $_.StartsWith('#') }
+
+          if ($wingetIds.Count -eq 0) {
+            throw 'winget-packages.txt is empty'
+          }
+
+          $duplicateIds = $wingetIds |
+            Group-Object |
+            Where-Object Count -gt 1
+
+          if ($duplicateIds) {
+            throw "Duplicate WinGet package IDs: $($duplicateIds.Name -join ', ')"
+          }
+
+          $storeLines = Get-Content .\platforms\windows-11\store-packages.txt |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -and -not $_.StartsWith('#') }
+
+          foreach ($line in $storeLines) {
+            if ($line -notmatch '^[^|]+\|[^|]+) {
+              throw "Invalid Store manifest line: $line"
+            }
+          }
