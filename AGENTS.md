@@ -141,3 +141,35 @@ ADRs describe the final decision and rationale, not the chronological work log.
 Persistent prose must stand on its own for a future reader. Do not serialize conversation history, temporary branch state, investigation order, or transient tool output into README/ADR/Issue/PR text unless it is required for auditability or reproducibility.
 
 When documenting a command, verify it against current official documentation when the command is version-sensitive.
+
+
+## 11. Project-local Skills
+
+Use progressive disclosure: load only the Skill needed for the current task.
+
+### Delivery / coordination
+- `skills/github-delivery/SKILL.md`
+- `skills/linear-release-control/SKILL.md`
+- `skills/parallel-orchestration/SKILL.md`
+- `skills/agent-delivery-estimation/SKILL.md`
+- `skills/agent-recovery/SKILL.md`
+
+### Engineering / quality
+- `skills/engineering-decisions/SKILL.md`
+- `skills/design-refinement/SKILL.md`
+- `skills/correctness-assurance/SKILL.md`
+- `skills/quality-gate/SKILL.md`
+- `skills/policy-evaluation/SKILL.md`
+
+### Runtime / security
+- `skills/sandbox-runtime/SKILL.md`
+- `skills/worktree-workflow/SKILL.md`
+- `skills/security-audit/SKILL.md`
+- `skills/security-maintenance/SKILL.md`
+
+### Communication / onboarding
+- `skills/writing-discipline/SKILL.md`
+- `skills/interaction-discipline/SKILL.md`
+- `skills/onboarding/SKILL.md`
+
+These Skills are reconciled from `rebuildup/project-init`; `skills/README.md` records the upstream source and last reconciliation evidence. Existing copies are not considered permanently current merely because they are present.

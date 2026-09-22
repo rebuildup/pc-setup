@@ -1,0 +1,67 @@
+# pc-setup quality profile
+schema_version: 1
+
+stack:
+  primary_language: bash
+  target_platform: ubuntu-wsl2
+  static_analysis: shellcheck
+  ci: github-actions
+
+gates:
+  fast:
+    command: './scripts/ci.sh'
+    components:
+      - 'bash -n for all repository shell scripts'
+      - 'shellcheck for all repository shell scripts'
+      - 'executable-bit check for shell scripts'
+    cost_class: cheap
+    trigger: local + every CI run
+
+  integration:
+    command: './scripts/ci.sh'
+    components:
+      - fast
+    cost_class: cheap
+    trigger: pull_request + push_to_main_and_release
+    note: 'External installers and account authentication are intentionally not executed in CI.'
+
+  release:
+    command: './scripts/ci.sh'
+    components:
+      - integration
+    cost_class: cheap
+    trigger: release_branch
+    note: 'A green release gate proves repository-controlled shell quality, not successful provisioning of a fresh WSL distribution.'
+
+change_risk_mapping:
+  doc_only:
+    gate: fast
+  adr_change:
+    gate: fast
+  shell_config:
+    gate: fast
+  bootstrap_or_verify:
+    gate: integration
+    note: 'Also run the affected platform verify flow on a real target environment when external installer behavior changed.'
+  ci_workflow:
+    gate: integration
+  release_branch:
+    gate: release
+
+ci:
+  workflow: .github/workflows/ci.yml
+  jobs:
+    - name: shell
+      command: './scripts/ci.sh'
+      triggers:
+        - pull_request
+        - push_to_main
+        - push_to_release_branch
+  required_status_checks_default: []
+  note: 'Do not invent a required check name merely to encode source-branch policy.'
+
+external_verification:
+  ubuntu_wsl:
+    command: './platforms/ubuntu-wsl/verify.sh'
+    automated_in_ci: false
+    reason: 'Requires WSL identity, installed third-party tools, and interactive account state that GitHub-hosted CI cannot prove.'
