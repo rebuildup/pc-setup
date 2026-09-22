@@ -61,6 +61,9 @@ reusable outputs:
 - `nixosModules.default`
 - `homeManagerModules.default`
 - `lib.mkPcSetupHost`
+- `apps.<system>.default` / `apps.<system>.bootstrap`
+- `devShells.<system>.default`
+- `checks.<system>.bootstrap-shell`
 - `checks.<system>.home-profile`
 - `checks.<system>.nixos-profile`
 
@@ -147,7 +150,23 @@ sudo nixos-generate-config
 
 NixOS installation 自体は公式 Installation Guide に従います。
 
-system が起動した後、host config で `pc-setup` を参照し:
+fresh system の canonical entrypoint は1コマンドです:
+
+```bash
+nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+```
+
+Flake app が必要な bootstrap tools を一時的に用意し、`~/.dotfiles` が無ければ clone して `script/bootstrap` を実行します。Git / GitHub CLI / Infisical / jq / Neovim の package list を手で覚える必要はありません。
+
+Flakes がまだ有効でない特殊な初期状態では、その1回だけ:
+
+```bash
+nix --extra-experimental-features 'nix-command flakes' run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+```
+
+を使用します。pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になります。
+
+bootstrap後、host config で `pc-setup` を参照し:
 
 ```bash
 sudo nixos-rebuild test --flake /etc/nixos#my-host
@@ -157,6 +176,14 @@ sudo nixos-rebuild switch --flake /etc/nixos#my-host
 の順で反映します。
 
 `test` は boot default を書き換えずに current system へ構成を適用できるため、`switch` 前の確認として使います。
+
+手動でbootstrap environmentへ入りたい場合だけ:
+
+```bash
+nix develop 'github:rebuildup/pc-setup?dir=platforms/nixos'
+```
+
+を使います。これは通常のsetup手順ではなく、debug/fallback用です。
 
 ## Update
 
@@ -398,10 +425,12 @@ sudo nixos-rebuild switch --flake /etc/nixos#nixos
 
 の順で適用します。
 
-まだ Git が無い fresh distribution では、canonical profile を適用するまでの bootstrap に一時 shell を使えます:
+fresh NixOS-WSL でも package list は手入力しません。入口は同じです:
 
 ```bash
-nix-shell -p git gh infisical jq neovim
+nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
-この shell は canonical profile 適用前だけの bootstrap です。`jq` や `nvim` のように bootstrap 中に実際に必要になった汎用ツールは Home Manager profile 側にも宣言し、次回からは自動的に入る状態にします。repositories を clone し、dotfiles bootstrap / declarative NixOS config を用意したら `nixos-rebuild test/switch` へ移行します。恒久的な package install に `nix-env` は使いません。
+このFlake appがbootstrap toolchainとdotfiles bootstrapを担当します。setup中に新たに常用必須と判明した汎用ツールはFlake/Home Manager profileへ追加し、次回からこの1コマンドで自動的に利用可能にします。
+
+恒久的な package install に `nix-env` は使いません。
