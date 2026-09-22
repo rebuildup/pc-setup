@@ -23,5 +23,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
 
-      - name: Validate repository
+      - name: Validate shell
         run: ./scripts/ci.sh
+
+  nix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: NixOS/nix-installer-action@main
+
+      - name: Evaluate NixOS profile
+        run: nix flake check --no-build --no-write-lock-file ./platforms/nixos
