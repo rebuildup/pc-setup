@@ -9,10 +9,10 @@
 | Platform | Status | Entry point |
 | --- | --- | --- |
 | Ubuntu on WSL2 | Active | [`platforms/ubuntu-wsl/README.md`](./platforms/ubuntu-wsl/README.md) |
-| Windows 11 | Not captured yet | future work |
+| Windows 11 | Active | [`platforms/windows-11/README.md`](./platforms/windows-11/README.md) |
 | macOS | Not captured yet | future work |
 
-現在の最優先対象は Ubuntu/WSL2 です。
+現在の active platform は Ubuntu/WSL2 と Windows 11 です。
 
 ## Repository model
 
@@ -27,11 +27,19 @@
 ```text
 .
 ├── platforms/
-│   └── ubuntu-wsl/
+│   ├── ubuntu-wsl/
+│   │   ├── README.md
+│   │   ├── apt-packages.txt
+│   │   ├── bootstrap.sh
+│   │   └── verify.sh
+│   └── windows-11/
 │       ├── README.md
-│       ├── apt-packages.txt
-│       ├── bootstrap.sh
-│       └── verify.sh
+│       ├── winget-packages.txt
+│       ├── store-packages.txt
+│       ├── manual-apps.md
+│       ├── bootstrap.ps1
+│       ├── verify.ps1
+│       └── snapshot.ps1
 ├── config/
 │   └── shell/
 │       └── env.sh
@@ -74,6 +82,17 @@ bootstrap は以下を整備します。
 
 認証は意図的に自動化しません。インストール後に GitHub / Claude / OpenCode の各アカウントへ対話的にログインします。詳細は [`platforms/ubuntu-wsl/README.md`](./platforms/ubuntu-wsl/README.md) を参照してください。
 
+## Windows 11 quick start
+
+Windows は CLI だけでなく GUI / creative / communication / input tooling まで desired state として管理します。
+
+```powershell
+.\platforms\windows-11\bootstrap.ps1
+.\platforms\windows-11\verify.ps1
+```
+
+実機 inventory は `snapshot.ps1` で取得できます。Adobe After Effects / Illustrator / Cubase / ChgKey など package manager 外の項目も明示的に管理します。
+
 ## Principles
 
 - password、API key、token、cookie、private key 等は commit しない。
@@ -88,6 +107,7 @@ bootstrap は以下を整備します。
 
 - [`ADR-0001`](./docs/adr/ADR-0001.md) — personal environment を platform guide + bootstrap + verify で管理する
 - [`ADR-0002`](./docs/adr/ADR-0002.md) — Ubuntu/WSL2 の baseline toolchain と installation channel
+- [`ADR-0004`](./docs/adr/ADR-0004.md) — Windows の complete application inventory と mixed installation channels
 
 ## Development
 
