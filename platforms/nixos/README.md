@@ -21,6 +21,7 @@ NixOS では Ubuntu/WSL のような imperative installer を canonical setup �
 Stable package set:
 
 - Git / Git LFS / GitHub CLI
+- SOPS / age
 - curl / wget
 - ripgrep / fd / fzf / jq / bat / tree
 - zip / unzip / xz / rsync
@@ -302,7 +303,18 @@ commitしないもの:
 - browser cookie
 - cloud credentials
 
-必要になった場合は sops-nix / agenix 等の導入を別decisionとして検討します。現時点では、secret managerを使っていないのに形だけ導入することはしません。
+portable secret の canonical storage / runtime injection は `rebuildup/dotfiles` の SOPS + age policy が所有します。
+
+この NixOS profile はその runtime dependency として `sops` / `age` を導入しますが、secret value や age private identity 自体は Nix expression / Nix store に入れません。
+
+dotfiles bootstrap 後:
+
+```bash
+~/.dotfiles/script/secrets-init
+~/.dotfiles/script/secrets-doctor
+```
+
+既存の `.sops.yaml` がある環境では、新しい age identity を生成せず、保管済みの root identity を `~/.config/sops/age/keys.txt` へ復元します。
 
 ## Project-specific dependencies
 
@@ -326,3 +338,65 @@ global profile に全projectの依存を集約しません。
 - Flakes: https://wiki.nixos.org/wiki/Flakes
 - Home Manager: https://github.com/nix-community/home-manager
 - Worktrunk shell integration: https://worktrunk.dev/shell-integration/
+
+
+## NixOS on WSL
+
+NixOS-WSL では通常の hardware configuration / boot loader を追加せず、NixOS-WSL module を host boundary として維持します。公式の flake 構成でも `nixos-wsl.nixosModules.default` と `wsl.enable = true` を組み合わせます。
+
+既存の NixOS-WSL を pc-setup profile へ移行する前に、現在値を確認してください:
+
+```bash
+whoami
+grep -n 'system.stateVersion\|wsl.defaultUser' /etc/nixos/configuration.nix
+```
+
+新しい host flake の基本形:
+
+```nix
+{
+  inputs = {
+    pc-setup.url = "github:rebuildup/pc-setup?dir=platforms/nixos";
+    nixos-wsl.url = "github:nix-community/NixOS-WSL/release-26.05";
+  };
+
+  outputs = { pc-setup, nixos-wsl, ... }: {
+    nixosConfigurations.nixos = pc-setup.lib.mkPcSetupHost {
+      system = "x86_64-linux";
+      username = "YOUR_CURRENT_WSL_USER";
+
+      # Existing installation valueを維持する。新しいreleaseへ合わせて変更しない。
+      stateVersion = "YOUR_EXISTING_STATE_VERSION";
+      homeStateVersion = "YOUR_EXISTING_STATE_VERSION";
+
+      modules = [
+        nixos-wsl.nixosModules.default
+        {
+          wsl.enable = true;
+          wsl.defaultUser = "YOUR_CURRENT_WSL_USER";
+        }
+      ];
+    };
+  };
+}
+```
+
+NixOS-WSL の stable branch は NixOS release と揃えます。NixOS 26.05 profile では `release-26.05` を使用します。
+
+初回は:
+
+```bash
+sudo nixos-rebuild test --flake /etc/nixos#nixos
+./platforms/nixos/verify.sh
+sudo nixos-rebuild switch --flake /etc/nixos#nixos
+```
+
+の順で適用します。
+
+まだ Git が無い fresh distribution では、canonical profile を適用するまでの bootstrap に一時 shell を使えます:
+
+```bash
+nix-shell -p git sops age
+```
+
+この shell 内で repositories を clone し、declarative NixOS config を用意したら `nixos-rebuild test/switch` へ移行します。恒久的な package install に `nix-env` は使いません。
