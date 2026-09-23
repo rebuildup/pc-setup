@@ -76,6 +76,8 @@ OSに依存しにくい開発CLI/runtimeは一度だけ宣言する。
 - ripgrep / fd / fzf / jq / bat
 - ShellCheck / Neovim
 
+Open Code Review は npm trust policy を迂回せず、公式 `alibaba/open-code-review` GitHub Release のplatform binaryをmiseから導入する。詳細は [ADR-0007](./docs/adr/ADR-0007.md) を参照。
+
 `mise.global.toml` は `~/.config/mise/config.toml` として適用されます。project固有versionは各projectの `mise.toml` / Flake / toolchain file等が上書きします。
 
 ### mise `[bootstrap.packages]`
@@ -196,6 +198,7 @@ bootstrapが終了したことと、desired stateを満たしていることは�
 - [ADR-0001](./docs/adr/ADR-0001.md) — personal environment source of truth
 - [ADR-0002](./docs/adr/ADR-0002.md) — historical Ubuntu/WSL installation-channel decision
 - [ADR-0006](./docs/adr/ADR-0006.md) — mise cross-platform bootstrap orchestrator
+- [ADR-0007](./docs/adr/ADR-0007.md) — Open Code Review verified GitHub Release channel
 
 ## Development
 
