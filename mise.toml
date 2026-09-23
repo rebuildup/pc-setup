@@ -5,6 +5,7 @@
 node = "24"
 python = "3.14"
 bun = "latest"
+pnpm = "latest"
 rust = "stable"
 
 gh = "latest"
@@ -13,6 +14,16 @@ claude = "latest"
 codex = "latest"
 opencode = "latest"
 worktrunk = "latest"
+herdr = "latest"
+
+gcloud = { version = "latest", os = ["linux", "macos"] }
+aws-cli = { version = "latest", os = ["linux", "macos"] }
+supabase = "latest"
+vercel = { version = "latest", depends = ["node"] }
+
+"npm:npkill" = { version = "latest", depends = ["node"] }
+"npm:@alibaba-group/open-code-review" = { version = "latest", depends = ["node"] }
+"cargo:cargo-clean-all" = { version = "latest", depends = ["rust"] }
 
 ripgrep = "latest"
 fd = "latest"
@@ -62,6 +73,8 @@ neovim = "latest"
 "winget:Microsoft.DotNet.SDK.10" = { os = "windows" }
 "winget:Microsoft.VisualStudio.2022.Community" = { os = "windows" }
 "winget:Google.AndroidStudio" = { os = "windows" }
+"winget:Google.CloudSDK" = { os = "windows" }
+"winget:Amazon.AWSCLI" = { os = "windows" }
 "winget:Vivaldi.Vivaldi" = { os = "windows" }
 "winget:Discord.Discord" = { os = "windows" }
 "winget:Microsoft.PowerToys" = { os = "windows" }
@@ -69,6 +82,7 @@ neovim = "latest"
 "winget:Google.JapaneseIME" = { os = "windows" }
 "winget:Logitech.GHUB" = { os = "windows" }
 "winget:LinearOrbit.Linear" = { os = "windows" }
+"winget:Notion.Notion" = { os = "windows" }
 "winget:SlackTechnologies.Slack" = { os = "windows" }
 "winget:Microsoft.Teams" = { os = "windows" }
 "winget:Anysphere.Cursor" = { os = "windows" }
