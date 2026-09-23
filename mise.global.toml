@@ -22,7 +22,6 @@ supabase = "latest"
 vercel = { version = "latest", depends = ["node"] }
 
 "npm:npkill" = { version = "latest", depends = ["node"] }
-"npm:@alibaba-group/open-code-review" = { version = "latest", depends = ["node"] }
 "cargo:cargo-clean-all" = { version = "latest", depends = ["rust"] }
 
 ripgrep = "latest"
@@ -32,3 +31,15 @@ jq = "latest"
 bat = "latest"
 shellcheck = "latest"
 neovim = "latest"
+
+[tools."github:alibaba/open-code-review"]
+version = "latest"
+bin = "ocr"
+
+[tools."github:alibaba/open-code-review".platforms]
+linux-x64 = { asset_pattern = "opencodereview-linux-amd64" }
+linux-arm64 = { asset_pattern = "opencodereview-linux-arm64" }
+macos-x64 = { asset_pattern = "opencodereview-darwin-amd64" }
+macos-arm64 = { asset_pattern = "opencodereview-darwin-arm64" }
+windows-x64 = { asset_pattern = "opencodereview-windows-amd64.exe" }
+windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }

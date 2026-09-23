@@ -36,6 +36,13 @@ jobs:
           MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
             "$HOME/.local/bin/mise" -C "$HOME" install --dry-run
 
+      - name: Validate Open Code Review install channel
+        run: |
+          MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
+            "$HOME/.local/bin/mise" -C "$HOME" install github:alibaba/open-code-review
+          MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
+            "$HOME/.local/bin/mise" -C "$HOME" exec github:alibaba/open-code-review -- ocr version
+
   powershell:
     runs-on: windows-latest
 
