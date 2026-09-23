@@ -248,7 +248,10 @@ jobs:
             git -C $seed config user.name 'pc-setup CI'
             git -C $seed config user.email 'pc-setup-ci@example.invalid'
             Set-Content -LiteralPath (Join-Path $seed 'state.txt') -Value 'main'
-            git -C $seed add state.txt
+            $seedWindowsDir = Join-Path $seed 'platforms\windows-11'
+            New-Item -ItemType Directory -Path $seedWindowsDir -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $seedWindowsDir 'install-apps.ps1') -Value '# test fixture: no-op desktop app convergence'
+            git -C $seed add state.txt platforms/windows-11/install-apps.ps1
             git -C $seed commit -m 'main' | Out-Null
 
             $originUri = [System.Uri]::new($origin).AbsoluteUri
