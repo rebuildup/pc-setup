@@ -51,6 +51,7 @@ root `mise.toml` が以下のようなWindows native desired stateを所有す�
 - Google 日本語入力
 - Logitech G HUB
 - Linear
+- Notion
 - Slack
 - Microsoft Teams
 - Cursor
@@ -69,19 +70,16 @@ Git自体もbootstrap dependency / desired stateとしてWinGet管理。
 
 OSごとにWinGet packageを重複宣言せず、root `[tools]` を共有する。
 
-- Node.js
-- Python
-- Bun
-- Rust
-- GitHub CLI
-- Infisical
-- Claude Code
-- Codex
-- OpenCode
-- Worktrunk
+- Node.js / pnpm / Bun
+- Python / Rust
+- GitHub CLI / Infisical
+- Claude Code / Codex / OpenCode
+- Worktrunk / Herdr
+- Open Code Review / npkill / cargo-clean-all
+- Google Cloud CLI / AWS CLI
+- Supabase CLI / Vercel CLI
 - ripgrep / fd / fzf / jq / bat
-- ShellCheck
-- Neovim
+- ShellCheck / Neovim
 
 ## Microsoft Store boundary
 
