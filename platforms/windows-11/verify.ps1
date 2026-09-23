@@ -67,7 +67,12 @@ else {
 }
 
 Write-Host "`nCommand capabilities"
-foreach ($commandName in @('git','gh','infisical','pwsh','code','node','python','bun','rustc','cargo','rg','fd','fzf','jq','bat','shellcheck','nvim','claude','codex','opencode','wt','dotnet')) { Test-CommandPresent -Name $commandName }
+foreach ($commandName in @(
+    'git','gh','infisical','pwsh','code','node','python','pnpm','bun','rustc','cargo',
+    'rg','fd','fzf','jq','bat','shellcheck','nvim',
+    'claude','codex','opencode','wt','herdr',
+    'gcloud','aws','supabase','vercel','npkill','ocr','cargo-clean-all','dotnet'
+)) { Test-CommandPresent -Name $commandName }
 
 $script:InstalledDisplayNames = @(Get-UninstallDisplayNames)
 
