@@ -6,13 +6,10 @@ The machine baseline is now applied through the root mise bootstrap rather than 
 
 ## Fresh setup
 
-> Pre-release note: until 0.1.0 reaches `main`, the bootstrap command pins branch `1`.
-
-
 From a fresh Ubuntu/WSL distribution:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/1/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.sh | bash
 ```
 
 That entrypoint installs only the prerequisites needed to start mise, then mise applies the repository desired state.
@@ -134,7 +131,7 @@ sudo apt-get install -y git curl ca-certificates
 curl -fsSL https://mise.run/bash | sh
 export PATH="$HOME/.local/bin:$PATH"
 
-git clone --branch 1 --single-branch https://github.com/rebuildup/pc-setup.git "$HOME/src/pc-setup"
+git clone --branch main --single-branch https://github.com/rebuildup/pc-setup.git "$HOME/src/pc-setup"
 cd "$HOME/src/pc-setup"
 ./bootstrap.sh
 ```
