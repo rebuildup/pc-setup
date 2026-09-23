@@ -1,0 +1,69 @@
+# Cross-platform machine bootstrap for Ubuntu, macOS, and Windows.
+# Portable machine-global CLI/runtime defaults live in mise.global.toml.
+# NixOS keeps Flake/Home Manager as the system/build-state source of truth.
+
+[bootstrap.packages]
+# Ubuntu / Debian-family host foundation. Portable CLIs belong in mise.global.toml.
+"apt:ca-certificates" = { os = "linux" }
+"apt:curl" = { os = "linux" }
+"apt:wget" = { os = "linux" }
+"apt:gnupg" = { os = "linux" }
+"apt:git" = { os = "linux" }
+"apt:git-lfs" = { os = "linux" }
+"apt:build-essential" = { os = "linux" }
+"apt:pkg-config" = { os = "linux" }
+"apt:libssl-dev" = { os = "linux" }
+"apt:cmake" = { os = "linux" }
+"apt:ninja-build" = { os = "linux" }
+"apt:clang" = { os = "linux" }
+"apt:lldb" = { os = "linux" }
+"apt:tree" = { os = "linux" }
+"apt:unzip" = { os = "linux" }
+"apt:zip" = { os = "linux" }
+"apt:xz-utils" = { os = "linux" }
+"apt:rsync" = { os = "linux" }
+"apt:python3-venv" = { os = "linux" }
+"apt:openssh-client" = { os = "linux" }
+
+# macOS host/build foundation. mise's built-in Homebrew manager does not
+# require a separately installed Homebrew command.
+"brew:git" = { os = "macos" }
+"brew:git-lfs" = { os = "macos" }
+"brew:cmake" = { os = "macos" }
+"brew:ninja" = { os = "macos" }
+"brew:llvm" = { os = "macos" }
+"brew:tree" = { os = "macos" }
+"brew:xz" = { os = "macos" }
+"brew:rsync" = { os = "macos" }
+
+# Windows applications and native SDKs. Portable developer CLIs are in mise.global.toml.
+"winget:Git.Git" = { os = "windows" }
+"winget:Microsoft.PowerShell" = { os = "windows" }
+"winget:Microsoft.DotNet.SDK.10" = { os = "windows" }
+"winget:Microsoft.VisualStudio.2022.Community" = { os = "windows" }
+"winget:Google.AndroidStudio" = { os = "windows" }
+"winget:Google.CloudSDK" = { os = "windows" }
+"winget:Amazon.AWSCLI" = { os = "windows" }
+"winget:Vivaldi.Vivaldi" = { os = "windows" }
+"winget:Discord.Discord" = { os = "windows" }
+"winget:Microsoft.PowerToys" = { os = "windows" }
+"winget:AntibodySoftware.WizTree" = { os = "windows" }
+"winget:Google.JapaneseIME" = { os = "windows" }
+"winget:Logitech.GHUB" = { os = "windows" }
+"winget:LinearOrbit.Linear" = { os = "windows" }
+"winget:Notion.Notion" = { os = "windows" }
+"winget:SlackTechnologies.Slack" = { os = "windows" }
+"winget:Microsoft.Teams" = { os = "windows" }
+"winget:Anysphere.Cursor" = { os = "windows" }
+"winget:Microsoft.VisualStudioCode" = { os = "windows" }
+"winget:Warp.Warp" = { os = "windows" }
+"winget:Adobe.CreativeCloud" = { os = "windows" }
+"winget:jtroo.kanata_gui" = { os = "windows" }
+
+[bootstrap.repos]
+"~/.dotfiles" = { url = "https://github.com/rebuildup/dotfiles.git", ref = "main" }
+
+[tasks.bootstrap]
+description = "Apply machine-global mise tools and finish personal user configuration"
+run = "bash scripts/apply-global-mise.sh && mise -C \"$HOME\" exec -- bash ~/.dotfiles/script/bootstrap"
+run_windows = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/apply-global-mise.ps1"
