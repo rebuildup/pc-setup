@@ -15,45 +15,34 @@ NixOS では Ubuntu/WSL のような imperative installer を canonical setup �
 - exact input revisions: concrete host の `flake.lock`
 - bootstrap中に実際に必要になった汎用CLI/エディタは、一時導入で終わらせず baseline 候補として profile に昇格する
 - NixOSのsystem/build packageはNixをSoTにする
-- portableなuser CLI baselineは他OSと同じ`mise.global.toml` を `mise install` で共有する
+- portableなuser CLI baselineは他OSと同じ `mise.global.toml` を `mise install` で共有する
 
 詳細な判断理由は [`ADR-0003`](../../docs/adr/ADR-0003.md) を参照してください。
 
 
 ## Quick start
 
-> Pre-release note: until 0.1.0 reaches `main`, NixOS setup intentionally pins branch `4`.
-
-
 fresh NixOS / NixOS-WSL の入口はこれだけです:
 
 ```bash
-nix run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
+nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 必要な bootstrap tools は Flake が解決します。その後`mise.global.toml` のportable CLI baselineを `mise install` し、dotfiles bootstrapまで進みます。個別 package 名を覚えたり、`nix-shell -p ...` を組み立てたりしません。
 
 ## What this profile installs
 
-Stable package set:
+Nix/Home Manager system/build set:
 
-- Git / Git LFS / GitHub CLI
-- curl / wget
-- ripgrep / fd / fzf / jq / bat / tree
+- Git / Git LFS
+- curl / wget / tree
 - zip / unzip / xz / rsync
-- ShellCheck / Neovim
-- Python
 - GCC / Clang / LLDB / CMake / Ninja / Make / pkg-config
-- Node.js 24 / pnpm
-
-Unstable package set:
-
-- Bun
-- Rust / Cargo / rustfmt / Clippy / rust-analyzer
-- Infisical CLI
 - mise
 
-Portable user CLI baseline (root `mise.toml`):
+The bootstrap Flake additionally provides temporary GitHub CLI / Infisical / jq / Neovim before the global layer is active.
+
+Portable user CLI baseline (`mise.global.toml`):
 
 - Node.js / pnpm / Bun / Rust
 - GitHub CLI
@@ -117,7 +106,7 @@ actual NixOS host の config repository / `/etc/nixos` に Flake を作り、`pc
   description = "my NixOS host";
 
   inputs = {
-    pc-setup.url = "github:rebuildup/pc-setup/4?dir=platforms/nixos";
+    pc-setup.url = "github:rebuildup/pc-setup?dir=platforms/nixos";
   };
 
   outputs =
@@ -176,7 +165,7 @@ NixOS installation 自体は公式 Installation Guide に従います。
 fresh system の canonical entrypoint は1コマンドです:
 
 ```bash
-nix run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
+nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 Flake app が必要なbootstrap toolsを一時的に用意し、`~/src/pc-setup` のcheckoutを準備して`mise.global.toml` を `~/.config/mise/config.toml` へlinkして `mise install` を実行します。その後 `~/.dotfiles` をcloneし、`script/bootstrap` まで進みます。Git / GitHub CLI / Infisical / cloud CLI / agent CLI等のpackage listを手で覚える必要はありません。
@@ -184,7 +173,7 @@ Flake app が必要なbootstrap toolsを一時的に用意し、`~/src/pc-setup`
 Flakes がまだ有効でない特殊な初期状態では、その1回だけ:
 
 ```bash
-nix --extra-experimental-features 'nix-command flakes' run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
+nix --extra-experimental-features 'nix-command flakes' run 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 を使用します。pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になります。
@@ -203,7 +192,7 @@ sudo nixos-rebuild switch --flake /etc/nixos#my-host
 手動でbootstrap environmentへ入りたい場合だけ:
 
 ```bash
-nix develop 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
+nix develop 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 を使います。これは通常のsetup手順ではなく、debug/fallback用です。
@@ -411,7 +400,7 @@ grep -n 'system.stateVersion\|wsl.defaultUser' /etc/nixos/configuration.nix
 ```nix
 {
   inputs = {
-    pc-setup.url = "github:rebuildup/pc-setup/4?dir=platforms/nixos";
+    pc-setup.url = "github:rebuildup/pc-setup?dir=platforms/nixos";
     nixos-wsl.url = "github:nix-community/NixOS-WSL/release-26.05";
   };
 
@@ -451,7 +440,7 @@ sudo nixos-rebuild switch --flake /etc/nixos#nixos
 fresh NixOS-WSL でも package list は手入力しません。入口は同じです:
 
 ```bash
-nix run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
+nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 このFlake appがNix bootstrap toolchain、`mise.global.toml` portable CLI baseline、dotfiles bootstrapを順に担当します。OS/build依存はNixへ、cross-platformな常用CLIは `mise.global.toml` へ追加し、次回からこの1コマンドで自動的に利用可能にします。
