@@ -82,7 +82,7 @@
               pkg-config
               python3
               stdenv.cc.cc.lib
-              tar
+              gnutar
               unzip
               which
               xz
