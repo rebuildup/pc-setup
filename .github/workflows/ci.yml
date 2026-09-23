@@ -23,8 +23,46 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
 
-      - name: Validate shell
+      - name: Validate repository
         run: ./scripts/ci.sh
+
+      - name: Validate mise configuration
+        run: |
+          curl -fsSL https://mise.run | sh
+          "$HOME/.local/bin/mise" trust
+          "$HOME/.local/bin/mise" config >/dev/null
+
+  powershell:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $errors = @()
+
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $parseErrors = $null
+
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$parseErrors
+            )
+
+            if ($parseErrors.Count -gt 0) {
+              $errors += $parseErrors
+            }
+          }
+
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            exit 1
+          }
 
   nix:
     runs-on: ubuntu-latest

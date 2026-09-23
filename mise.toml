@@ -1,0 +1,86 @@
+# Cross-platform machine bootstrap for Ubuntu, macOS, and Windows.
+# NixOS keeps Flake/Home Manager as its machine-state source of truth.
+
+[tools]
+node = "24"
+python = "3.14"
+bun = "latest"
+rust = "stable"
+
+gh = "latest"
+infisical = "latest"
+claude = "latest"
+codex = "latest"
+opencode = "latest"
+worktrunk = "latest"
+
+ripgrep = "latest"
+fd = "latest"
+fzf = "latest"
+jq = "latest"
+bat = "latest"
+shellcheck = "latest"
+neovim = "latest"
+
+[bootstrap.packages]
+# Ubuntu / Debian-family host foundation. Fast-moving portable CLIs belong in [tools].
+"apt:ca-certificates" = { os = "linux" }
+"apt:curl" = { os = "linux" }
+"apt:wget" = { os = "linux" }
+"apt:gnupg" = { os = "linux" }
+"apt:git" = { os = "linux" }
+"apt:git-lfs" = { os = "linux" }
+"apt:build-essential" = { os = "linux" }
+"apt:pkg-config" = { os = "linux" }
+"apt:libssl-dev" = { os = "linux" }
+"apt:cmake" = { os = "linux" }
+"apt:ninja-build" = { os = "linux" }
+"apt:clang" = { os = "linux" }
+"apt:lldb" = { os = "linux" }
+"apt:tree" = { os = "linux" }
+"apt:unzip" = { os = "linux" }
+"apt:zip" = { os = "linux" }
+"apt:xz-utils" = { os = "linux" }
+"apt:rsync" = { os = "linux" }
+"apt:python3-venv" = { os = "linux" }
+"apt:openssh-client" = { os = "linux" }
+
+# macOS host/build foundation. mise's built-in Homebrew manager does not
+# require a separately installed Homebrew command.
+"brew:git" = { os = "macos" }
+"brew:git-lfs" = { os = "macos" }
+"brew:cmake" = { os = "macos" }
+"brew:ninja" = { os = "macos" }
+"brew:llvm" = { os = "macos" }
+"brew:tree" = { os = "macos" }
+"brew:xz" = { os = "macos" }
+"brew:rsync" = { os = "macos" }
+
+# Windows applications and native SDKs. Portable developer CLIs are in [tools].
+"winget:Git.Git" = { os = "windows" }
+"winget:Microsoft.PowerShell" = { os = "windows" }
+"winget:Microsoft.DotNet.SDK.10" = { os = "windows" }
+"winget:Microsoft.VisualStudio.2022.Community" = { os = "windows" }
+"winget:Google.AndroidStudio" = { os = "windows" }
+"winget:Vivaldi.Vivaldi" = { os = "windows" }
+"winget:Discord.Discord" = { os = "windows" }
+"winget:Microsoft.PowerToys" = { os = "windows" }
+"winget:AntibodySoftware.WizTree" = { os = "windows" }
+"winget:Google.JapaneseIME" = { os = "windows" }
+"winget:Logitech.GHUB" = { os = "windows" }
+"winget:LinearOrbit.Linear" = { os = "windows" }
+"winget:SlackTechnologies.Slack" = { os = "windows" }
+"winget:Microsoft.Teams" = { os = "windows" }
+"winget:Anysphere.Cursor" = { os = "windows" }
+"winget:Microsoft.VisualStudioCode" = { os = "windows" }
+"winget:Warp.Warp" = { os = "windows" }
+"winget:Adobe.CreativeCloud" = { os = "windows" }
+"winget:jtroo.kanata_gui" = { os = "windows" }
+
+[bootstrap.repos]
+"~/.dotfiles" = { url = "https://github.com/rebuildup/dotfiles.git", ref = "main" }
+
+[tasks.bootstrap]
+description = "Finish personal user configuration after machine tools are installed"
+run = "bash ~/.dotfiles/script/bootstrap"
+run_windows = "Write-Host 'Machine tools/apps are installed. Native Windows dotfiles linking is not canonical yet; apply dotfiles inside WSL until the Windows link adapter is enabled.'"
