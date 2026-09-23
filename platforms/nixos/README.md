@@ -39,6 +39,8 @@ nix run 'github:rebuildup/pc-setup?dir=platforms/nixos' \
 
 remote bootstrap Flake 自体には `flake.lock` を置いていません。GitHub の remote flake は read-only なので、bootstrap 時は `--no-write-lock-file` で generated lock を永続化せずに評価します。exact input revision は actual host 側の concrete `flake.lock` が所有します。
 
+開発中の branch を実機検証する場合、Nix の GitHub flake cache が mutable branch ref の古い snapshot を再利用することがあります。修正直後の検証では commit SHA を URL に固定するか `--refresh` を付けます。release 後の canonical main bootstrap では通常この注意は不要です。
+
 pc-setup の system profile 適用後は `nix-command` / `flakes` が恒久的に有効になります。ただし `github:rebuildup/pc-setup?dir=platforms/nixos` を remote bootstrap として再実行する場合は `--no-write-lock-file` を引き続き付けます。
 
 必要な bootstrap tools は Flake が解決します。その後 `mise.global.toml` のportable CLI baselineを適用します。
