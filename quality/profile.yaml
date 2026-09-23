@@ -1,0 +1,89 @@
+# pc-setup quality profile
+schema_version: 1
+
+stack:
+  primary_languages:
+    - bash
+    - nix
+  target_platforms:
+    - ubuntu-wsl2
+    - nixos
+  shell_static_analysis: shellcheck
+  nix_evaluation: 'nix flake check --no-build ./platforms/nixos'
+  ci: github-actions
+
+gates:
+  fast:
+    command: './scripts/ci.sh'
+    components:
+      - 'bash -n for all repository shell scripts'
+      - 'shellcheck for all repository shell scripts'
+      - 'executable-bit check for shell scripts'
+    cost_class: cheap
+    trigger: local shell/docs feedback + every CI run
+
+  integration:
+    command: './scripts/ci.sh && nix flake check --no-build ./platforms/nixos'
+    components:
+      - fast
+      - 'NixOS reusable flake evaluation'
+      - 'Home Manager profile evaluation'
+      - 'NixOS module evaluation'
+    cost_class: medium
+    trigger: pull_request + push_to_main_and_release
+    note: 'External installers, physical-host bootability, and account authentication are intentionally outside hosted CI.'
+
+  release:
+    command: './scripts/ci.sh && nix flake check --no-build ./platforms/nixos'
+    components:
+      - integration
+    cost_class: medium
+    trigger: release_branch
+    note: 'A green release gate proves repository-controlled shell quality and Nix evaluation, not external authentication or physical machine bootability.'
+
+change_risk_mapping:
+  doc_only:
+    gate: fast
+  adr_change:
+    gate: fast
+  shell_config:
+    gate: fast
+  ubuntu_bootstrap_or_verify:
+    gate: integration
+    note: 'Also run the Ubuntu/WSL verify flow on a real target environment when external installer behavior changed.'
+  nix_profile:
+    gate: integration
+    note: 'Run Nix flake evaluation; for host-affecting changes, test the concrete host generation before switch.'
+  ci_workflow:
+    gate: integration
+  release_branch:
+    gate: release
+
+ci:
+  workflow: .github/workflows/ci.yml
+  jobs:
+    - name: shell
+      command: './scripts/ci.sh'
+      triggers:
+        - pull_request
+        - push_to_main
+        - push_to_release_branch
+    - name: nix
+      command: 'nix flake check --no-build --no-write-lock-file ./platforms/nixos'
+      triggers:
+        - pull_request
+        - push_to_main
+        - push_to_release_branch
+  required_status_checks_default: []
+  note: 'Do not invent a required check name merely to encode source-branch policy.'
+
+external_verification:
+  ubuntu_wsl:
+    command: './platforms/ubuntu-wsl/verify.sh'
+    automated_in_ci: false
+    reason: 'Requires WSL identity, installed third-party tools, and interactive account state that GitHub-hosted CI cannot prove.'
+
+  nixos:
+    command: './platforms/nixos/verify.sh'
+    automated_in_ci: false
+    reason: 'Requires an actual NixOS generation, shell activation, and interactive account state; hosted CI evaluates the reusable modules instead.'

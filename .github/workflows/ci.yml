@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "release-*"
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Validate repository
+        run: ./scripts/ci.sh
+
+      - name: Validate mise configuration
+        run: |
+          curl -fsSL https://mise.run | sh
+          "$HOME/.local/bin/mise" trust
+          "$HOME/.local/bin/mise" config >/dev/null
+          MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
+            "$HOME/.local/bin/mise" -C "$HOME" config >/dev/null
+          MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
+            "$HOME/.local/bin/mise" -C "$HOME" install --dry-run
+
+  powershell:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Parse PowerShell scripts
+        shell: pwsh
+        run: |
+          $errors = @()
+
+          Get-ChildItem -Recurse -Filter *.ps1 | ForEach-Object {
+            $tokens = $null
+            $parseErrors = $null
+
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$parseErrors
+            )
+
+            if ($parseErrors.Count -gt 0) {
+              $errors += $parseErrors
+            }
+          }
+
+          if ($errors.Count -gt 0) {
+            $errors | Format-List
+            exit 1
+          }
+
+  nix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: NixOS/nix-installer-action@main
+
+      - name: Evaluate NixOS profile
+        run: nix flake check --no-build --no-write-lock-file ./platforms/nixos
