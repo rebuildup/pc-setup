@@ -34,6 +34,7 @@ WinGet
      -> portable developer tools through mise
      -> ~/.dotfiles checkout
      -> Windows post-bootstrap boundary
+  -> Notion official MSIX
   -> Microsoft Store-specific apps
 ```
 
@@ -48,7 +49,6 @@ root `mise.toml` が以下のようなWindows native desired stateを所有す�
 - Google 日本語入力
 - Logitech G HUB
 - Linear
-- Notion
 - Slack
 - Microsoft Teams
 - Cursor
@@ -62,6 +62,15 @@ root `mise.toml` が以下のようなWindows native desired stateを所有す�
 - kanata GUI
 
 Git自体もbootstrap dependency / desired stateとしてWinGet管理。
+
+### Notion official MSIX boundary
+
+NotionはWinGetのNSIS installerをmandatory mise phaseでは使用しない。vendor installer failureが他のmachine setup全体を停止させた実機事例があるため、root PowerShell adapterがNotion公式のMSIX endpointを使用する。
+
+- x64: `https://www.notion.com/desktop/windows-msix/download`
+- arm64: `https://www.notion.com/desktop/windows-msix-arm/download`
+
+既存のlegacy WinGet/NSIS版またはMSIX版があれば再インストールしない。自動MSIX installが失敗した場合はwarningとして後続bootstrapを継続するが、`verify.ps1`ではNotion不在をfailureとして扱う。
 
 ### Portable tools via mise
 
@@ -140,7 +149,7 @@ verifyは:
 - Windows 11
 - `mise bootstrap status --missing`
 - portable command capabilities
-- Store apps
+- Store apps / Notion MSIX
 - Adobe/Cubase child apps
 - GitHub auth
 - Git identity
