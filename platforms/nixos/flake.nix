@@ -94,8 +94,7 @@
               fi
 
               printf 'installing portable global CLI baseline through mise\n'
-              mise -C "$pc_setup_dir" trust
-              mise -C "$pc_setup_dir" install
+              "$pc_setup_dir/scripts/apply-global-mise.sh"
 
               if [[ ! -e "$dotfiles_dir" ]]; then
                 printf 'cloning dotfiles -> %s\n' "$dotfiles_dir"
@@ -113,7 +112,7 @@
                 exit 1
               fi
 
-              exec "$dotfiles_dir/script/bootstrap"
+              exec mise -C "$HOME" exec -- "$dotfiles_dir/script/bootstrap"
             '';
           };
         in
