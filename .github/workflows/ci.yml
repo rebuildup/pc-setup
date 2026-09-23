@@ -123,6 +123,33 @@ jobs:
             Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Validate Notion MSIX boundary
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $miseConfig = Get-Content -LiteralPath ./mise.toml -Raw
+          if ($miseConfig -match 'winget:Notion\.Notion') {
+            throw 'Notion must not be part of the mandatory mise WinGet package phase.'
+          }
+
+          $bootstrap = Get-Content -LiteralPath ./bootstrap.ps1 -Raw
+          foreach ($expected in @(
+            'https://www.notion.com/desktop/windows-msix/download',
+            'https://www.notion.com/desktop/windows-msix-arm/download',
+            'Add-AppxPackage'
+          )) {
+            if (-not $bootstrap.Contains($expected)) {
+              throw "Missing Notion MSIX boundary marker: $expected"
+            }
+          }
+
+          $verify = Get-Content -LiteralPath ./platforms/windows-11/verify.ps1 -Raw
+          if (-not $verify.Contains("Write-Fail 'Notion missing'")) {
+            throw 'Windows verification must fail when Notion is absent.'
+          }
+
   nix:
     runs-on: ubuntu-latest
 
