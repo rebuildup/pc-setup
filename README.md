@@ -10,9 +10,22 @@
 
 NixOSだけはmachine stateをNixで管理する。
 
+fresh NixOS / NixOS-WSL では `nix-command` / `flakes` がまだ無効な場合があるため、初回 entrypoint は experimental features をその invocation だけ有効化して実行する。
+
+```bash
+nix --extra-experimental-features 'nix-command flakes' \
+  run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+```
+
+`--extra-experimental-features` は feature list を1つの引数として受け取るため、`'nix-command flakes'` は引用符でまとめる。`--extra-experimental-features nix-command flakes` と書くと `flakes` が別引数として解釈され、Flakes は有効にならない。
+
+pc-setup の NixOS system profile 適用後は `nix-command` / `flakes` が恒久的に有効になるため、以後は通常の:
+
 ```bash
 nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
+
+でよい。
 
 Flake / Home Managerがsystem/build packageのcanonical sourceです。portableなユーザーCLIは他OSと同じ `mise.global.toml` を使い、NixOS bootstrapでも同じglobal configを適用します。
 
