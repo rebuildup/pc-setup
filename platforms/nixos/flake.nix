@@ -78,7 +78,24 @@
             name = "pc-setup-bootstrap";
             runtimeInputs = bootstrapPackages pkgs;
             text = ''
+              pc_setup_dir="''${PC_SETUP_DIR:-$HOME/src/pc-setup}"
+              pc_setup_ref="''${PC_SETUP_REF:-4}"
               dotfiles_dir="''${DOTFILES_DIR:-$HOME/.dotfiles}"
+
+              if [[ ! -e "$pc_setup_dir" ]]; then
+                printf 'cloning pc-setup (%s) -> %s\n' "$pc_setup_ref" "$pc_setup_dir"
+                mkdir -p "$(dirname "$pc_setup_dir")"
+                git clone --branch "$pc_setup_ref" --single-branch https://github.com/rebuildup/pc-setup.git "$pc_setup_dir"
+              elif [[ ! -d "$pc_setup_dir/.git" ]]; then
+                printf 'refusing to overwrite non-git path: %s\n' "$pc_setup_dir" >&2
+                exit 1
+              else
+                printf 'using existing pc-setup checkout: %s\n' "$pc_setup_dir"
+              fi
+
+              printf 'installing portable global CLI baseline through mise\n'
+              mise -C "$pc_setup_dir" trust
+              mise -C "$pc_setup_dir" install
 
               if [[ ! -e "$dotfiles_dir" ]]; then
                 printf 'cloning dotfiles -> %s\n' "$dotfiles_dir"
