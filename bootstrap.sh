@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_url="${PC_SETUP_REPO_URL:-https://github.com/rebuildup/pc-setup.git}"
-repo_ref="${PC_SETUP_REF:-1}"
+repo_ref="${PC_SETUP_REF:-main}"
 target_dir="${PC_SETUP_DIR:-$HOME/src/pc-setup}"
 
 log() {
@@ -112,6 +112,11 @@ else
     printf 'existing checkout has unexpected origin: %s\n' "$current_origin" >&2
     exit 1
   fi
+
+  log "Updating existing pc-setup checkout to $repo_ref"
+  git -C "$target_dir" fetch origin "$repo_ref"
+  git -C "$target_dir" switch "$repo_ref"
+  git -C "$target_dir" merge --ff-only "origin/$repo_ref"
 fi
 
 cd "$target_dir"
