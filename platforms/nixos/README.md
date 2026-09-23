@@ -14,6 +14,7 @@ NixOS では Ubuntu/WSL のような imperative installer を canonical setup �
 - credentials: Nix store の外
 - exact input revisions: concrete host の `flake.lock`
 - bootstrap中に実際に必要になった汎用CLI/エディタは、一時導入で終わらせず baseline 候補として profile に昇格する
+- mise はproject/runtime toolとして提供するが、NixOS machine packageのSoTにはしない
 
 詳細な判断理由は [`ADR-0003`](../../docs/adr/ADR-0003.md) を参照してください。
 
@@ -48,6 +49,7 @@ Unstable package set:
 - Claude Code
 - OpenCode
 - Infisical CLI
+- mise
 - Worktrunk
 
 Worktrunk の Bash integration も Home Manager で宣言します。
