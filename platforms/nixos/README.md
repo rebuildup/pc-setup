@@ -21,10 +21,13 @@ NixOS では Ubuntu/WSL のような imperative installer を canonical setup �
 
 ## Quick start
 
+> Pre-release note: until 0.1.0 reaches `main`, NixOS setup intentionally pins branch `4`.
+
+
 fresh NixOS / NixOS-WSL の入口はこれだけです:
 
 ```bash
-nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+nix run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
 ```
 
 必要な bootstrap tools は Flake が解決します。個別 package 名を覚えたり、`nix-shell -p ...` を組み立てたりしません。
@@ -107,7 +110,7 @@ actual NixOS host の config repository / `/etc/nixos` に Flake を作り、`pc
   description = "my NixOS host";
 
   inputs = {
-    pc-setup.url = "github:rebuildup/pc-setup?dir=platforms/nixos";
+    pc-setup.url = "github:rebuildup/pc-setup/4?dir=platforms/nixos";
   };
 
   outputs =
@@ -166,7 +169,7 @@ NixOS installation 自体は公式 Installation Guide に従います。
 fresh system の canonical entrypoint は1コマンドです:
 
 ```bash
-nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+nix run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
 ```
 
 Flake app が必要な bootstrap tools を一時的に用意し、`~/.dotfiles` が無ければ clone して `script/bootstrap` を実行します。Git / GitHub CLI / Infisical / jq / Neovim の package list を手で覚える必要はありません。
@@ -174,7 +177,7 @@ Flake app が必要な bootstrap tools を一時的に用意し、`~/.dotfiles` 
 Flakes がまだ有効でない特殊な初期状態では、その1回だけ:
 
 ```bash
-nix --extra-experimental-features 'nix-command flakes' run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+nix --extra-experimental-features 'nix-command flakes' run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
 ```
 
 を使用します。pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になります。
@@ -193,7 +196,7 @@ sudo nixos-rebuild switch --flake /etc/nixos#my-host
 手動でbootstrap environmentへ入りたい場合だけ:
 
 ```bash
-nix develop 'github:rebuildup/pc-setup?dir=platforms/nixos'
+nix develop 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
 ```
 
 を使います。これは通常のsetup手順ではなく、debug/fallback用です。
@@ -401,7 +404,7 @@ grep -n 'system.stateVersion\|wsl.defaultUser' /etc/nixos/configuration.nix
 ```nix
 {
   inputs = {
-    pc-setup.url = "github:rebuildup/pc-setup?dir=platforms/nixos";
+    pc-setup.url = "github:rebuildup/pc-setup/4?dir=platforms/nixos";
     nixos-wsl.url = "github:nix-community/NixOS-WSL/release-26.05";
   };
 
@@ -441,7 +444,7 @@ sudo nixos-rebuild switch --flake /etc/nixos#nixos
 fresh NixOS-WSL でも package list は手入力しません。入口は同じです:
 
 ```bash
-nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+nix run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
 ```
 
 このFlake appがbootstrap toolchainとdotfiles bootstrapを担当します。setup中に新たに常用必須と判明した汎用ツールはFlake/Home Manager profileへ追加し、次回からこの1コマンドで自動的に利用可能にします。
