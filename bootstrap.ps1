@@ -166,7 +166,13 @@ else {
 
         Write-Step "Updating existing pc-setup checkout to $RepoRef"
         $remoteTrackingRef = "refs/remotes/origin/$RepoRef"
-        $fetchRefSpec = "refs/heads/${RepoRef}:$remoteTrackingRef"
+        $fetchRefSpec = "+refs/heads/${RepoRef}:$remoteTrackingRef"
+        $configuredFetchSpecs = @(& git -C $TargetDir config --get-all remote.origin.fetch)
+
+        if ($configuredFetchSpecs -notcontains $fetchRefSpec) {
+            & git -C $TargetDir config --add remote.origin.fetch $fetchRefSpec
+            if ($LASTEXITCODE -ne 0) { throw "git remote fetch configuration failed with exit code $LASTEXITCODE" }
+        }
 
         & git -C $TargetDir fetch origin $fetchRefSpec
         if ($LASTEXITCODE -ne 0) { throw "git fetch failed with exit code $LASTEXITCODE" }
