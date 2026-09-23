@@ -51,7 +51,6 @@
 "winget:Google.JapaneseIME" = { os = "windows" }
 "winget:Logitech.GHUB" = { os = "windows" }
 "winget:LinearOrbit.Linear" = { os = "windows" }
-"winget:Notion.Notion" = { os = "windows" }
 "winget:SlackTechnologies.Slack" = { os = "windows" }
 "winget:Microsoft.Teams" = { os = "windows" }
 "winget:Anysphere.Cursor" = { os = "windows" }
