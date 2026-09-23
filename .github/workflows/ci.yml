@@ -26,6 +26,12 @@ jobs:
       - name: Validate repository
         run: ./scripts/ci.sh
 
+      - name: Validate mise configuration
+        run: |
+          curl -fsSL https://mise.run | sh
+          "$HOME/.local/bin/mise" trust
+          "$HOME/.local/bin/mise" config >/dev/null
+
   powershell:
     runs-on: windows-latest
 
@@ -56,34 +62,4 @@ jobs:
           if ($errors.Count -gt 0) {
             $errors | Format-List
             exit 1
-          }
-
-      - name: Validate Windows package manifests
-        shell: pwsh
-        run: |
-          $wingetIds = Get-Content .\platforms\windows-11\winget-packages.txt |
-            ForEach-Object { $_.Trim() } |
-            Where-Object { $_ -and -not $_.StartsWith('#') }
-
-          if ($wingetIds.Count -eq 0) {
-            throw 'winget-packages.txt is empty'
-          }
-
-          $duplicateIds = $wingetIds |
-            Group-Object |
-            Where-Object Count -gt 1
-
-          if ($duplicateIds) {
-            throw "Duplicate WinGet package IDs: $($duplicateIds.Name -join ', ')"
-          }
-
-          $storeLines = Get-Content .\platforms\windows-11\store-packages.txt |
-            ForEach-Object { $_.Trim() } |
-            Where-Object { $_ -and -not $_.StartsWith('#') }
-
-          foreach ($line in $storeLines) {
-            $parts = $line.Split('|', 2)
-            if ($parts.Count -ne 2 -or [string]::IsNullOrWhiteSpace($parts[0]) -or [string]::IsNullOrWhiteSpace($parts[1])) {
-              throw "Invalid Store manifest line: $line"
-            }
           }

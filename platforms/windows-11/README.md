@@ -1,28 +1,50 @@
 # Windows 11 setup
 
-Windows 11 の actual daily environment を、CLI だけでなく GUI / creative / communication / input / hardware utility まで含めて記録します。
+Windows 11 の actual daily environment を、GUI / creative / communication / input / development toolingまで含めて再現する。
 
-## Model
+machine bootstrapのcanonical entrypointはroot `bootstrap.ps1`。WinGetを直接列挙して実行する運用は廃止し、miseがdesired stateを適用する。
 
-- WinGet で管理できるもの: `winget-packages.txt`
-- Microsoft Store: `store-packages.txt`
-- Adobe / Steinberg / ChgKey 等: `manual-apps.md`
-- 自動導入: `bootstrap.ps1`
-- desired state 検証: `verify.ps1`
-- 実機 inventory 採取: `snapshot.ps1`
+## Fresh setup
 
-詳細な長期方針は `docs/adr/ADR-0004.md` を参照してください。
+PowerShell:
 
-## Desired applications
+```powershell
+irm https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.ps1 | iex
+```
 
-### Daily desktop
+既存checkoutから:
+
+```powershell
+.\bootstrap.ps1
+```
+
+platform wrapperも同じroot flowへ委譲する:
+
+```powershell
+.\platforms\windows-11\bootstrap.ps1
+```
+
+## Bootstrap model
+
+```text
+WinGet
+  -> Git + mise
+  -> mise bootstrap
+     -> Windows host apps / SDKs through WinGet
+     -> portable developer tools through mise
+     -> ~/.dotfiles checkout
+     -> Windows post-bootstrap boundary
+  -> Microsoft Store-specific apps
+```
+
+### WinGet via mise
+
+root `mise.toml` が以下のようなWindows native desired stateを所有する。
 
 - Vivaldi
-- ChatGPT app
 - Discord
 - PowerToys
 - WizTree
-- Microsoft PC Manager
 - Google 日本語入力
 - Logitech G HUB
 - Linear
@@ -31,115 +53,83 @@ Windows 11 の actual daily environment を、CLI だけでなく GUI / creative
 - Cursor
 - Visual Studio Code
 - Warp
-
-### Creative / audio
-
 - Adobe Creative Cloud
-- Adobe After Effects
-- Adobe Illustrator
-- Steinberg Download Assistant
-- Cubase
-
-### Development
-
 - Android Studio
 - Visual Studio 2022 Community
 - .NET SDK 10
-- Git / GitHub CLI
 - PowerShell 7
-- Node.js LTS
-- Bun
-- Rust / Cargo
-- ripgrep / fd / fzf / jq / bat
-
-### Keyboard / input
-
 - kanata GUI
-- ChgKey / Change Key
 
-## Bootstrap
+Git自体もbootstrap dependency / desired stateとしてWinGet管理。
 
-PowerShell 7 または Windows PowerShell から repository root で:
+### Portable tools via mise
 
-```powershell
-.\platforms\windows-11\bootstrap.ps1
-```
+OSごとにWinGet packageを重複宣言せず、root `[tools]` を共有する。
 
-実際に変更せず install plan だけ確認:
+- Node.js
+- Python
+- Bun
+- Rust
+- GitHub CLI
+- Infisical
+- Claude Code
+- Codex
+- OpenCode
+- Worktrunk
+- ripgrep / fd / fzf / jq / bat
+- ShellCheck
+- Neovim
 
-```powershell
-.\platforms\windows-11\bootstrap.ps1 -WhatIf
-```
+## Microsoft Store boundary
 
-Store app を後回しにする場合:
+miseのWinGet managerではStore sourceをこのrepositoryの要件どおり明示できないため、Store product IDをroot PowerShell adapterが扱う。
 
-```powershell
-.\platforms\windows-11\bootstrap.ps1 -SkipStore
-```
+- ChatGPT: `9PLM9XGG6VKS`
+- Microsoft PC Manager: `9PM860492SZD`
 
-WinGet package は fuzzy search ではなく exact package ID で導入します。
+region/account availabilityに依存する場合はWARNにし、regionを自動変更しない。
 
-## Microsoft Store
+## dotfiles
 
-ChatGPT は OpenAI の current official Windows deployment product ID を使用します。
+`~/.dotfiles` のcheckout自体はmiseが用意する。
 
-```powershell
-winget install --id 9PLM9XGG6VKS --source msstore --exact
-```
+Windows nativeのsymlink adapterはまだcanonical化していないため、root mise taskはWindowsではmachine tool/app setupまでで止める。
 
-PC Manager:
+現時点のuser-level agent/dotfiles設定はWSL側をcanonicalとし、Windows native adapter完成後に同じsource of truthを接続する。
 
-```powershell
-winget install --id 9PM860492SZD --source msstore --exact
-```
+## Manual/vendor boundaries
 
-PC Manager は Store availability が region/account に依存する場合があります。bootstrap は region を勝手に変更しません。
+次はpackage presenceだけでは完了しない。
 
-## Adobe
+### Adobe
 
-Creative Cloud desktop app は WinGet で導入します。その後 Creative Cloud にログインして:
+Creative Cloudへログイン後:
 
 - After Effects
 - Illustrator
 
-をインストールします。
+をインストールする。
 
-Creative Cloud が存在するだけでは setup 完了ではありません。
+### Cubase / Steinberg
 
-## Cubase / Steinberg
+Steinberg Download Assistantを使い、ライセンスに従ってCubaseを導入する。
 
-Steinberg Download Assistant は Steinberg の current official installer から導入します。
+### Visual Studio
 
-- https://www.steinberg.net/sda
-
-ログイン/ライセンス認証後に Cubase をインストールします。edition/version は実際の license に従い、この repository では勝手に固定しません。
-
-## Android Studio / JDK
-
-Android Studio は `Google.AndroidStudio` で導入します。
-
-過去のように複数の system JDK を無秩序に増やさず、Android Studio bundled runtime と project-specific toolchain を優先します。
-
-## Visual Studio
-
-`Microsoft.VisualStudio.2022.Community` を導入した後、Visual Studio Installer で active project に必要な workload を確認します。
+active projectに必要なworkloadだけをVisual Studio Installerから有効化する。
 
 主な候補:
 
 - Desktop development with C++
 - .NET desktop development
-- Windows App SDK / WinUI 関連 component
+- Windows App SDK / WinUI related components
 
-不要な workload を『念のため』全部入れる方針にはしません。
+### Keyboard
 
-## Keyboard remapping
+- ChgKey: registry/scan-code based persistent remap
+- kanata: runtime/layer based remap
 
-kanata と ChgKey は同一物として扱いません。
-
-- ChgKey: scan-code / registry ベースの persistent remap
-- kanata: runtime / layer / advanced remap
-
-現行の実際の key mapping 自体は、実機から確認して別途 config として保存します。
+presenceだけで設定完了とは判定しない。
 
 ## Verify
 
@@ -147,59 +137,30 @@ kanata と ChgKey は同一物として扱いません。
 .\platforms\windows-11\verify.ps1
 ```
 
-package/tool が無い場合は FAIL、login / licensing / manual mapping のような対話状態は WARN として扱います。
+verifyは:
 
-## Capture the actual machine
+- Windows 11
+- `mise bootstrap status --missing`
+- portable command capabilities
+- Store apps
+- Adobe/Cubase child apps
+- GitHub auth
+- Git identity
 
-desired state に書き漏らしたアプリを探すため、実機から snapshot を取れます。
+を確認する。
+
+## Snapshot
+
+actual machineとの差分を調べる場合:
 
 ```powershell
 .\platforms\windows-11\snapshot.ps1
 ```
 
-取得対象:
+snapshotはevidenceであり、検出した全appを自動的にdesired stateへ昇格させない。
 
-- WinGet export / list
-- AppX/MSIX package list
-- uninstall registry inventory
-- selected CLI versions
-- Windows build / architecture
+## Secrets / authentication
 
-snapshot は actual machine evidence であり、出てきた package を自動的に desired state へ昇格させません。
+password / token / API key / cookie / license secret / private keyはrepositoryへ保存しない。
 
-snapshot には username や install path が混ざる可能性があるため、commit 前に必ず review します。
-
-## Authentication / licensing
-
-次は自動化しません。
-
-- GitHub
-- ChatGPT
-- Discord
-- Linear
-- Slack
-- Teams
-- Adobe Creative Cloud
-- Steinberg
-- Google/Logitech account state
-
-password / API key / token / cookie / license secret / private key は repository に保存しません。
-
-## Update
-
-WinGet-managed applications:
-
-```powershell
-winget upgrade --all
-```
-
-ただし Adobe child apps と Cubase はそれぞれ Creative Cloud / Steinberg Download Assistant 側の update state も確認します。
-
-## References
-
-- WinGet: https://learn.microsoft.com/windows/package-manager/winget/
-- PowerToys install: https://learn.microsoft.com/windows/powertoys/install
-- ChatGPT Windows deployment: https://developers.openai.com/docs/enterprise/windows-deployment
-- Steinberg Download Assistant: https://www.steinberg.net/sda
-- Change Key: https://forest.watch.impress.co.jp/library/software/changekey/
-- Warp Windows install: https://docs.warp.dev/getting-started/quickstart/installation-and-setup
+portable secretはInfisicalがsource of truth。各サービスのinteractive login / licensingは必要に応じて実機で行う。

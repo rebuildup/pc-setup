@@ -5,8 +5,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$WingetFile = Join-Path $ScriptDir 'winget-packages.txt'
-$StoreFile = Join-Path $ScriptDir 'store-packages.txt'
+$RepoRoot = Resolve-Path (Join-Path $ScriptDir '..\..')
 
 $Failures = 0
 $Warnings = 0
@@ -14,21 +13,6 @@ $Warnings = 0
 function Write-Ok { param([string]$Message) Write-Host "OK    $Message" }
 function Write-Fail { param([string]$Message) Write-Host "FAIL  $Message" -ForegroundColor Red; $script:Failures++ }
 function Write-WarnLocal { param([string]$Message) Write-Warning $Message; $script:Warnings++ }
-
-function Get-ManifestLines {
-    param([string]$Path)
-    Get-Content -LiteralPath $Path | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') }
-}
-
-function Test-WingetId {
-    param([string]$Id, [string]$Source = 'winget')
-    $output = & winget list --id $Id --exact --source $Source --accept-source-agreements 2>&1
-    if ($LASTEXITCODE -eq 0 -and ($output -join "`n") -notmatch 'No installed package found') {
-        Write-Ok "$Id installed"
-    } else {
-        Write-Fail "$Id missing"
-    }
-}
 
 function Test-CommandPresent {
     param([string]$Name)
@@ -59,20 +43,31 @@ Write-Host "pc-setup Windows 11 verification`n"
 $os = Get-CimInstance Win32_OperatingSystem
 if ($os.Caption -match 'Windows 11') { Write-Ok "$($os.Caption) $($os.Version)" } else { Write-Fail "expected Windows 11, found $($os.Caption)" }
 
+Test-CommandPresent -Name 'mise'
+
+if (Get-Command mise -ErrorAction SilentlyContinue) {
+    Push-Location $RepoRoot
+    try {
+        & mise bootstrap status --missing
+        if ($LASTEXITCODE -eq 0) { Write-Ok 'mise bootstrap desired state' } else { Write-Fail 'mise bootstrap reports missing machine state' }
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Write-Fail 'winget command missing'
-} else {
-    foreach ($packageId in Get-ManifestLines -Path $WingetFile) { Test-WingetId -Id $packageId }
-    foreach ($line in Get-ManifestLines -Path $StoreFile) {
-        $parts = $line.Split('|', 2)
-        $name = if ($parts.Count -gt 1) { $parts[1] } else { $parts[0] }
+}
+else {
+    foreach ($name in @('ChatGPT', 'Microsoft PC Manager')) {
         $output = & winget list --name $name --accept-source-agreements 2>&1
         if ($LASTEXITCODE -eq 0 -and ($output -join "`n") -notmatch 'No installed package found') { Write-Ok "$name installed" } else { Write-Fail "$name missing" }
     }
 }
 
 Write-Host "`nCommand capabilities"
-foreach ($commandName in @('git','gh','pwsh','code','node','npm','bun','rustup','rustc','cargo','rg','fd','fzf','jq','bat','dotnet')) { Test-CommandPresent -Name $commandName }
+foreach ($commandName in @('git','gh','infisical','pwsh','code','node','python','bun','rustc','cargo','rg','fd','fzf','jq','bat','shellcheck','nvim','claude','codex','opencode','wt','dotnet')) { Test-CommandPresent -Name $commandName }
 
 $script:InstalledDisplayNames = @(Get-UninstallDisplayNames)
 
@@ -93,8 +88,8 @@ if ($LASTEXITCODE -eq 0) {
 else {
     Write-WarnLocal 'GitHub CLI is not authenticated'
 }
-if (-not (git config --global --get user.name)) { Write-WarnLocal 'global Git user.name is not configured' }
-if (-not (git config --global --get user.email)) { Write-WarnLocal 'global Git user.email is not configured' }
+if (-not (git config --get user.name)) { Write-WarnLocal 'effective Git user.name is not configured' }
+if (-not (git config --get user.email)) { Write-WarnLocal 'effective Git user.email is not configured' }
 
 Write-Host "`nResult: $Failures failure(s), $Warnings warning(s)"
 if ($Failures -ne 0) { exit 1 }

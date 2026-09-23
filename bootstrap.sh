@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_url="${PC_SETUP_REPO_URL:-https://github.com/rebuildup/pc-setup.git}"
+target_dir="${PC_SETUP_DIR:-$HOME/src/pc-setup}"
+
+log() {
+  printf '\n==> %s\n' "$*"
+}
+
+install_git_if_needed() {
+  if git --version >/dev/null 2>&1; then
+    return
+  fi
+
+  case "$(uname -s)" in
+    Linux)
+      if [[ ! -r /etc/os-release ]]; then
+        printf 'cannot detect Linux distribution; install Git manually and rerun\n' >&2
+        exit 1
+      fi
+
+      # shellcheck disable=SC1091
+      . /etc/os-release
+      case "${ID:-}" in
+        ubuntu|debian)
+          log "Installing minimal bootstrap dependencies"
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y git curl ca-certificates
+          ;;
+        *)
+          printf 'unsupported Linux bootstrap distribution: %s\n' "${ID:-unknown}" >&2
+          printf 'install Git and mise, then run: mise bootstrap --from %s\n' "$repo_url" >&2
+          exit 1
+          ;;
+      esac
+      ;;
+    Darwin)
+      log "Git requires Apple Command Line Tools"
+      xcode-select --install >/dev/null 2>&1 || true
+      printf 'finish the Command Line Tools installation, then rerun this command\n' >&2
+      exit 1
+      ;;
+    *)
+      printf 'bootstrap.sh supports Linux/macOS; use bootstrap.ps1 on Windows\n' >&2
+      exit 1
+      ;;
+  esac
+}
+
+install_mise_if_needed() {
+  if command -v mise >/dev/null 2>&1; then
+    return
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    printf 'curl is required to install mise\n' >&2
+    exit 1
+  fi
+
+  local shell_name
+  shell_name="$(basename "${SHELL:-/bin/bash}")"
+  case "$shell_name" in
+    bash|zsh|fish)
+      ;;
+    *)
+      shell_name="bash"
+      ;;
+  esac
+
+  log "Installing mise"
+  curl -fsSL "https://mise.run/$shell_name" | sh
+  export PATH="$HOME/.local/bin:$PATH"
+}
+
+install_git_if_needed
+install_mise_if_needed
+
+mise_bin="$(command -v mise 2>/dev/null || true)"
+if [[ -z "$mise_bin" && -x "$HOME/.local/bin/mise" ]]; then
+  mise_bin="$HOME/.local/bin/mise"
+fi
+
+if [[ -z "$mise_bin" ]]; then
+  printf 'mise installation completed but the executable was not found\n' >&2
+  exit 1
+fi
+
+script_dir=""
+if cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null; then
+  script_dir="$(pwd -P)"
+fi
+
+if [[ -n "$script_dir" && -f "$script_dir/mise.toml" && -d "$script_dir/.git" ]]; then
+  log "Applying pc-setup from current checkout"
+  cd "$script_dir"
+  exec "$mise_bin" bootstrap --yes
+fi
+
+log "Bootstrapping pc-setup with mise"
+mkdir -p "$(dirname "$target_dir")"
+exec "$mise_bin" bootstrap --from "$repo_url" --from-dir "$target_dir" --yes

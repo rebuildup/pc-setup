@@ -6,10 +6,10 @@ These applications are part of the desired environment even though their final p
 
 ### Adobe Creative Cloud
 
-The Creative Cloud desktop application itself is installed through WinGet:
+The Creative Cloud desktop application itself is declared in root `mise.toml` and installed through mise's WinGet backend:
 
-```powershell
-winget install --id Adobe.CreativeCloud --exact
+```toml
+"winget:Adobe.CreativeCloud" = { os = "windows" }
 ```
 
 After signing in, install these products from Creative Cloud:
@@ -81,6 +81,6 @@ Do not install every optional workload merely to make the machine look "complete
 
 ## Android Studio
 
-Android Studio is installed through WinGet. Android SDK/NDK/JDK versions required by an individual repository should remain project-controlled where possible.
+Android Studio is declared in root `mise.toml` and installed through the WinGet backend. Android SDK/NDK/JDK versions required by an individual repository should remain project-controlled where possible.
 
 Avoid accumulating multiple unrelated global JDK installations. Android Studio's bundled runtime and project-specific requirements should be preferred over an untracked collection of system JDKs.
