@@ -326,5 +326,23 @@ jobs:
       - name: Install Nix
         uses: NixOS/nix-installer-action@main
 
+      - name: Validate NixOS bootstrap documentation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          files = [Path("README.md"), Path("platforms/nixos/README.md")]
+          required = [
+              "--extra-experimental-features 'nix-command flakes'",
+              "run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'",
+          ]
+
+          for path in files:
+              text = path.read_text()
+              for marker in required:
+                  if marker not in text:
+                      raise SystemExit(f"{path}: missing canonical NixOS bootstrap marker: {marker}")
+          PY
+
       - name: Evaluate NixOS profile
         run: nix flake check --no-build --no-write-lock-file ./platforms/nixos
