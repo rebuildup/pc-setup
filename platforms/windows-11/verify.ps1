@@ -75,6 +75,12 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Write-Fail 'winget command missing'
 }
 else {
+    $inventory = Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptDir 'apps.psd1')
+    foreach ($app in $inventory.WingetApps) {
+        & winget list --id $app.Id --exact --source winget --accept-source-agreements --disable-interactivity *> $null
+        if ($LASTEXITCODE -eq 0) { Write-Ok "$($app.Name) installed" } else { Write-Fail "$($app.Name) missing" }
+    }
+
     foreach ($name in @('ChatGPT', 'Microsoft PC Manager')) {
         $output = & winget list --name $name --accept-source-agreements 2>&1
         if ($LASTEXITCODE -eq 0 -and ($output -join "`n") -notmatch 'No installed package found') { Write-Ok "$name installed" } else { Write-Fail "$name missing" }
