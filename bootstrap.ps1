@@ -19,6 +19,55 @@ function Refresh-Path {
     $env:Path = @($machinePath, $userPath) -join ';'
 }
 
+function Test-NotionInstalled {
+    $wingetOutput = & winget list --id Notion.Notion --exact --accept-source-agreements --disable-interactivity 2>$null
+    if ($LASTEXITCODE -eq 0 -and ($wingetOutput -join "`n") -notmatch 'No installed package found') {
+        return $true
+    }
+
+    $appx = Get-AppxPackage -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match 'Notion' -or $_.PackageFullName -match 'Notion' } |
+        Select-Object -First 1
+
+    return [bool]$appx
+}
+
+function Install-NotionMsix {
+    if (Test-NotionInstalled) {
+        Write-Host 'ok      Notion already installed'
+        return
+    }
+
+    $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+    $downloadUrl = switch ($architecture) {
+        'X64' { 'https://www.notion.com/desktop/windows-msix/download' }
+        'Arm64' { 'https://www.notion.com/desktop/windows-msix-arm/download' }
+        default {
+            Write-Warning "Notion MSIX auto-install is unsupported on architecture: $architecture"
+            return
+        }
+    }
+
+    Write-Step "Installing Notion from official MSIX ($architecture)"
+
+    $tempPath = Join-Path ([System.IO.Path]::GetTempPath()) "notion-$([guid]::NewGuid()).msix"
+    try {
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempPath -MaximumRedirection 10
+        Add-AppxPackage -Path $tempPath -ErrorAction Stop
+
+        if (-not (Test-NotionInstalled)) {
+            throw 'Notion MSIX installation returned without a detectable installed package.'
+        }
+
+        Write-Host 'ok      Notion installed'
+    }
+    catch {
+        Write-Warning "Notion could not be installed automatically from the official MSIX endpoint: $($_.Exception.Message)"
+    }
+    finally {
+        Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+    }
+}
 
 function Install-StoreApps {
     $apps = @(
@@ -138,4 +187,5 @@ finally {
     Pop-Location
 }
 
+Install-NotionMsix
 Install-StoreApps
