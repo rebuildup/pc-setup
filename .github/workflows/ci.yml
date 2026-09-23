@@ -31,6 +31,7 @@ jobs:
           curl -fsSL https://mise.run | sh
           "$HOME/.local/bin/mise" trust
           "$HOME/.local/bin/mise" config >/dev/null
+          "$HOME/.local/bin/mise" install --dry-run
 
   powershell:
     runs-on: windows-latest
