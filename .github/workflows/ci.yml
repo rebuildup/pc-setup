@@ -77,6 +77,41 @@ jobs:
             exit 1
           }
 
+      - name: Validate inline PowerShell bootstrap invocation
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $bootstrap = Get-Content -LiteralPath ./bootstrap.ps1 -Raw
+          if ($bootstrap -match '\$MyInvocation\.MyCommand\.Path') {
+            throw 'bootstrap.ps1 must not directly access MyCommand.Path under StrictMode.'
+          }
+
+          $probe = @'
+          Set-StrictMode -Version Latest
+          $scriptPathProperty = $MyInvocation.MyCommand.PSObject.Properties['Path']
+          $scriptRoot = if ($scriptPathProperty -and $scriptPathProperty.Value) {
+              Split-Path -Parent $scriptPathProperty.Value
+          }
+          else {
+              $null
+          }
+          $scriptRoot
+          '@
+
+          $inlineRoot = Invoke-Expression $probe
+          if ($inlineRoot) {
+            throw "Invoke-Expression unexpectedly resolved a file-backed script root: $inlineRoot"
+          }
+
+          $probePath = Join-Path $TestDrive 'pc-setup-root-probe.ps1'
+          Set-Content -LiteralPath $probePath -Value $probe
+          $fileRoot = & $probePath
+          if ($fileRoot -ne (Split-Path -Parent $probePath)) {
+            throw "File-backed script root was not preserved: $fileRoot"
+          }
+
   nix:
     runs-on: ubuntu-latest
 
