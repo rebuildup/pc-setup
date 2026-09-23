@@ -6,10 +6,13 @@ machine bootstrapのcanonical entrypointはroot `bootstrap.ps1`。WinGetを直�
 
 ## Fresh setup
 
+> Pre-release note: until 0.1.0 reaches `main`, the common bootstrap intentionally pins branch `1`.
+
+
 PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/rebuildup/pc-setup/1/bootstrap.ps1 | iex
 ```
 
 既存checkoutから:
