@@ -17,7 +17,7 @@ NixOSだけはmachine stateをNixで管理する。
 nix run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
 ```
 
-Flake / Home Managerがcanonicalであり、machine package installationをmiseへ移さない。
+Flake / Home Managerがsystem/build packageのcanonical sourceです。portableなユーザーCLIは他OSと同じroot `mise.toml [tools]` を使い、NixOS bootstrapでは `mise install` だけを適用します。
 
 ### Ubuntu / Linux
 
