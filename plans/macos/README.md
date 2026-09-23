@@ -14,36 +14,34 @@ Long-lived policy: [ADR-0005](../../docs/adr/ADR-0005.md).
 
 Primary terminal candidate.
 
-Homebrew Cask:
+Candidate package declaration:
 
-```bash
-brew install --cask ghostty
+```toml
+"brew-cask:ghostty" = { os = "macos" }
 ```
+
+Homebrew is used through mise's built-in package backend; it is not the setup entrypoint.
 
 ### Amphetamine
 
 Keep-awake utility candidate.
 
-Amphetamine is distributed through the Mac App Store. The candidate Brewfile uses `mas`:
+Amphetamine is distributed through the Mac App Store. The candidate mise config records its App Store ID:
 
-```bash
-mas install 937984704
+```toml
+"mas:937984704" = { os = "macos" }
 ```
 
 ### Development baseline
 
-Likely cross-machine development requirements are represented in the candidate Brewfile:
+Cross-machine developer CLI/runtime requirements are inherited from root `mise.toml`:
 
-- Git / Git LFS / GitHub CLI
-- ripgrep / fd / fzf / jq / bat / tree
-- ShellCheck
-- Bun
-- rustup
-- Claude Code
-- OpenCode
-- Worktrunk
-- kanata
-- `mas`
+- GitHub CLI / Infisical
+- Node.js / Python / Bun / Rust
+- Claude Code / Codex / OpenCode / Worktrunk
+- ripgrep / fd / fzf / jq / bat / ShellCheck / Neovim
+
+macOS-specific application candidates are recorded separately in `mise.candidate.toml`.
 
 These are still reconciled against the real Mac before promotion.
 
@@ -70,23 +68,19 @@ They are candidates, not automatic requirements.
 
 In particular, Ghostty may make Warp unnecessary, and the final editor mix may not need both Cursor and VS Code.
 
-## Candidate Brewfile
+## Candidate mise additions
 
 Review:
 
 ```text
-plans/macos/Brewfile.candidate
+plans/macos/mise.candidate.toml
 ```
 
-Inspect what it would install before applying it.
+This file is planning state and is not loaded by the active root bootstrap yet.
 
-A future test Mac can use:
+When the actual Mac is configured, reconcile the candidate list with what is really used. Accepted entries then move into the active mise configuration; rejected entries are deleted.
 
-```bash
-brew bundle --file ./plans/macos/Brewfile.candidate
-```
-
-Do not run that command merely to make the candidate list true. First remove candidates that do not match the intended Mac workflow.
+Do not run a Homebrew/Brewfile path merely to make the candidate list true. The intended active entrypoint is the root pc-setup bootstrap, with Homebrew acting only as a mise backend.
 
 ## Creative / audio
 
@@ -125,17 +119,17 @@ At minimum:
 ```bash
 sw_vers
 uname -m
-brew bundle dump --describe --force --file /tmp/Brewfile.observed
-brew list --formula --versions
-brew list --cask --versions
-mas list
+mise bootstrap packages status --json
+brew list --formula --versions 2>/dev/null || true
+brew list --cask --versions 2>/dev/null || true
+mas list 2>/dev/null || true
 ```
 
 Also inspect `/Applications` and vendor-managed products.
 
 Then:
 
-1. Compare observed state with `Brewfile.candidate`.
+1. Compare observed state with `mise.candidate.toml`.
 2. Remove rejected candidates.
 3. Add real missing daily tools.
 4. Capture relevant non-secret system settings.
@@ -159,8 +153,8 @@ Some applications, especially keyboard/input tooling, may require Accessibility 
 
 ## References
 
-- Homebrew: https://brew.sh/
-- Homebrew Bundle: https://github.com/Homebrew/homebrew-bundle
+- mise bootstrap packages: https://mise.jdx.dev/bootstrap/packages/
+- Homebrew backend: https://mise.jdx.dev/bootstrap/packages/brew.html
 - Ghostty: https://ghostty.org/
 - Amphetamine: https://apps.apple.com/app/amphetamine/id937984704
 - mas: https://github.com/mas-cli/mas
