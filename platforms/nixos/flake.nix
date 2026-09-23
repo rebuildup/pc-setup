@@ -92,6 +92,25 @@
           runScript = "bash";
         };
 
+      nativeUserBaselinePackages =
+        pkgs:
+        with pkgs; [
+          curl
+          wget
+          tree
+          unzip
+          zip
+          xz
+          rsync
+          gcc
+          clang
+          lldb
+          cmake
+          ninja
+          gnumake
+          pkg-config
+        ];
+
       miseWrappedCommands = [
         "node"
         "python"
@@ -140,9 +159,10 @@
         in
         pkgs.symlinkJoin {
           name = "pc-setup-nixos-user-baseline";
-          paths = [
-            pkgs.pcSetupUnstable.mise
-          ] ++ map mkWrapper miseWrappedCommands;
+          paths =
+            [ pkgs.pcSetupUnstable.mise ]
+            ++ nativeUserBaselinePackages pkgs
+            ++ map mkWrapper miseWrappedCommands;
         };
 
       mkBootstrapShell =
@@ -214,12 +234,24 @@
 
               bash "$pc_setup_dir/platforms/nixos/configure-shell.sh" "$user_baseline_link"
 
-              printf 'verifying pc-setup NixOS baseline through persistent wrappers\n'
-              PATH="$user_baseline_link/bin:$PATH" \
-                "$pc_setup_dir/platforms/nixos/verify.sh"
+              print_shell_activation_hint() {
+                printf '\nNOTE: this process cannot modify the parent shell PATH.\n'
+                printf 'After this command returns, open a new shell or run:\n'
+                printf '  source %s/.config/pc-setup/shell-init.bash\n' "$HOME"
+              }
+
+              print_shell_activation_hint
+
+              printf '\nverifying pc-setup NixOS baseline through persistent wrappers\n'
+              if ! PATH="$user_baseline_link/bin:$PATH" \
+                "$pc_setup_dir/platforms/nixos/verify.sh"; then
+                printf '\npc-setup verification failed; bootstrap is not complete.\n' >&2
+                print_shell_activation_hint >&2
+                exit 1
+              fi
 
               printf '\npc-setup bootstrap complete\n'
-              printf 'open a new shell or run: source %s/.config/pc-setup/shell-init.bash\n' "$HOME"
+              print_shell_activation_hint
             '';
           };
         in
