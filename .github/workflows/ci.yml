@@ -31,7 +31,10 @@ jobs:
           curl -fsSL https://mise.run | sh
           "$HOME/.local/bin/mise" trust
           "$HOME/.local/bin/mise" config >/dev/null
-          "$HOME/.local/bin/mise" install --dry-run
+          MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
+            "$HOME/.local/bin/mise" -C "$HOME" config >/dev/null
+          MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
+            "$HOME/.local/bin/mise" -C "$HOME" install --dry-run
 
   powershell:
     runs-on: windows-latest
