@@ -66,19 +66,16 @@ OSに依存しにくい開発CLI/runtimeは一度だけ宣言する。
 
 現在のbaseline:
 
-- Node.js 24
-- Python
-- Bun
-- Rust
-- GitHub CLI
-- Infisical CLI
-- Claude Code
-- Codex
-- OpenCode
-- Worktrunk
+- Node.js 24 / pnpm / Bun
+- Python / Rust
+- GitHub CLI / Infisical CLI
+- Claude Code / Codex / OpenCode
+- Worktrunk / Herdr
+- Open Code Review / npkill / cargo-clean-all
+- Google Cloud CLI / AWS CLI
+- Supabase CLI / Vercel CLI
 - ripgrep / fd / fzf / jq / bat
-- ShellCheck
-- Neovim
+- ShellCheck / Neovim
 
 project固有versionは各projectの `mise.toml` / Flake / toolchain file等が所有する。ここはmachine-wide default。
 
@@ -89,6 +86,8 @@ OS固有package/applicationはnative package managerを使うが、人間が直�
 - Ubuntu: APT
 - macOS: mise built-in Homebrew formula/cask backend
 - Windows: WinGet
+
+Desktop applications that are genuinely machine-global are also part of the baseline. Windows currently includes VS Code, Linear, and Notion; macOS candidate state contains their Homebrew cask equivalents. WSL does not install duplicate Linux GUI copies.
 
 HomebrewはmacOS setupのentrypointではなくbackendの1つ。
 
