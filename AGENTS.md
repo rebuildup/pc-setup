@@ -37,7 +37,13 @@ Each supported platform SHOULD have:
 - official source links for version-sensitive installers
 - re-evaluation conditions in ADRs for long-lived tool choices
 
-Do not add an OS/platform directory merely as a placeholder. Capture it when the real environment can be observed and reproduced.
+Do not add an active `platforms/<platform>` directory merely as a placeholder. Capture it when the real environment can be observed and reproduced.
+
+Pre-adoption planning MAY live under `plans/<platform>` when useful, but it must:
+- be explicitly labeled candidate/non-canonical
+- distinguish confirmed/high-confidence candidates from speculative carryover
+- not claim verification against a machine that does not exist
+- be promoted to `platforms/<platform>` only after real-machine observation and reconciliation
 
 ## 4. Desired state vs snapshots
 
