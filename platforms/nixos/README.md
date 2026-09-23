@@ -26,7 +26,7 @@ fresh NixOS / NixOS-WSL では、まだ `nix-command` / `flakes` が有効でな
 
 ```bash
 nix --extra-experimental-features 'nix-command flakes' \
-  run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+  run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 `--extra-experimental-features` は feature list を1つの引数として受け取るため、`'nix-command flakes'` は引用符でまとめます。次の形は使用しません:
@@ -37,13 +37,9 @@ nix run 'github:rebuildup/pc-setup?dir=platforms/nixos' \
   --extra-experimental-features nix-command flakes
 ```
 
-pc-setup の system profile 適用後は `nix-command` / `flakes` が恒久的に有効になるため、それ以降は短い通常 command:
+remote bootstrap Flake 自体には `flake.lock` を置いていません。GitHub の remote flake は read-only なので、bootstrap 時は `--no-write-lock-file` で generated lock を永続化せずに評価します。exact input revision は actual host 側の concrete `flake.lock` が所有します。
 
-```bash
-nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
-```
-
-で実行できます。
+pc-setup の system profile 適用後は `nix-command` / `flakes` が恒久的に有効になります。ただし `github:rebuildup/pc-setup?dir=platforms/nixos` を remote bootstrap として再実行する場合は `--no-write-lock-file` を引き続き付けます。
 
 必要な bootstrap tools は Flake が解決します。その後`mise.global.toml` のportable CLI baselineを `mise install` し、dotfiles bootstrapまで進みます。個別 package 名を覚えたり、`nix-shell -p ...` を組み立てたりしません。
 
@@ -183,12 +179,12 @@ fresh system の canonical entrypoint は1コマンドです。初期 Nix featur
 
 ```bash
 nix --extra-experimental-features 'nix-command flakes' \
-  run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+  run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 Flake app が必要なbootstrap toolsを一時的に用意し、`~/src/pc-setup` のcheckoutを準備して`mise.global.toml` を `~/.config/mise/config.toml` へlinkして `mise install` を実行します。その後 `~/.dotfiles` をcloneし、`script/bootstrap` まで進みます。Git / GitHub CLI / Infisical / cloud CLI / agent CLI等のpackage listを手で覚える必要はありません。
 
-pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になるため、以後は `nix run ...` の短い形も使用できます。
+pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になります。remote bootstrap 側は read-only GitHub flake なので、再実行時も `--no-write-lock-file` は維持します。
 
 bootstrap後、host config で `pc-setup` を参照し:
 
@@ -453,7 +449,7 @@ fresh NixOS-WSL でも package list は手入力しません。初回入口は�
 
 ```bash
 nix --extra-experimental-features 'nix-command flakes' \
-  run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+  run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 このFlake appがNix bootstrap toolchain、`mise.global.toml` portable CLI baseline、dotfiles bootstrapを順に担当します。OS/build依存はNixへ、cross-platformな常用CLIは `mise.global.toml` へ追加し、次回からこの1コマンドで自動的に利用可能にします。
