@@ -81,6 +81,14 @@ commands=(
   claude
   opencode
   wt
+  herdr
+  gcloud
+  aws
+  supabase
+  vercel
+  npkill
+  ocr
+  cargo-clean-all
 )
 
 for command_name in "${commands[@]}"; do
