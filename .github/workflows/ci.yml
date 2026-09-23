@@ -160,6 +160,73 @@ jobs:
             throw 'bootstrap.ps1 must invoke the selected mise CommandInfo directly.'
           }
 
+      - name: Validate best-effort Windows desktop apps
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $miseConfig = Get-Content -LiteralPath ./mise.toml -Raw
+          $inventory = Import-PowerShellDataFile -LiteralPath ./platforms/windows-11/apps.psd1
+          if (-not ($inventory.WingetApps | Where-Object Id -eq 'Microsoft.Teams')) {
+            throw 'Microsoft.Teams must remain in the shared desktop app inventory.'
+          }
+
+          foreach ($app in $inventory.WingetApps) {
+            if ($miseConfig.Contains("winget:$($app.Id)")) {
+              throw "$($app.Id) must not be in the mandatory mise package phase."
+            }
+          }
+
+          $verify = Get-Content -LiteralPath ./platforms/windows-11/verify.ps1 -Raw
+          if (-not $verify.Contains("Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptDir 'apps.psd1')")) {
+            throw 'Windows verification must consume the shared desktop app inventory.'
+          }
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-apps-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $inventoryPath = Join-Path $root 'apps.psd1'
+          $logPath = Join-Path $root 'winget.log'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+
+          try {
+            @'
+          @{
+              WingetApps = @(
+                  @{ Id = 'Fail.App'; Name = 'Fail App' }
+                  @{ Id = 'Next.App'; Name = 'Next App' }
+              )
+          }
+          '@ | Set-Content -LiteralPath $inventoryPath
+
+            @'
+          @echo off
+          if "%1"=="list" exit /b 1
+          if "%1"=="install" (
+            echo %3>>"%FAKE_WINGET_LOG%"
+            if "%3"=="Fail.App" exit /b 42
+            exit /b 0
+          )
+          exit /b 0
+          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'winget.cmd')
+
+            $oldPath = $env:PATH
+            $env:FAKE_WINGET_LOG = $logPath
+            $env:PATH = "$fakeBin;$oldPath"
+
+            & ./platforms/windows-11/install-apps.ps1 -InventoryPath $inventoryPath
+
+            $attempted = @(Get-Content -LiteralPath $logPath)
+            if ($attempted.Count -ne 2 -or $attempted[0] -ne 'Fail.App' -or $attempted[1] -ne 'Next.App') {
+              throw "Desktop app convergence did not continue after failure: $($attempted -join ', ')"
+            }
+          }
+          finally {
+            if ($oldPath) { $env:PATH = $oldPath }
+            Remove-Item Env:FAKE_WINGET_LOG -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Validate arbitrary PC_SETUP_REF tracking
         shell: pwsh
         run: |
