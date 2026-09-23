@@ -84,6 +84,26 @@ function Install-StoreApps {
     }
 }
 
+function Install-BestEffortWingetApps {
+    param([Parameter(Mandatory)][string]$InventoryPath)
+
+    $inventory = Import-PowerShellDataFile -LiteralPath $InventoryPath
+    foreach ($app in $inventory.WingetApps) {
+        & winget list --id $app.Id --exact --source winget --accept-source-agreements --disable-interactivity *> $null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "ok      $($app.Name) already installed"
+            continue
+        }
+
+        Write-Step "Installing Windows app: $($app.Name)"
+        & winget install --id $app.Id --exact --source winget --accept-package-agreements --accept-source-agreements --disable-interactivity
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) {
+            Write-Warning "$($app.Name) could not be installed automatically (winget exit $exitCode). Continuing with remaining apps."
+        }
+    }
+}
+
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     throw 'winget is required. Install/update Microsoft App Installer, then rerun bootstrap.ps1.'
 }
@@ -207,5 +227,6 @@ finally {
     Pop-Location
 }
 
+Install-BestEffortWingetApps -InventoryPath (Join-Path $applyDir 'platforms\windows-11\apps.psd1')
 Install-NotionMsix
 Install-StoreApps
