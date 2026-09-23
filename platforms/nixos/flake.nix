@@ -53,6 +53,7 @@
           jq
           neovim
           pcSetupUnstable.infisical
+          pcSetupUnstable.mise
         ];
 
       mkBootstrapShell =
