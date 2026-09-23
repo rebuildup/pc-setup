@@ -56,6 +56,42 @@
           pcSetupUnstable.mise
         ];
 
+      mkMiseBootstrapFhs =
+        pkgs:
+        pkgs.buildFHSEnv {
+          name = "pc-setup-mise-bootstrap-fhs";
+
+          targetPkgs =
+            fhsPkgs:
+            (bootstrapPackages fhsPkgs)
+            ++ (with fhsPkgs; [
+              bashInteractive
+              cacert
+              coreutils
+              curl
+              file
+              findutils
+              gawk
+              gcc
+              git
+              gnugrep
+              gnumake
+              gnused
+              gzip
+              openssl
+              pkg-config
+              python3
+              stdenv.cc.cc.lib
+              tar
+              unzip
+              which
+              xz
+              zlib
+            ]);
+
+          runScript = "bash";
+        };
+
       mkBootstrapShell =
         system:
         let
@@ -74,6 +110,7 @@
         system:
         let
           pkgs = mkPkgs system;
+          miseBootstrapFhs = mkMiseBootstrapFhs pkgs;
           app = pkgs.writeShellApplication {
             name = "pc-setup-bootstrap";
             runtimeInputs = bootstrapPackages pkgs;
@@ -93,8 +130,12 @@
                 printf 'using existing pc-setup checkout: %s\n' "$pc_setup_dir"
               fi
 
-              printf 'installing portable global CLI baseline through mise\n'
-              "$pc_setup_dir/scripts/apply-global-mise.sh"
+              printf 'installing portable global CLI baseline through mise (NixOS FHS compatibility)\n'
+              MISE_ALL_COMPILE=0 \
+                MISE_NODE_COMPILE=0 \
+                MISE_PYTHON_COMPILE=0 \
+                "${miseBootstrapFhs}/bin/pc-setup-mise-bootstrap-fhs" \
+                "$pc_setup_dir/scripts/apply-global-mise.sh"
 
               if [[ ! -e "$dotfiles_dir" ]]; then
                 printf 'cloning dotfiles -> %s\n' "$dotfiles_dir"
@@ -112,7 +153,10 @@
                 exit 1
               fi
 
-              exec mise -C "$HOME" exec -- "$dotfiles_dir/script/bootstrap"
+              DOTFILES_BOOTSTRAP="$dotfiles_dir/script/bootstrap" \
+                MISE_ALL_COMPILE=0 \
+                "${miseBootstrapFhs}/bin/pc-setup-mise-bootstrap-fhs" \
+                -lc 'exec mise -C "$HOME" exec -- "$DOTFILES_BOOTSTRAP"'
             '';
           };
         in
@@ -175,6 +219,10 @@
         bootstrap = mkBootstrapApp system;
       });
 
+      packages = forAllSystems (system: {
+        mise-bootstrap-fhs = mkMiseBootstrapFhs (mkPkgs system);
+      });
+
       devShells = forAllSystems (system: {
         default = mkBootstrapShell system;
       });
@@ -211,6 +259,7 @@
         in
         {
           bootstrap-shell = self.devShells.${system}.default;
+          bootstrap-fhs = self.packages.${system}.mise-bootstrap-fhs;
           home-profile = homeProfile.activationPackage;
           nixos-profile = nixosProfile.config.system.build.toplevel;
         }
