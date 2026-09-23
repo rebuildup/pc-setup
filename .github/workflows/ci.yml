@@ -62,6 +62,26 @@ jobs:
           test "$(cat "$checkout/state.txt")" = test-ref
           test "$(git -C "$checkout" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}')" = origin/test-ref
 
+      - name: Validate NixOS shell init convergence
+        run: |
+          set -euo pipefail
+
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+
+          export HOME="$root/home"
+          baseline="$HOME/.local/state/pc-setup/nix-user-baseline"
+          mkdir -p "$baseline/bin"
+
+          bash ./platforms/nixos/configure-shell.sh "$baseline"
+          bash ./platforms/nixos/configure-shell.sh "$baseline"
+
+          test "$(grep -Fc '# >>> pc-setup shell init >>>' "$HOME/.bashrc")" = 1
+          test "$(grep -Fc '# >>> pc-setup shell init >>>' "$HOME/.profile")" = 1
+          grep -Fq '.config/pc-setup/shell-init.bash' "$HOME/.bashrc"
+          grep -Fq 'nix-user-baseline/bin' "$HOME/.config/pc-setup/shell-init.bash"
+          grep -Fq 'wt config shell init bash' "$HOME/.config/pc-setup/shell-init.bash"
+
       - name: Validate bounded mise install retry
         run: |
           set -euo pipefail
@@ -435,6 +455,15 @@ jobs:
 
       - name: Build NixOS mise compatibility wrapper
         run: nix build --no-link --no-write-lock-file ./platforms/nixos#mise-bootstrap-fhs
+
+      - name: Build NixOS persistent CLI wrapper baseline
+        run: |
+          nix build --no-write-lock-file --out-link result-user-baseline ./platforms/nixos#user-baseline
+          for command in mise claude opencode node cargo gcloud; do
+            test -x "result-user-baseline/bin/$command"
+          done
+          grep -Fq 'mise -C' "$(readlink -f result-user-baseline/bin/claude)"
+          grep -Fq 'pc-setup-mise-bootstrap-fhs' "$(readlink -f result-user-baseline/bin/opencode)"
 
       - name: Validate nix-ld boundary
         run: grep -F 'programs.nix-ld.enable = true;' platforms/nixos/modules/system.nix
