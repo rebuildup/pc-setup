@@ -95,14 +95,15 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Refresh-Path
 }
 
-if (-not (Get-Command mise -ErrorAction SilentlyContinue)) {
+$mise = Get-Command mise -CommandType Application -All -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $mise) {
     Write-Step 'Installing mise'
     & winget install --id jdx.mise --exact --source winget --accept-package-agreements --accept-source-agreements --disable-interactivity
     if ($LASTEXITCODE -ne 0) { throw "mise installation failed with exit code $LASTEXITCODE" }
     Refresh-Path
+    $mise = Get-Command mise -CommandType Application -All -ErrorAction SilentlyContinue | Select-Object -First 1
 }
 
-$mise = Get-Command mise -ErrorAction SilentlyContinue
 if (-not $mise) {
     throw 'mise was installed but is not visible on PATH. Open a new PowerShell and rerun bootstrap.ps1.'
 }
@@ -197,7 +198,7 @@ else {
 
 Push-Location $applyDir
 try {
-    & $mise.Source bootstrap --yes
+    & $mise bootstrap --yes
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
