@@ -76,10 +76,7 @@ mise activate pwsh | Out-String | Invoke-Expression
 '@
 }
 
-$scriptRoot = $null
-if ($MyInvocation.MyCommand.Path) {
-    $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-}
+$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { $null }
 
 $useLocalCheckout = $false
 if ($scriptRoot) {
