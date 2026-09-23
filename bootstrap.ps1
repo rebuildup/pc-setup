@@ -5,6 +5,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $RepoUrl = if ($env:PC_SETUP_REPO_URL) { $env:PC_SETUP_REPO_URL } else { 'https://github.com/rebuildup/pc-setup.git' }
+$RepoRef = if ($env:PC_SETUP_REF) { $env:PC_SETUP_REF } else { '1' }
 $TargetDir = if ($env:PC_SETUP_DIR) { $env:PC_SETUP_DIR } else { Join-Path $HOME 'src\pc-setup' }
 
 function Write-Step {
@@ -75,30 +76,55 @@ mise activate pwsh | Out-String | Invoke-Expression
 '@
 }
 
-$scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
-$localConfig = Join-Path $scriptRoot 'mise.toml'
+$scriptRoot = $null
+if ($MyInvocation.MyCommand.Path) {
+    $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+}
 
-if ((Test-Path -LiteralPath $localConfig) -and (Test-Path -LiteralPath (Join-Path $scriptRoot '.git'))) {
+$useLocalCheckout = $false
+if ($scriptRoot) {
+    $localConfig = Join-Path $scriptRoot 'mise.toml'
+    $localGit = Join-Path $scriptRoot '.git'
+    $useLocalCheckout = (Test-Path -LiteralPath $localConfig) -and (Test-Path -LiteralPath $localGit)
+}
+
+if ($useLocalCheckout) {
     Write-Step 'Applying pc-setup from current checkout'
-    Push-Location $scriptRoot
-    try {
-        & $mise.Source bootstrap --yes
-        if ($LASTEXITCODE -ne 0) {
-            exit $LASTEXITCODE
-        }
-    }
-    finally {
-        Pop-Location
-    }
+    $applyDir = $scriptRoot
 }
 else {
-    Write-Step 'Bootstrapping pc-setup with mise'
+    Write-Step "Preparing pc-setup checkout ($RepoRef)"
     $parent = Split-Path -Parent $TargetDir
     New-Item -ItemType Directory -Path $parent -Force | Out-Null
-    & $mise.Source bootstrap --from $RepoUrl --from-dir $TargetDir --yes
+
+    if (-not (Test-Path -LiteralPath $TargetDir)) {
+        & git clone --branch $RepoRef --single-branch $RepoUrl $TargetDir
+        if ($LASTEXITCODE -ne 0) {
+            throw "pc-setup clone failed with exit code $LASTEXITCODE"
+        }
+    }
+    elseif (-not (Test-Path -LiteralPath (Join-Path $TargetDir '.git'))) {
+        throw "refusing to overwrite non-git path: $TargetDir"
+    }
+    else {
+        $currentOrigin = (& git -C $TargetDir remote get-url origin 2>$null)
+        if ($currentOrigin -ne $RepoUrl) {
+            throw "existing checkout has unexpected origin: $currentOrigin"
+        }
+    }
+
+    $applyDir = $TargetDir
+}
+
+Push-Location $applyDir
+try {
+    & $mise.Source bootstrap --yes
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
+}
+finally {
+    Pop-Location
 }
 
 Install-StoreApps
