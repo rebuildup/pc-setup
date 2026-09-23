@@ -87,6 +87,14 @@ if [[ -z "$mise_bin" ]]; then
   exit 1
 fi
 
+run_mise_bootstrap() {
+  if [[ -r /dev/tty && -w /dev/tty ]]; then
+    exec "$mise_bin" bootstrap --yes </dev/tty
+  fi
+
+  exec "$mise_bin" bootstrap --yes
+}
+
 script_dir=""
 if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
   script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
@@ -95,7 +103,7 @@ fi
 if [[ -n "$script_dir" && -f "$script_dir/mise.toml" && -d "$script_dir/.git" ]]; then
   log "Applying pc-setup from current checkout"
   cd "$script_dir"
-  exec "$mise_bin" bootstrap --yes
+  run_mise_bootstrap
 fi
 
 log "Preparing pc-setup checkout ($repo_ref)"
@@ -120,4 +128,4 @@ else
 fi
 
 cd "$target_dir"
-exec "$mise_bin" bootstrap --yes
+run_mise_bootstrap
