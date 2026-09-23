@@ -2,6 +2,7 @@
 set -euo pipefail
 
 repo_url="${PC_SETUP_REPO_URL:-https://github.com/rebuildup/pc-setup.git}"
+repo_ref="${PC_SETUP_REF:-1}"
 target_dir="${PC_SETUP_DIR:-$HOME/src/pc-setup}"
 
 log() {
@@ -87,8 +88,8 @@ if [[ -z "$mise_bin" ]]; then
 fi
 
 script_dir=""
-if cd -- "$(dirname -- "${BASH_SOURCE[0]}")" 2>/dev/null; then
-  script_dir="$(pwd -P)"
+if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
+  script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 fi
 
 if [[ -n "$script_dir" && -f "$script_dir/mise.toml" && -d "$script_dir/.git" ]]; then
@@ -97,6 +98,21 @@ if [[ -n "$script_dir" && -f "$script_dir/mise.toml" && -d "$script_dir/.git" ]]
   exec "$mise_bin" bootstrap --yes
 fi
 
-log "Bootstrapping pc-setup with mise"
+log "Preparing pc-setup checkout ($repo_ref)"
 mkdir -p "$(dirname "$target_dir")"
-exec "$mise_bin" bootstrap --from "$repo_url" --from-dir "$target_dir" --yes
+
+if [[ ! -e "$target_dir" ]]; then
+  git clone --branch "$repo_ref" --single-branch "$repo_url" "$target_dir"
+elif [[ ! -d "$target_dir/.git" ]]; then
+  printf 'refusing to overwrite non-git path: %s\n' "$target_dir" >&2
+  exit 1
+else
+  current_origin="$(git -C "$target_dir" remote get-url origin 2>/dev/null || true)"
+  if [[ "$current_origin" != "$repo_url" ]]; then
+    printf 'existing checkout has unexpected origin: %s\n' "$current_origin" >&2
+    exit 1
+  fi
+fi
+
+cd "$target_dir"
+exec "$mise_bin" bootstrap --yes
