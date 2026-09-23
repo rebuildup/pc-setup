@@ -49,7 +49,13 @@ NixOSではgeneric Linux binaryをbare hostから直接実行できないため�
 
 install 後は `user-baseline` package を persistent out-link `~/.local/state/pc-setup/nix-user-baseline` として構築します。この package は `claude` / `opencode` / `node` / `cargo` / `gcloud` 等の command wrapper を持ち、各 command を FHS environment 内の `mise -C "$PWD" exec` へ渡します。これにより system profile / nix-ld 適用前でも通常 shell からCLIを実行でき、project-local mise configも反映されます。
 
-Bash は `~/.config/pc-setup/shell-init.bash` を source し、この wrapper baseline を PATH に追加します。bootstrap は parent shell の環境を変更できないため、完了後は新しい shell を開くか、その init file を source します。
+Bash は `~/.config/pc-setup/shell-init.bash` を source し、この wrapper baseline を PATH に追加します。bootstrap は parent shell の環境を変更できないため、wrapper 構築直後に必ず次の案内を表示します。verify が失敗してもこの案内は再表示されます。
+
+```bash
+source ~/.config/pc-setup/shell-init.bash
+```
+
+新しい shell を開く場合は手動 source は不要です。
 
 system profile適用後は `programs.nix-ld.enable = true` も利用できます。NixOS全体へ `LD_LIBRARY_PATH` をexportする方式は採りません。
 
@@ -62,6 +68,8 @@ Nix/Home Manager system/build set:
 - zip / unzip / xz / rsync
 - GCC / Clang / LLDB / CMake / Ninja / Make / pkg-config
 - mise
+
+remote bootstrap の persistent `user-baseline` にも、通常 shell の verify に必要な Nix-native host/build tools を含めます。したがって Home Manager の system profile 適用前でも `wget`, `gcc`, `clang`, `lldb`, `cmake`, `ninja`, `make`, `pkg-config` が利用可能です。
 
 The bootstrap Flake additionally provides temporary GitHub CLI / Infisical / jq / Neovim before the global layer is active.
 
