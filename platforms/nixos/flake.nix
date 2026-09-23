@@ -79,7 +79,7 @@
             runtimeInputs = bootstrapPackages pkgs;
             text = ''
               pc_setup_dir="''${PC_SETUP_DIR:-$HOME/src/pc-setup}"
-              pc_setup_ref="''${PC_SETUP_REF:-4}"
+              pc_setup_ref="''${PC_SETUP_REF:-main}"
               dotfiles_dir="''${DOTFILES_DIR:-$HOME/.dotfiles}"
 
               if [[ ! -e "$pc_setup_dir" ]]; then
