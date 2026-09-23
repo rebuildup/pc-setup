@@ -1,40 +1,9 @@
 # Cross-platform machine bootstrap for Ubuntu, macOS, and Windows.
-# NixOS keeps Flake/Home Manager as its machine-state source of truth.
-
-[tools]
-node = "24"
-python = "3.14"
-bun = "latest"
-pnpm = "latest"
-rust = "stable"
-
-gh = "latest"
-infisical = "latest"
-claude = "latest"
-codex = "latest"
-opencode = "latest"
-worktrunk = "latest"
-herdr = "latest"
-
-gcloud = { version = "latest", os = ["linux", "macos"] }
-aws-cli = { version = "latest", os = ["linux", "macos"] }
-supabase = "latest"
-vercel = { version = "latest", depends = ["node"] }
-
-"npm:npkill" = { version = "latest", depends = ["node"] }
-"npm:@alibaba-group/open-code-review" = { version = "latest", depends = ["node"] }
-"cargo:cargo-clean-all" = { version = "latest", depends = ["rust"] }
-
-ripgrep = "latest"
-fd = "latest"
-fzf = "latest"
-jq = "latest"
-bat = "latest"
-shellcheck = "latest"
-neovim = "latest"
+# Portable machine-global CLI/runtime defaults live in mise.global.toml.
+# NixOS keeps Flake/Home Manager as the system/build-state source of truth.
 
 [bootstrap.packages]
-# Ubuntu / Debian-family host foundation. Fast-moving portable CLIs belong in [tools].
+# Ubuntu / Debian-family host foundation. Portable CLIs belong in mise.global.toml.
 "apt:ca-certificates" = { os = "linux" }
 "apt:curl" = { os = "linux" }
 "apt:wget" = { os = "linux" }
@@ -67,7 +36,7 @@ neovim = "latest"
 "brew:xz" = { os = "macos" }
 "brew:rsync" = { os = "macos" }
 
-# Windows applications and native SDKs. Portable developer CLIs are in [tools].
+# Windows applications and native SDKs. Portable developer CLIs are in mise.global.toml.
 "winget:Git.Git" = { os = "windows" }
 "winget:Microsoft.PowerShell" = { os = "windows" }
 "winget:Microsoft.DotNet.SDK.10" = { os = "windows" }
@@ -95,6 +64,6 @@ neovim = "latest"
 "~/.dotfiles" = { url = "https://github.com/rebuildup/dotfiles.git", ref = "main" }
 
 [tasks.bootstrap]
-description = "Finish personal user configuration after machine tools are installed"
-run = "bash ~/.dotfiles/script/bootstrap"
-run_windows = "Write-Host 'Machine tools/apps are installed. Native Windows dotfiles linking is not canonical yet; apply dotfiles inside WSL until the Windows link adapter is enabled.'"
+description = "Apply machine-global mise tools and finish personal user configuration"
+run = "bash scripts/apply-global-mise.sh && mise -C \"$HOME\" exec -- bash ~/.dotfiles/script/bootstrap"
+run_windows = "pwsh -NoProfile -File scripts/apply-global-mise.ps1"
