@@ -165,10 +165,23 @@ else {
         }
 
         Write-Step "Updating existing pc-setup checkout to $RepoRef"
-        & git -C $TargetDir fetch origin $RepoRef
+        $remoteTrackingRef = "refs/remotes/origin/$RepoRef"
+        $fetchRefSpec = "refs/heads/${RepoRef}:$remoteTrackingRef"
+
+        & git -C $TargetDir fetch origin $fetchRefSpec
         if ($LASTEXITCODE -ne 0) { throw "git fetch failed with exit code $LASTEXITCODE" }
-        & git -C $TargetDir switch $RepoRef
+
+        & git -C $TargetDir show-ref --verify --quiet "refs/heads/$RepoRef"
+        $localBranchExists = $LASTEXITCODE -eq 0
+
+        if ($localBranchExists) {
+            & git -C $TargetDir switch $RepoRef
+        }
+        else {
+            & git -C $TargetDir switch --track -c $RepoRef "origin/$RepoRef"
+        }
         if ($LASTEXITCODE -ne 0) { throw "git switch failed with exit code $LASTEXITCODE" }
+
         & git -C $TargetDir merge --ff-only "origin/$RepoRef"
         if ($LASTEXITCODE -ne 0) { throw "git fast-forward failed with exit code $LASTEXITCODE" }
     }
