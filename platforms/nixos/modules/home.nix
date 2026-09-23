@@ -31,6 +31,7 @@ in
   ];
 
   home.sessionPath = [
+    "$HOME/.local/state/pc-setup/nix-user-baseline/bin"
     "$HOME/.local/bin"
   ];
 
@@ -43,10 +44,6 @@ in
     enable = true;
 
     initExtra = ''
-      if command -v mise >/dev/null 2>&1; then
-        eval "$(mise activate bash)"
-      fi
-
       if command -v wt >/dev/null 2>&1; then
         eval "$(wt config shell init bash)"
       fi
