@@ -27,7 +27,7 @@ ensure_source() {
   local rc_file="$1"
   local begin='# >>> pc-setup shell init >>>'
   local end='# <<< pc-setup shell init <<<'
-  local source_line='[[ -r "$HOME/.config/pc-setup/shell-init.bash" ]] && source "$HOME/.config/pc-setup/shell-init.bash"'
+  local source_line="[[ -r \"\$HOME/.config/pc-setup/shell-init.bash\" ]] && source \"\$HOME/.config/pc-setup/shell-init.bash\""
   local tmp
 
   touch "$rc_file"
