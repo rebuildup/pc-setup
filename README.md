@@ -1,119 +1,204 @@
 # pc-setup
 
-普段使っているPC・OSごとの開発環境を、別マシンや新しいOS環境でも再現できるように保存するための repository です。
+自分の開発マシンをOSごとに再現するための personal environment source of truth。
 
-一般的な「おすすめツール集」ではなく、**実際に使っている環境の desired state と、その再現手順を管理する personal environment source of truth** として扱います。
+目的は「各OSのpackage managerを覚えること」ではなく、fresh machineから最短のentrypointで普段の開発環境を再現すること。
 
-## Platforms
+## Setup
 
-| Platform | Status | Entry point |
-| --- | --- | --- |
-| Ubuntu on WSL2 | Active | [`platforms/ubuntu-wsl/README.md`](./platforms/ubuntu-wsl/README.md) |
-| Windows 11 | Active | [`platforms/windows-11/README.md`](./platforms/windows-11/README.md) |
-| macOS | Not captured yet | future work |
+### NixOS / NixOS-WSL
 
-現在の active platform は Ubuntu/WSL2 と Windows 11 です。
-
-## Repository model
-
-各 platform は原則として次の3層で管理します。
-
-1. **Guide** — 人間が読んで理由・順序・手動作業まで理解できる手順
-2. **Bootstrap** — 再実行可能な自動セットアップ
-3. **Verify** — desired state を満たしているか確認する deterministic check
-
-時点依存の実バージョンは desired state と分離し、必要な場合だけ [`snapshots/`](./snapshots/README.md) に保存します。
-
-```text
-.
-├── platforms/
-│   ├── ubuntu-wsl/
-│   │   ├── README.md
-│   │   ├── apt-packages.txt
-│   │   ├── bootstrap.sh
-│   │   └── verify.sh
-│   └── windows-11/
-│       ├── README.md
-│       ├── winget-packages.txt
-│       ├── store-packages.txt
-│       ├── manual-apps.md
-│       ├── bootstrap.ps1
-│       ├── verify.ps1
-│       └── snapshot.ps1
-├── config/
-│   └── shell/
-│       └── env.sh
-├── docs/
-│   └── adr/
-├── snapshots/
-├── scripts/
-├── AGENTS.md
-├── CLAUDE.md
-└── CONTRIBUTING.md
-```
-
-## Ubuntu/WSL quick start
-
-WSL2 上の Ubuntu で、この repository 自体も Linux filesystem 側に clone します。
+NixOSだけはmachine stateをNixで管理する。
 
 ```bash
-mkdir -p ~/src
-cd ~/src
-git clone https://github.com/rebuildup/pc-setup.git
-cd pc-setup
+nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+```
 
-./platforms/ubuntu-wsl/bootstrap.sh
-exec bash
+Flake / Home Managerがcanonicalであり、machine package installationをmiseへ移さない。
+
+### Ubuntu / Linux
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.sh | bash
+```
+
+### macOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.sh | bash
+```
+
+fresh macOSでGitがまだ使えない場合はApple Command Line Toolsの導入が先に必要になる。bootstrapが検出して案内する。
+
+### Windows 11
+
+PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.ps1 | iex
+```
+
+WinGet経由でGitとmiseを用意し、その後のdesired stateをmiseへ委譲する。
+
+## Bootstrap model
+
+NixOS以外はmiseを共通orchestratorとして使う。
+
+```text
+fresh machine
+  -> minimal Git + mise
+  -> mise bootstrap
+     -> host packages / GUI apps
+     -> ~/.dotfiles checkout
+     -> portable dev tools
+     -> dotfiles bootstrap/auth
+     -> verify
+```
+
+root `mise.toml` が共通desired state。
+
+### mise `[tools]`
+
+OSに依存しにくい開発CLI/runtimeは一度だけ宣言する。
+
+現在のbaseline:
+
+- Node.js 24
+- Python
+- Bun
+- Rust
+- GitHub CLI
+- Infisical CLI
+- Claude Code
+- Codex
+- OpenCode
+- Worktrunk
+- ripgrep / fd / fzf / jq / bat
+- ShellCheck
+- Neovim
+
+project固有versionは各projectの `mise.toml` / Flake / toolchain file等が所有する。ここはmachine-wide default。
+
+### mise `[bootstrap.packages]`
+
+OS固有package/applicationはnative package managerを使うが、人間が直接package一覧を実行しない。
+
+- Ubuntu: APT
+- macOS: mise built-in Homebrew formula/cask backend
+- Windows: WinGet
+
+HomebrewはmacOS setupのentrypointではなくbackendの1つ。
+
+## dotfiles / secrets
+
+miseは `rebuildup/dotfiles` を:
+
+```text
+~/.dotfiles
+```
+
+へcloneする。
+
+Unixではportable tool installation後に:
+
+```bash
+~/.dotfiles/script/bootstrap
+```
+
+を実行し、以下を引き継ぐ。
+
+- Git identity
+- GitHub authentication
+- Infisical authentication
+- private agent-config submodules
+- user-level symlink configuration
+
+Secret valuesはpc-setupへ保存しない。portable secretのsource of truthはInfisical。
+
+Windows nativeのdotfiles symlinkはcross-platform adapterが完成するまで自動適用しない。Windows machine setup自体はmiseで進め、user-level agent configは当面WSL側をcanonicalとする。
+
+## Platform state
+
+| Platform | Machine bootstrap | Status |
+| --- | --- | --- |
+| Ubuntu / WSL2 | mise + APT | Active |
+| NixOS / NixOS-WSL | Flake + Home Manager | Active |
+| Windows 11 | mise + WinGet | Active / native dotfiles linking pending |
+| macOS | mise + Homebrew backend | Candidate until actual Mac reconciliation |
+
+Platform固有のmanual boundary / verificationは各directoryに残す。
+
+```text
+platforms/
+  ubuntu-wsl/
+  nixos/
+  windows-11/
+plans/
+  macos/
+```
+
+## Existing checkout
+
+repositoryをすでにcloneしている場合はrootから:
+
+Unix:
+
+```bash
+./bootstrap.sh
+```
+
+Windows:
+
+```powershell
+.\bootstrap.ps1
+```
+
+miseがcurrent checkoutの `mise.toml` を適用する。
+
+## Verification
+
+共通setup後もplatform固有verifyを実行する。
+
+Ubuntu / WSL:
+
+```bash
 ./platforms/ubuntu-wsl/verify.sh
 ```
 
-bootstrap は以下を整備します。
+NixOS:
 
-- base CLI / build toolchain
-- GitHub CLI
-- Rust / Cargo
-- Bun
-- Claude Code
-- OpenCode
-- Worktrunk
-- ripgrep / fd / fzf / jq / bat 等のCLI
-- `~/.local/bin`, Bun, Cargo を含む shell PATH
-- `~/src` workspace
+```bash
+./platforms/nixos/verify.sh
+```
 
-認証は意図的に自動化しません。インストール後に GitHub / Claude / OpenCode の各アカウントへ対話的にログインします。詳細は [`platforms/ubuntu-wsl/README.md`](./platforms/ubuntu-wsl/README.md) を参照してください。
-
-## Windows 11 quick start
-
-Windows は CLI だけでなく GUI / creative / communication / input tooling まで desired state として管理します。
+Windows:
 
 ```powershell
-.\platforms\windows-11\bootstrap.ps1
 .\platforms\windows-11\verify.ps1
 ```
 
-実機 inventory は `snapshot.ps1` で取得できます。Adobe After Effects / Illustrator / Cubase / ChgKey など package manager 外の項目も明示的に管理します。
+bootstrapが終了したことと、desired stateを満たしていることは別。verifyを通してsetup完了とする。
 
 ## Principles
 
-- password、API key、token、cookie、private key 等は commit しない。
-- WSL の開発 repository は原則 `/mnt/c` ではなく Linux filesystem (`~/src` 等) に置く。
-- official installer / official package repository を優先する。
-- 「latest stable を追うもの」と「version pin するもの」を区別する。
-- setup 手順の変更理由が長期的に残る場合は ADR を追加する。
-- automation が壊れても人間が README から復旧できる状態を維持する。
-- bootstrap の成功だけで setup 完了とせず、verify の結果を確認する。
+- setup entrypointを短く保つ
+- portable tool inventoryをOSごとに重複させない
+- host package managerはmiseのbackendとして利用する
+- NixOSではNixをmachine stateのSoTとして維持する
+- credentials / token / private keyをrepositoryへ保存しない
+- project-specific dependencyをmachine-wide baselineへ集約しない
+- actual machineとの差異はverify/snapshotで検出する
+- automationが壊れた場合でもREADME/ADRから復旧可能にする
 
 ## Decisions
 
-- [`ADR-0001`](./docs/adr/ADR-0001.md) — personal environment を platform guide + bootstrap + verify で管理する
-- [`ADR-0002`](./docs/adr/ADR-0002.md) — Ubuntu/WSL2 の baseline toolchain と installation channel
-- [`ADR-0004`](./docs/adr/ADR-0004.md) — Windows の complete application inventory と mixed installation channels
+- [ADR-0001](./docs/adr/ADR-0001.md) — personal environment source of truth
+- [ADR-0002](./docs/adr/ADR-0002.md) — historical Ubuntu/WSL installation-channel decision
+- [ADR-0006](./docs/adr/ADR-0006.md) — mise cross-platform bootstrap orchestrator
 
 ## Development
 
-この repository 自体の変更は `project-init` の release-driven workflow に従います。詳細は [`CONTRIBUTING.md`](./CONTRIBUTING.md) と [`AGENTS.md`](./AGENTS.md) を参照してください。
-
-Local validation:
+このrepository自体の変更は `project-init` のrelease-driven workflowに従う。
 
 ```bash
 ./scripts/ci.sh

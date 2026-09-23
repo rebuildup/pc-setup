@@ -26,6 +26,12 @@ jobs:
       - name: Validate repository
         run: ./scripts/ci.sh
 
+      - name: Validate mise configuration
+        run: |
+          curl -fsSL https://mise.run | sh
+          "$HOME/.local/bin/mise" trust
+          "$HOME/.local/bin/mise" config >/dev/null
+
   powershell:
     runs-on: windows-latest
 
