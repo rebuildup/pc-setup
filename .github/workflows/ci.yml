@@ -459,11 +459,17 @@ jobs:
       - name: Build NixOS persistent CLI wrapper baseline
         run: |
           nix build --no-write-lock-file --out-link result-user-baseline ./platforms/nixos#user-baseline
-          for command in mise claude opencode node cargo gcloud; do
+          for command in mise claude opencode node cargo gcloud wget gcc clang lldb cmake ninja make pkg-config; do
             test -x "result-user-baseline/bin/$command"
           done
           grep -Fq 'mise -C' "$(readlink -f result-user-baseline/bin/claude)"
           grep -Fq 'pc-setup-mise-bootstrap-fhs' "$(readlink -f result-user-baseline/bin/opencode)"
+
+      - name: Validate bootstrap shell activation guidance
+        run: |
+          grep -Fq 'this process cannot modify the parent shell PATH' platforms/nixos/flake.nix
+          grep -Fq 'source %s/.config/pc-setup/shell-init.bash' platforms/nixos/flake.nix
+          grep -Fq 'bootstrap is not complete' platforms/nixos/flake.nix
 
       - name: Validate nix-ld boundary
         run: grep -F 'programs.nix-ld.enable = true;' platforms/nixos/modules/system.nix
