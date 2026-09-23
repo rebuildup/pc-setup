@@ -6,15 +6,12 @@
 
 ## Setup
 
-> 0.1.0 is still in its release stack. Until it reaches `main`, setup commands intentionally pin branch `1` for the common mise bootstrap and branch `4` for NixOS. After release these references return to `main`.
-
-
 ### NixOS / NixOS-WSL
 
 NixOSだけはmachine stateをNixで管理する。
 
 ```bash
-nix run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
+nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 Flake / Home Managerがsystem/build packageのcanonical sourceです。portableなユーザーCLIは他OSと同じ `mise.global.toml` を使い、NixOS bootstrapでも同じglobal configを適用します。
@@ -22,13 +19,13 @@ Flake / Home Managerがsystem/build packageのcanonical sourceです。portable�
 ### Ubuntu / Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/1/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.sh | bash
 ```
 
 ### macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/1/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.sh | bash
 ```
 
 fresh macOSでGitがまだ使えない場合はApple Command Line Toolsの導入が先に必要になる。bootstrapが検出して案内する。
@@ -38,7 +35,7 @@ fresh macOSでGitがまだ使えない場合はApple Command Line Toolsの導入
 PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/rebuildup/pc-setup/1/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.ps1 | iex
 ```
 
 WinGet経由でGitとmiseを用意し、その後のdesired stateをmiseへ委譲する。
