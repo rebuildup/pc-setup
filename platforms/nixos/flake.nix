@@ -92,6 +92,59 @@
           runScript = "bash";
         };
 
+      miseWrappedCommands = [
+        "node"
+        "python"
+        "python3"
+        "bun"
+        "pnpm"
+        "rustc"
+        "cargo"
+        "rustfmt"
+        "cargo-clippy"
+        "rust-analyzer"
+        "gh"
+        "infisical"
+        "claude"
+        "codex"
+        "opencode"
+        "wt"
+        "herdr"
+        "gcloud"
+        "aws"
+        "supabase"
+        "vercel"
+        "npkill"
+        "ocr"
+        "cargo-clean-all"
+        "rg"
+        "fd"
+        "fzf"
+        "jq"
+        "bat"
+        "shellcheck"
+        "nvim"
+      ];
+
+      mkMiseUserBaseline =
+        pkgs:
+        let
+          miseFhs = mkMiseBootstrapFhs pkgs;
+          mkWrapper =
+            command:
+            pkgs.writeShellScriptBin command ''
+              exec "${miseFhs}/bin/pc-setup-mise-bootstrap-fhs" \
+                -c "exec mise -C \"\$PWD\" exec -- ${command} \"\$@\"" \
+                pc-setup-mise-wrapper "$@"
+            '';
+        in
+        pkgs.symlinkJoin {
+          name = "pc-setup-nixos-user-baseline";
+          paths = [
+            pkgs.pcSetupUnstable.mise
+          ] ++ map mkWrapper miseWrappedCommands;
+        };
+
       mkBootstrapShell =
         system:
         let
@@ -149,6 +202,24 @@
                 MISE_ALL_COMPILE=0 \
                 "${miseBootstrapFhs}/bin/pc-setup-mise-bootstrap-fhs" \
                 -c "exec mise -C \"\$HOME\" exec -- \"\$DOTFILES_BOOTSTRAP\""
+
+              user_baseline_link="$HOME/.local/state/pc-setup/nix-user-baseline"
+              mkdir -p "$(dirname "$user_baseline_link")"
+
+              printf 'building persistent NixOS CLI wrapper baseline\n'
+              nix --extra-experimental-features 'nix-command flakes' \
+                build --no-write-lock-file \
+                --out-link "$user_baseline_link" \
+                "$pc_setup_dir/platforms/nixos#user-baseline"
+
+              bash "$pc_setup_dir/platforms/nixos/configure-shell.sh" "$user_baseline_link"
+
+              printf 'verifying pc-setup NixOS baseline through persistent wrappers\n'
+              PATH="$user_baseline_link/bin:$PATH" \
+                "$pc_setup_dir/platforms/nixos/verify.sh"
+
+              printf '\npc-setup bootstrap complete\n'
+              printf 'open a new shell or run: source %s/.config/pc-setup/shell-init.bash\n' "$HOME"
             '';
           };
         in
@@ -213,6 +284,7 @@
 
       packages = forAllSystems (system: {
         mise-bootstrap-fhs = mkMiseBootstrapFhs (mkPkgs system);
+        user-baseline = mkMiseUserBaseline (mkPkgs system);
       });
 
       devShells = forAllSystems (system: {
@@ -252,6 +324,7 @@
         {
           bootstrap-shell = self.devShells.${system}.default;
           bootstrap-fhs = self.packages.${system}.mise-bootstrap-fhs;
+          user-baseline = self.packages.${system}.user-baseline;
           home-profile = homeProfile.activationPackage;
           nixos-profile = nixosProfile.config.system.build.toplevel;
         }
