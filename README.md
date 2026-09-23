@@ -14,18 +14,14 @@ fresh NixOS / NixOS-WSL では `nix-command` / `flakes` がまだ無効な場合
 
 ```bash
 nix --extra-experimental-features 'nix-command flakes' \
-  run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+  run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 `--extra-experimental-features` は feature list を1つの引数として受け取るため、`'nix-command flakes'` は引用符でまとめる。`--extra-experimental-features nix-command flakes` と書くと `flakes` が別引数として解釈され、Flakes は有効にならない。
 
-pc-setup の NixOS system profile 適用後は `nix-command` / `flakes` が恒久的に有効になるため、以後は通常の:
+remote bootstrap Flake 自体には `flake.lock` を置いていない。GitHub の remote flake は read-only なので、初回 bootstrap では `--no-write-lock-file` を付け、解決した input lock をその場限りで使用する。exact input revision は actual host 側の concrete `flake.lock` が所有する。
 
-```bash
-nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
-```
-
-でよい。
+pc-setup の NixOS system profile 適用後は `nix-command` / `flakes` が恒久的に有効になる。ただし remote bootstrap を再実行する場合は `--no-write-lock-file` は引き続き必要。
 
 Flake / Home Managerがsystem/build packageのcanonical sourceです。portableなユーザーCLIは他OSと同じ `mise.global.toml` を使い、NixOS bootstrapでも同じglobal configを適用します。
 
