@@ -8,6 +8,8 @@
 | --- | --- | --- |
 | [ADR-0001](./ADR-0001.md) | Accepted | Platform guide + bootstrap + verify を canonical reproduction model とする |
 | [ADR-0002](./ADR-0002.md) | Superseded | Ubuntu/WSL2 baseline toolchain と旧 imperative installation channel |
+| [ADR-0004](./ADR-0004.md) | Accepted | Windows 11のGUI/creative/development inventory boundary |
+| [ADR-0005](./ADR-0005.md) | Accepted | macOS は real-machine observation まで candidate profile とする |
 | [ADR-0003](./ADR-0003.md) | Accepted | NixOSをFlake + Home Managerで宣言的に再現 |
 | [ADR-0006](./ADR-0006.md) | Accepted | NixOS以外のcross-platform bootstrapをmiseへ統一 |
 
