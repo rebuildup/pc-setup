@@ -148,7 +148,7 @@
               DOTFILES_BOOTSTRAP="$dotfiles_dir/script/bootstrap" \
                 MISE_ALL_COMPILE=0 \
                 "${miseBootstrapFhs}/bin/pc-setup-mise-bootstrap-fhs" \
-                -c 'exec mise -C "$HOME" exec -- "$DOTFILES_BOOTSTRAP"'
+                -c "exec mise -C \"\$HOME\" exec -- \"\$DOTFILES_BOOTSTRAP\""
             '';
           };
         in
