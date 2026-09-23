@@ -47,7 +47,11 @@ pc-setup の system profile 適用後は `nix-command` / `flakes` が恒久的�
 
 NixOSではgeneric Linux binaryをbare hostから直接実行できないため、このmise install phaseだけはFlakeが用意する一時FHS compatibility environment内で実行します。bootstrap中は `MISE_ALL_COMPILE=0`（Node/Pythonもcompile=false）として、miseのNixOS source-build fallbackではなくprebuilt artifactを使用します。これによりBun / rustup / Node等のinstaller child processも同じFHS environment内で動作します。
 
-system profile適用後は `programs.nix-ld.enable = true` によりmise-managed binaryを通常shellから実行できます。NixOS全体へ `LD_LIBRARY_PATH` をexportする方式は採りません。個別 package 名を覚えたり、`nix-shell -p ...` を組み立てたりしません。
+install 後は `user-baseline` package を persistent out-link `~/.local/state/pc-setup/nix-user-baseline` として構築します。この package は `claude` / `opencode` / `node` / `cargo` / `gcloud` 等の command wrapper を持ち、各 command を FHS environment 内の `mise -C "$PWD" exec` へ渡します。これにより system profile / nix-ld 適用前でも通常 shell からCLIを実行でき、project-local mise configも反映されます。
+
+Bash は `~/.config/pc-setup/shell-init.bash` を source し、この wrapper baseline を PATH に追加します。bootstrap は parent shell の環境を変更できないため、完了後は新しい shell を開くか、その init file を source します。
+
+system profile適用後は `programs.nix-ld.enable = true` も利用できます。NixOS全体へ `LD_LIBRARY_PATH` をexportする方式は採りません。
 
 ## What this profile installs
 
@@ -97,6 +101,7 @@ reusable outputs:
 - `checks.<system>.bootstrap-shell`
 - `checks.<system>.home-profile`
 - `checks.<system>.nixos-profile`
+- `packages.<system>.user-baseline`
 
 ### `modules/system.nix`
 
@@ -189,7 +194,7 @@ nix --extra-experimental-features 'nix-command flakes' \
   run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
-Flake app が必要なbootstrap toolsとFHS compatibility environmentを一時的に用意し、`~/src/pc-setup` のcheckoutを準備します。既存checkoutがある場合はoriginを検証し、`PC_SETUP_REF` をfetchしてtracking branchへ切り替え、fast-forward onlyで同期します。その後 `mise.global.toml` を `~/.config/mise/config.toml` へlinkします。続く `mise install` とdotfiles bootstrapはそのFHS environment内で実行します。その後 `~/.dotfiles` をcloneし、`script/bootstrap` まで進みます。Git / GitHub CLI / Infisical / cloud CLI / agent CLI等のpackage listを手で覚える必要はありません。
+Flake app が必要なbootstrap toolsとFHS compatibility environmentを一時的に用意し、`~/src/pc-setup` のcheckoutを準備します。既存checkoutがある場合はoriginを検証し、`PC_SETUP_REF` をfetchしてtracking branchへ切り替え、fast-forward onlyで同期します。その後 `mise.global.toml` を適用し、`mise install` とdotfiles bootstrapをFHS environment内で実行します。最後に persistent CLI wrapper baseline を構築し、通常 shell 相当の PATH で `verify.sh` を通してから `pc-setup bootstrap complete` とします。
 
 pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になります。remote bootstrap 側は read-only GitHub flake なので、再実行時も `--no-write-lock-file` は維持します。
 
