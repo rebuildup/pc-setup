@@ -76,7 +76,13 @@ mise activate pwsh | Out-String | Invoke-Expression
 '@
 }
 
-$scriptRoot = if ($PSScriptRoot) { $PSScriptRoot } else { $null }
+$scriptPathProperty = $MyInvocation.MyCommand.PSObject.Properties['Path']
+$scriptRoot = if ($scriptPathProperty -and $scriptPathProperty.Value) {
+    Split-Path -Parent $scriptPathProperty.Value
+}
+else {
+    $null
+}
 
 $useLocalCheckout = $false
 if ($scriptRoot) {
