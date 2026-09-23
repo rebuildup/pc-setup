@@ -22,11 +22,28 @@ NixOS では Ubuntu/WSL のような imperative installer を canonical setup �
 
 ## Quick start
 
-fresh NixOS / NixOS-WSL の入口はこれだけです:
+fresh NixOS / NixOS-WSL では、まだ `nix-command` / `flakes` が有効でない場合を前提に、この command を入口にします:
+
+```bash
+nix --extra-experimental-features 'nix-command flakes' \
+  run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+```
+
+`--extra-experimental-features` は feature list を1つの引数として受け取るため、`'nix-command flakes'` は引用符でまとめます。次の形は使用しません:
+
+```bash
+# NG: flakes が option の値ではなく別引数になる
+nix run 'github:rebuildup/pc-setup?dir=platforms/nixos' \
+  --extra-experimental-features nix-command flakes
+```
+
+pc-setup の system profile 適用後は `nix-command` / `flakes` が恒久的に有効になるため、それ以降は短い通常 command:
 
 ```bash
 nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
+
+で実行できます。
 
 必要な bootstrap tools は Flake が解決します。その後`mise.global.toml` のportable CLI baselineを `mise install` し、dotfiles bootstrapまで進みます。個別 package 名を覚えたり、`nix-shell -p ...` を組み立てたりしません。
 
@@ -162,21 +179,16 @@ sudo nixos-generate-config
 
 NixOS installation 自体は公式 Installation Guide に従います。
 
-fresh system の canonical entrypoint は1コマンドです:
+fresh system の canonical entrypoint は1コマンドです。初期 Nix feature state に依存しない形を canonical とします:
 
 ```bash
-nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+nix --extra-experimental-features 'nix-command flakes' \
+  run 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 Flake app が必要なbootstrap toolsを一時的に用意し、`~/src/pc-setup` のcheckoutを準備して`mise.global.toml` を `~/.config/mise/config.toml` へlinkして `mise install` を実行します。その後 `~/.dotfiles` をcloneし、`script/bootstrap` まで進みます。Git / GitHub CLI / Infisical / cloud CLI / agent CLI等のpackage listを手で覚える必要はありません。
 
-Flakes がまだ有効でない特殊な初期状態では、その1回だけ:
-
-```bash
-nix --extra-experimental-features 'nix-command flakes' run 'github:rebuildup/pc-setup?dir=platforms/nixos'
-```
-
-を使用します。pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になります。
+pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になるため、以後は `nix run ...` の短い形も使用できます。
 
 bootstrap後、host config で `pc-setup` を参照し:
 
@@ -437,10 +449,11 @@ sudo nixos-rebuild switch --flake /etc/nixos#nixos
 
 の順で適用します。
 
-fresh NixOS-WSL でも package list は手入力しません。入口は同じです:
+fresh NixOS-WSL でも package list は手入力しません。初回入口は同じです:
 
 ```bash
-nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+nix --extra-experimental-features 'nix-command flakes' \
+  run 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
 このFlake appがNix bootstrap toolchain、`mise.global.toml` portable CLI baseline、dotfiles bootstrapを順に担当します。OS/build依存はNixへ、cross-platformな常用CLIは `mise.global.toml` へ追加し、次回からこの1コマンドで自動的に利用可能にします。
