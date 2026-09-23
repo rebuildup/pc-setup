@@ -4,12 +4,12 @@ schema_version: 1
 stack:
   primary_languages:
     - bash
-    - powershell
+    - nix
   target_platforms:
     - ubuntu-wsl2
-    - windows-11
+    - nixos
   shell_static_analysis: shellcheck
-  powershell_validation: ast-parse
+  nix_evaluation: 'nix flake check --no-build ./platforms/nixos'
   ci: github-actions
 
 gates:
@@ -23,22 +23,23 @@ gates:
     trigger: local shell/docs feedback + every CI run
 
   integration:
-    command: 'GitHub Actions CI'
+    command: './scripts/ci.sh && nix flake check --no-build ./platforms/nixos'
     components:
       - fast
-      - 'PowerShell AST parse for all committed .ps1 files'
-      - 'Windows package-manifest structural validation'
+      - 'NixOS reusable flake evaluation'
+      - 'Home Manager profile evaluation'
+      - 'NixOS module evaluation'
     cost_class: medium
     trigger: pull_request + push_to_main_and_release
-    note: 'Package installation, vendor launchers, Store availability, licensing, and account authentication are intentionally outside hosted CI.'
+    note: 'External installers, physical-host bootability, and account authentication are intentionally outside hosted CI.'
 
   release:
-    command: 'GitHub Actions CI'
+    command: './scripts/ci.sh && nix flake check --no-build ./platforms/nixos'
     components:
       - integration
     cost_class: medium
     trigger: release_branch
-    note: 'A green release gate proves repository-controlled shell/PowerShell quality, not successful provisioning of fresh Windows/WSL machines.'
+    note: 'A green release gate proves repository-controlled shell quality and Nix evaluation, not external authentication or physical machine bootability.'
 
 change_risk_mapping:
   doc_only:
@@ -50,9 +51,9 @@ change_risk_mapping:
   ubuntu_bootstrap_or_verify:
     gate: integration
     note: 'Also run the Ubuntu/WSL verify flow on a real target environment when external installer behavior changed.'
-  windows_manifest_or_powershell:
+  nix_profile:
     gate: integration
-    note: 'Also run bootstrap/verify on a real Windows 11 machine before treating application presence and vendor-managed child products as proven.'
+    note: 'Run Nix flake evaluation; for host-affecting changes, test the concrete host generation before switch.'
   ci_workflow:
     gate: integration
   release_branch:
@@ -67,8 +68,8 @@ ci:
         - pull_request
         - push_to_main
         - push_to_release_branch
-    - name: powershell
-      command: 'PowerShell AST parse + Windows manifest validation'
+    - name: nix
+      command: 'nix flake check --no-build --no-write-lock-file ./platforms/nixos'
       triggers:
         - pull_request
         - push_to_main
@@ -82,7 +83,7 @@ external_verification:
     automated_in_ci: false
     reason: 'Requires WSL identity, installed third-party tools, and interactive account state that GitHub-hosted CI cannot prove.'
 
-  windows_11:
-    command: '.\platforms\windows-11\verify.ps1'
+  nixos:
+    command: './platforms/nixos/verify.sh'
     automated_in_ci: false
-    reason: 'Requires the actual Windows 11 machine, WinGet/Store inventory, vendor-managed applications, keyboard state, and interactive account/licensing state.'
+    reason: 'Requires an actual NixOS generation, shell activation, and interactive account state; hosted CI evaluates the reusable modules instead.'

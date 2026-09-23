@@ -67,3 +67,16 @@ jobs:
             $errors | Format-List
             exit 1
           }
+
+  nix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: NixOS/nix-installer-action@main
+
+      - name: Evaluate NixOS profile
+        run: nix flake check --no-build --no-write-lock-file ./platforms/nixos

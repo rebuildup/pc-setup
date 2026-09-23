@@ -30,31 +30,26 @@
 
 ## Validation
 
+Shell:
+
 ```bash
 ./scripts/ci.sh
 ```
 
-実機では対象 platform の verify も実行します。
+NixOS profile:
 
-Ubuntu/WSL:
+```bash
+nix flake check --no-build ./platforms/nixos
+```
+
+実機では対象 platform の verify も実行します。
 
 ```bash
 ./platforms/ubuntu-wsl/verify.sh
+./platforms/nixos/verify.sh
 ```
 
-Windows 11:
-
-```powershell
-.\platforms\windows-11\verify.ps1
-```
-
-Windows の実機 inventory を比較したい場合:
-
-```powershell
-.\platforms\windows-11\snapshot.ps1
-```
-
-外部 installer、ログイン、ライセンス、WSL host integration、Microsoft Store availability、vendor-managed child applications は GitHub Actions だけでは証明できません。実機でしか確認できないものは、その境界を documentation に明記します。
+外部 installer、ログイン、WSL host integration、physical NixOS host の bootability は GitHub Actions だけでは証明できません。実機でしか確認できないものは、その境界を documentation に明記します。
 
 ## Secrets
 

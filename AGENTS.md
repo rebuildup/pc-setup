@@ -31,28 +31,26 @@ If executable behavior and documentation disagree, treat the mismatch as a defec
 Each supported platform SHOULD have:
 
 - a human-readable setup guide
-- an idempotent or safely re-runnable bootstrap
+- an idempotent/safely re-runnable bootstrap or a declarative platform definition that replaces imperative bootstrap
 - deterministic verification
 - explicit manual/authentication steps
 - official source links for version-sensitive installers
 - re-evaluation conditions in ADRs for long-lived tool choices
 
-Do not add an active `platforms/<platform>` directory merely as a placeholder. Capture it when the real environment can be observed and reproduced.
-
-Pre-adoption planning MAY live under `plans/<platform>` when useful, but it must:
-- be explicitly labeled candidate/non-canonical
-- distinguish confirmed/high-confidence candidates from speculative carryover
-- not claim verification against a machine that does not exist
-- be promoted to `platforms/<platform>` only after real-machine observation and reconciliation
+Do not add an OS/platform directory merely as a placeholder. Capture it when the real environment can be observed and reproduced.
 
 ## 4. Desired state vs snapshots
 
-Desired state describes the installation channel and required capability, for example:
+Desired state describes the installation channel and required capability. Installation mechanism is platform-specific.
+
+Ubuntu/WSL examples:
 
 - Rust: `rustup` stable
 - Claude Code: official native installer
 - OpenCode: official stable installer
 - Worktrunk: Cargo package
+
+NixOS uses the declared Nix package graph instead of those imperative installers.
 
 A point-in-time version inventory is evidence only. Store version snapshots separately under `snapshots/` when useful.
 
@@ -76,21 +74,21 @@ For `platforms/ubuntu-wsl`:
 
 Changing these defaults is an ADR-level decision when it changes the long-lived reproduction model.
 
-## 6. Windows 11 invariants
+## 6. NixOS invariants
 
-For `platforms/windows-11`:
+For `platforms/nixos`:
 
-- the desired environment includes intentional GUI applications, not only CLI tools
-- WinGet IDs are exact and source-aware
-- Microsoft Store apps are identified by Store product ID
-- Adobe Creative Cloud owns After Effects / Illustrator installation, but those child products remain explicit desired state
-- Steinberg Download Assistant owns Cubase installation/update, but Cubase remains explicit desired state
-- ChgKey remains a manual legacy/portable tool; do not download it from arbitrary mirrors
-- kanata and ChgKey may coexist with distinct remapping responsibilities
-- credentials, licenses, account sessions, and private keys remain outside repository automation
-- `snapshot.ps1` is evidence only and must not automatically redefine desired state
+- primary system baseline tracks NixOS 26.05 stable
+- Home Manager tracks the matching `release-26.05`
+- fast-moving developer tools use the separately exposed `nixos-unstable` package set
+- Claude Code, OpenCode, Worktrunk, Bun, and Rust tooling are Nix-managed, not installed through self-installers
+- Home Manager owns user development packages and Worktrunk Bash integration
+- hardware configuration, boot, disk layout, hostname, credentials, passwords, and original stateVersion values remain host-specific
+- provider credentials and other secrets must not be embedded in Flakes, Nix expressions, or Nix store paths
+- concrete hosts commit a `flake.lock` to select exact input revisions
+- project-specific runtime/native dependencies remain owned by each project rather than being accumulated into the machine-wide profile
 
-Changing these ownership boundaries is an ADR-level decision.
+Changing stable/unstable split, package ownership, or host/profile boundary is an ADR-level decision.
 
 ## 7. Bootstrap safety
 
@@ -110,27 +108,28 @@ Do not perform a full OS upgrade as an incidental side effect of environment boo
 
 ## 8. Validation
 
-Canonical local validation:
+Shell validation:
 
 ```bash
 ./scripts/ci.sh
 ```
 
-It validates shell syntax and ShellCheck findings for repository scripts.
+NixOS profile evaluation:
+
+```bash
+nix flake check --no-build ./platforms/nixos
+```
 
 Platform verification:
 
 ```bash
 ./platforms/ubuntu-wsl/verify.sh
-```
-
-```powershell
-.\platforms\windows-11\verify.ps1
+./platforms/nixos/verify.sh
 ```
 
 Missing required tools are failures. Missing account authentication and unset personal Git identity are warnings because they require user interaction.
 
-A green CI run validates repository script quality; it does not prove a fresh WSL machine completed the external installers successfully.
+A green CI run validates repository-controlled shell quality and Nix profile evaluation; it does not prove a fresh WSL machine completed external installers or that an arbitrary physical NixOS host can boot.
 
 ## 9. Delivery workflow
 
