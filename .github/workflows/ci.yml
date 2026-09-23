@@ -62,6 +62,58 @@ jobs:
           test "$(cat "$checkout/state.txt")" = test-ref
           test "$(git -C "$checkout" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}')" = origin/test-ref
 
+      - name: Validate bounded mise install retry
+        run: |
+          set -euo pipefail
+
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+
+          fake_bin="$root/bin"
+          mkdir -p "$fake_bin" "$root/home"
+          state="$root/mise-count"
+
+          cat > "$fake_bin/mise" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          count=0
+          if [[ -f "$FAKE_MISE_STATE" ]]; then
+            count="$(cat "$FAKE_MISE_STATE")"
+          fi
+          count=$((count + 1))
+          printf '%s\n' "$count" > "$FAKE_MISE_STATE"
+          printf '%s|%s|%s\n' "$MISE_HTTP_TIMEOUT" "$MISE_HTTP_RETRIES" "$*" >> "$FAKE_MISE_LOG"
+
+          if [[ "${FAKE_MISE_ALWAYS_FAIL:-0}" == "1" || "$count" == "1" ]]; then
+            exit 42
+          fi
+          exit 0
+          SH
+          chmod +x "$fake_bin/mise"
+
+          export PATH="$fake_bin:$PATH"
+          export HOME="$root/home"
+          export MISE_GLOBAL_CONFIG_FILE="$root/config.toml"
+          export FAKE_MISE_STATE="$state"
+          export FAKE_MISE_LOG="$root/mise.log"
+          export PC_SETUP_MISE_RETRY_DELAY_SECONDS=0
+
+          ./scripts/apply-global-mise.sh
+          test "$(cat "$state")" = 2
+          grep -Fxq "120s|5|-C $HOME install" "$FAKE_MISE_LOG"
+
+          rm -f "$state" "$FAKE_MISE_LOG"
+          export FAKE_MISE_ALWAYS_FAIL=1
+
+          set +e
+          ./scripts/apply-global-mise.sh
+          status=$?
+          set -e
+
+          test "$status" = 42
+          test "$(cat "$state")" = 2
+
       - name: Validate mise configuration
         run: |
           curl -fsSL https://mise.run | sh
