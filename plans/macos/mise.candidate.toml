@@ -1,0 +1,27 @@
+# macOS-only candidate additions.
+# Common developer tools are inherited from the root mise.toml.
+
+[bootstrap.packages]
+"brew:mas" = { os = "macos" }
+
+"brew-cask:ghostty" = { os = "macos" }
+"mas:937984704" = { os = "macos" } # Amphetamine
+
+"brew-cask:vivaldi" = { os = "macos" }
+"brew-cask:chatgpt" = { os = "macos" }
+"brew-cask:discord" = { os = "macos" }
+"brew-cask:linear" = { os = "macos" }
+"brew-cask:notion" = { os = "macos" }
+"brew-cask:slack" = { os = "macos" }
+"brew-cask:microsoft-teams" = { os = "macos" }
+
+"brew-cask:cursor" = { os = "macos" }
+"brew-cask:visual-studio-code" = { os = "macos" }
+"brew-cask:warp" = { os = "macos" }
+"brew-cask:android-studio" = { os = "macos" }
+
+"brew-cask:google-japanese-ime" = { os = "macos" }
+"brew-cask:logitech-g-hub" = { os = "macos" }
+
+"brew-cask:adobe-creative-cloud" = { os = "macos" }
+"brew-cask:steinberg-download-assistant" = { os = "macos" }

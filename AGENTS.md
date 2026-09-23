@@ -37,7 +37,13 @@ Each supported platform SHOULD have:
 - official source links for version-sensitive installers
 - re-evaluation conditions in ADRs for long-lived tool choices
 
-Do not add an OS/platform directory merely as a placeholder. Capture it when the real environment can be observed and reproduced.
+Do not add an active `platforms/<platform>` directory merely as a placeholder. Capture it when the real environment can be observed and reproduced.
+
+Pre-adoption planning MAY live under `plans/<platform>` when useful, but it must:
+- be explicitly labeled candidate/non-canonical
+- distinguish confirmed/high-confidence candidates from speculative carryover
+- not claim verification against a machine that does not exist
+- be promoted to `platforms/<platform>` only after real-machine observation and reconciliation
 
 ## 4. Desired state vs snapshots
 
@@ -70,7 +76,23 @@ For `platforms/ubuntu-wsl`:
 
 Changing these defaults is an ADR-level decision when it changes the long-lived reproduction model.
 
-## 6. Bootstrap safety
+## 6. Windows 11 invariants
+
+For `platforms/windows-11`:
+
+- the desired environment includes intentional GUI applications, not only CLI tools
+- WinGet IDs are exact and source-aware
+- Microsoft Store apps are identified by Store product ID
+- Adobe Creative Cloud owns After Effects / Illustrator installation, but those child products remain explicit desired state
+- Steinberg Download Assistant owns Cubase installation/update, but Cubase remains explicit desired state
+- ChgKey remains a manual legacy/portable tool; do not download it from arbitrary mirrors
+- kanata and ChgKey may coexist with distinct remapping responsibilities
+- credentials, licenses, account sessions, and private keys remain outside repository automation
+- `snapshot.ps1` is evidence only and must not automatically redefine desired state
+
+Changing these ownership boundaries is an ADR-level decision.
+
+## 7. Bootstrap safety
 
 Bootstrap scripts must:
 
@@ -86,7 +108,7 @@ Bootstrap scripts must:
 
 Do not perform a full OS upgrade as an incidental side effect of environment bootstrap.
 
-## 7. Validation
+## 8. Validation
 
 Canonical local validation:
 
@@ -102,11 +124,15 @@ Platform verification:
 ./platforms/ubuntu-wsl/verify.sh
 ```
 
+```powershell
+.\platforms\windows-11\verify.ps1
+```
+
 Missing required tools are failures. Missing account authentication and unset personal Git identity are warnings because they require user interaction.
 
 A green CI run validates repository script quality; it does not prove a fresh WSL machine completed the external installers successfully.
 
-## 8. Delivery workflow
+## 9. Delivery workflow
 
 Use the current `project-init` release-driven profile:
 
@@ -121,7 +147,7 @@ Use the current `project-init` release-driven profile:
 
 The repository was initially empty, so creating the first `main` commit is a one-time bootstrap prerequisite, not a normal delivery path.
 
-## 9. ADR policy
+## 10. ADR policy
 
 Create or revise an ADR when changing a long-lived decision about:
 
@@ -136,14 +162,14 @@ Create or revise an ADR when changing a long-lived decision about:
 
 ADRs describe the final decision and rationale, not the chronological work log.
 
-## 10. Writing policy
+## 11. Writing policy
 
 Persistent prose must stand on its own for a future reader. Do not serialize conversation history, temporary branch state, investigation order, or transient tool output into README/ADR/Issue/PR text unless it is required for auditability or reproducibility.
 
 When documenting a command, verify it against current official documentation when the command is version-sensitive.
 
 
-## 11. Project-local Skills
+## 12. Project-local Skills
 
 Use progressive disclosure: load only the Skill needed for the current task.
 

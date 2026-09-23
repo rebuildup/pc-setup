@@ -2,9 +2,14 @@
 schema_version: 1
 
 stack:
-  primary_language: bash
-  target_platform: ubuntu-wsl2
-  static_analysis: shellcheck
+  primary_languages:
+    - bash
+    - powershell
+  target_platforms:
+    - ubuntu-wsl2
+    - windows-11
+  shell_static_analysis: shellcheck
+  powershell_validation: ast-parse
   ci: github-actions
 
 gates:
@@ -15,23 +20,25 @@ gates:
       - 'shellcheck for all repository shell scripts'
       - 'executable-bit check for shell scripts'
     cost_class: cheap
-    trigger: local + every CI run
+    trigger: local shell/docs feedback + every CI run
 
   integration:
-    command: './scripts/ci.sh'
+    command: 'GitHub Actions CI'
     components:
       - fast
-    cost_class: cheap
+      - 'PowerShell AST parse for all committed .ps1 files'
+      - 'Windows package-manifest structural validation'
+    cost_class: medium
     trigger: pull_request + push_to_main_and_release
-    note: 'External installers and account authentication are intentionally not executed in CI.'
+    note: 'Package installation, vendor launchers, Store availability, licensing, and account authentication are intentionally outside hosted CI.'
 
   release:
-    command: './scripts/ci.sh'
+    command: 'GitHub Actions CI'
     components:
       - integration
-    cost_class: cheap
+    cost_class: medium
     trigger: release_branch
-    note: 'A green release gate proves repository-controlled shell quality, not successful provisioning of a fresh WSL distribution.'
+    note: 'A green release gate proves repository-controlled shell/PowerShell quality, not successful provisioning of fresh Windows/WSL machines.'
 
 change_risk_mapping:
   doc_only:
@@ -40,9 +47,12 @@ change_risk_mapping:
     gate: fast
   shell_config:
     gate: fast
-  bootstrap_or_verify:
+  ubuntu_bootstrap_or_verify:
     gate: integration
-    note: 'Also run the affected platform verify flow on a real target environment when external installer behavior changed.'
+    note: 'Also run the Ubuntu/WSL verify flow on a real target environment when external installer behavior changed.'
+  windows_manifest_or_powershell:
+    gate: integration
+    note: 'Also run bootstrap/verify on a real Windows 11 machine before treating application presence and vendor-managed child products as proven.'
   ci_workflow:
     gate: integration
   release_branch:
@@ -57,6 +67,12 @@ ci:
         - pull_request
         - push_to_main
         - push_to_release_branch
+    - name: powershell
+      command: 'PowerShell AST parse + Windows manifest validation'
+      triggers:
+        - pull_request
+        - push_to_main
+        - push_to_release_branch
   required_status_checks_default: []
   note: 'Do not invent a required check name merely to encode source-branch policy.'
 
@@ -65,3 +81,8 @@ external_verification:
     command: './platforms/ubuntu-wsl/verify.sh'
     automated_in_ci: false
     reason: 'Requires WSL identity, installed third-party tools, and interactive account state that GitHub-hosted CI cannot prove.'
+
+  windows_11:
+    command: '.\platforms\windows-11\verify.ps1'
+    automated_in_ci: false
+    reason: 'Requires the actual Windows 11 machine, WinGet/Store inventory, vendor-managed applications, keyboard state, and interactive account/licensing state.'
