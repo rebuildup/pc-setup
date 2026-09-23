@@ -52,18 +52,16 @@ Host packages include the native build foundation such as:
 - Python venv support
 - OpenSSH client
 
-Portable developer tools are declared once in the root `mise.toml`, including:
+Portable developer tools are declared once in `mise.global.toml`, which is linked as the user's global mise config:
 
-- Node.js / Python / Bun / Rust
-- GitHub CLI
-- Infisical CLI
-- Claude Code
-- Codex
-- OpenCode
-- Worktrunk
+- Node.js / Python / pnpm / Bun / Rust
+- GitHub CLI / Infisical CLI
+- Claude Code / Codex / OpenCode
+- Worktrunk / Herdr
+- Open Code Review / npkill / cargo-clean-all
+- Google Cloud CLI / AWS CLI / Supabase CLI / Vercel CLI
 - ripgrep / fd / fzf / jq / bat
-- ShellCheck
-- Neovim
+- ShellCheck / Neovim
 
 The Ubuntu bootstrap does not duplicate installation logic for those tools.
 
@@ -136,9 +134,9 @@ sudo apt-get install -y git curl ca-certificates
 curl -fsSL https://mise.run/bash | sh
 export PATH="$HOME/.local/bin:$PATH"
 
-mise bootstrap \
-  --from https://github.com/rebuildup/pc-setup.git \
-  --from-dir "$HOME/src/pc-setup"
+git clone --branch 1 --single-branch https://github.com/rebuildup/pc-setup.git "$HOME/src/pc-setup"
+cd "$HOME/src/pc-setup"
+./bootstrap.sh
 ```
 
 Do not reconstruct the old package-by-package installation procedure manually.
