@@ -346,3 +346,9 @@ jobs:
 
       - name: Evaluate NixOS profile
         run: nix flake check --no-build --no-write-lock-file ./platforms/nixos
+
+      - name: Build NixOS mise compatibility wrapper
+        run: nix build --no-link --no-write-lock-file ./platforms/nixos#mise-bootstrap-fhs
+
+      - name: Validate nix-ld boundary
+        run: grep -F 'programs.nix-ld.enable = true;' platforms/nixos/modules/system.nix
