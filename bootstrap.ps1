@@ -18,6 +18,22 @@ function Refresh-Path {
     $env:Path = @($machinePath, $userPath) -join ';'
 }
 
+
+function Install-StoreApps {
+    $apps = @(
+        @{ Id = '9PLM9XGG6VKS'; Name = 'ChatGPT' },
+        @{ Id = '9PM860492SZD'; Name = 'Microsoft PC Manager' }
+    )
+
+    foreach ($app in $apps) {
+        Write-Step "Installing Microsoft Store app: $($app.Name)"
+        & winget install --id $app.Id --exact --source msstore --accept-package-agreements --accept-source-agreements --disable-interactivity
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "$($app.Name) could not be installed automatically. Store availability can depend on account/region."
+        }
+    }
+}
+
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     throw 'winget is required. Install/update Microsoft App Installer, then rerun bootstrap.ps1.'
 }
@@ -67,15 +83,22 @@ if ((Test-Path -LiteralPath $localConfig) -and (Test-Path -LiteralPath (Join-Pat
     Push-Location $scriptRoot
     try {
         & $mise.Source bootstrap --yes
-        exit $LASTEXITCODE
+        if ($LASTEXITCODE -ne 0) {
+            exit $LASTEXITCODE
+        }
     }
     finally {
         Pop-Location
     }
 }
+else {
+    Write-Step 'Bootstrapping pc-setup with mise'
+    $parent = Split-Path -Parent $TargetDir
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    & $mise.Source bootstrap --from $RepoUrl --from-dir $TargetDir --yes
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+}
 
-Write-Step 'Bootstrapping pc-setup with mise'
-$parent = Split-Path -Parent $TargetDir
-New-Item -ItemType Directory -Path $parent -Force | Out-Null
-& $mise.Source bootstrap --from $RepoUrl --from-dir $TargetDir --yes
-exit $LASTEXITCODE
+Install-StoreApps
