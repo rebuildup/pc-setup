@@ -37,8 +37,10 @@ Amphetamine is distributed through the Mac App Store. The candidate mise config 
 Cross-machine developer CLI/runtime requirements are inherited from root `mise.toml`:
 
 - GitHub CLI / Infisical
-- Node.js / Python / Bun / Rust
-- Claude Code / Codex / OpenCode / Worktrunk
+- Node.js / Python / pnpm / Bun / Rust
+- Claude Code / Codex / OpenCode / Worktrunk / Herdr
+- Open Code Review / npkill / cargo-clean-all
+- Google Cloud CLI / AWS CLI / Supabase CLI / Vercel CLI
 - ripgrep / fd / fzf / jq / bat / ShellCheck / Neovim
 
 macOS-specific application candidates are recorded separately in `mise.candidate.toml`.
@@ -53,6 +55,7 @@ The following applications are available for macOS and are worth evaluating beca
 - ChatGPT app
 - Discord
 - Linear
+- Notion
 - Slack
 - Microsoft Teams
 - Cursor
