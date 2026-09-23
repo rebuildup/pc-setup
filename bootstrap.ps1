@@ -5,7 +5,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $RepoUrl = if ($env:PC_SETUP_REPO_URL) { $env:PC_SETUP_REPO_URL } else { 'https://github.com/rebuildup/pc-setup.git' }
-$RepoRef = if ($env:PC_SETUP_REF) { $env:PC_SETUP_REF } else { '1' }
+$RepoRef = if ($env:PC_SETUP_REF) { $env:PC_SETUP_REF } else { 'main' }
 $TargetDir = if ($env:PC_SETUP_DIR) { $env:PC_SETUP_DIR } else { Join-Path $HOME 'src\pc-setup' }
 
 function Write-Step {
@@ -111,6 +111,14 @@ else {
         if ($currentOrigin -ne $RepoUrl) {
             throw "existing checkout has unexpected origin: $currentOrigin"
         }
+
+        Write-Step "Updating existing pc-setup checkout to $RepoRef"
+        & git -C $TargetDir fetch origin $RepoRef
+        if ($LASTEXITCODE -ne 0) { throw "git fetch failed with exit code $LASTEXITCODE" }
+        & git -C $TargetDir switch $RepoRef
+        if ($LASTEXITCODE -ne 0) { throw "git switch failed with exit code $LASTEXITCODE" }
+        & git -C $TargetDir merge --ff-only "origin/$RepoRef"
+        if ($LASTEXITCODE -ne 0) { throw "git fast-forward failed with exit code $LASTEXITCODE" }
     }
 
     $applyDir = $TargetDir
