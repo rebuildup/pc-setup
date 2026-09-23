@@ -28,6 +28,40 @@ jobs:
       - name: Validate repository
         run: ./scripts/ci.sh
 
+      - name: Validate NixOS checkout convergence
+        run: |
+          set -euo pipefail
+
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+
+          origin="$root/origin.git"
+          seed="$root/seed"
+          checkout="$root/checkout"
+
+          git init --bare "$origin"
+          git init -b main "$seed"
+          git -C "$seed" config user.name 'pc-setup CI'
+          git -C "$seed" config user.email 'pc-setup-ci@example.invalid'
+
+          printf '%s\n' main > "$seed/state.txt"
+          git -C "$seed" add state.txt
+          git -C "$seed" commit -m main
+          git -C "$seed" remote add origin "$origin"
+          git -C "$seed" push -u origin main
+
+          git -C "$seed" switch -c test-ref
+          printf '%s\n' test-ref > "$seed/state.txt"
+          git -C "$seed" commit -am 'test ref'
+          git -C "$seed" push -u origin test-ref
+
+          git clone --branch main --single-branch "$origin" "$checkout"
+          bash ./platforms/nixos/sync-checkout.sh "$origin" test-ref "$checkout"
+
+          test "$(git -C "$checkout" branch --show-current)" = test-ref
+          test "$(cat "$checkout/state.txt")" = test-ref
+          test "$(git -C "$checkout" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}')" = origin/test-ref
+
       - name: Validate mise configuration
         run: |
           curl -fsSL https://mise.run | sh
