@@ -22,6 +22,8 @@ Flake / Home Managerがsystem/build packageのcanonical sourceです。portable�
 curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.sh | bash
 ```
 
+pipe経由で起動しても、controlling TTYがある場合は後段のGitHub / Infisical等のinteractive authenticationへ `/dev/tty` を引き継ぐ。headless環境ではTTYを捏造せずnon-interactiveのままfail-fastする。
+
 ### macOS
 
 ```bash
