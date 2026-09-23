@@ -97,20 +97,26 @@ jobs:
           else {
               $null
           }
-          $scriptRoot
+          if ($scriptRoot) { "ROOT=$scriptRoot" } else { 'NO_ROOT' }
           '@
 
-          $inlineRoot = Invoke-Expression $probe
-          if ($inlineRoot) {
-            throw "Invoke-Expression unexpectedly resolved a file-backed script root: $inlineRoot"
+          $inlineCommand = "Invoke-Expression @'`n$probe`n'@"
+          $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($inlineCommand))
+          $inlineResult = & pwsh -NoProfile -NonInteractive -EncodedCommand $encodedCommand
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inline PowerShell probe failed with exit code $LASTEXITCODE"
+          }
+          if ($inlineResult -ne 'NO_ROOT') {
+            throw "Inline invocation unexpectedly resolved a file-backed script root: $inlineResult"
           }
 
           $probePath = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-root-probe-$([guid]::NewGuid()).ps1"
           try {
             Set-Content -LiteralPath $probePath -Value $probe
-            $fileRoot = & $probePath
-            if ($fileRoot -ne (Split-Path -Parent $probePath)) {
-              throw "File-backed script root was not preserved: $fileRoot"
+            $fileResult = & $probePath
+            $expectedRoot = "ROOT=$(Split-Path -Parent $probePath)"
+            if ($fileResult -ne $expectedRoot) {
+              throw "File-backed script root was not preserved: $fileResult"
             }
           }
           finally {
