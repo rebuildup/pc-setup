@@ -19,11 +19,6 @@ in
     zip
     xz
     rsync
-    shellcheck
-    neovim
-
-    python3
-
     gcc
     clang
     lldb
@@ -32,22 +27,7 @@ in
     gnumake
     pkg-config
 
-    nodejs_24
-    pnpm
-
-    unstable.bun
-
-    unstable.rustc
-    unstable.cargo
-    unstable.rustfmt
-    unstable.clippy
-    unstable.rust-analyzer
-
-    unstable.infisical
     unstable.mise
-    unstable.claude-code
-    unstable.opencode
-    unstable.worktrunk
   ];
 
   home.sessionPath = [
