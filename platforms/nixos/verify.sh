@@ -52,6 +52,7 @@ commands=(
   git
   gh
   infisical
+  mise
   curl
   wget
   rg
