@@ -66,4 +66,4 @@
 [tasks.bootstrap]
 description = "Apply machine-global mise tools and finish personal user configuration"
 run = "bash scripts/apply-global-mise.sh && mise -C \"$HOME\" exec -- bash ~/.dotfiles/script/bootstrap"
-run_windows = "pwsh -NoProfile -File scripts/apply-global-mise.ps1"
+run_windows = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/apply-global-mise.ps1"
