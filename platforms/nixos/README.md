@@ -41,7 +41,11 @@ remote bootstrap Flake 自体には `flake.lock` を置いていません。GitH
 
 pc-setup の system profile 適用後は `nix-command` / `flakes` が恒久的に有効になります。ただし `github:rebuildup/pc-setup?dir=platforms/nixos` を remote bootstrap として再実行する場合は `--no-write-lock-file` を引き続き付けます。
 
-必要な bootstrap tools は Flake が解決します。その後`mise.global.toml` のportable CLI baselineを `mise install` し、dotfiles bootstrapまで進みます。個別 package 名を覚えたり、`nix-shell -p ...` を組み立てたりしません。
+必要な bootstrap tools は Flake が解決します。その後 `mise.global.toml` のportable CLI baselineを適用します。
+
+NixOSではgeneric Linux binaryをbare hostから直接実行できないため、このmise install phaseだけはFlakeが用意する一時FHS compatibility environment内で実行します。bootstrap中は `MISE_ALL_COMPILE=0`（Node/Pythonもcompile=false）として、miseのNixOS source-build fallbackではなくprebuilt artifactを使用します。これによりBun / rustup / Node等のinstaller child processも同じFHS environment内で動作します。
+
+system profile適用後は `programs.nix-ld.enable = true` によりmise-managed binaryを通常shellから実行できます。NixOS全体へ `LD_LIBRARY_PATH` をexportする方式は採りません。個別 package 名を覚えたり、`nix-shell -p ...` を組み立てたりしません。
 
 ## What this profile installs
 
@@ -101,6 +105,7 @@ Nix-level system defaultsだけを所有します。
 - `nix-command`
 - Flakes
 - Nix store auto optimisation
+- `nix-ld`（mise等が管理するgeneric Linux binaryのcompatibility boundary）
 
 を有効にします。
 
@@ -182,7 +187,7 @@ nix --extra-experimental-features 'nix-command flakes' \
   run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
-Flake app が必要なbootstrap toolsを一時的に用意し、`~/src/pc-setup` のcheckoutを準備して`mise.global.toml` を `~/.config/mise/config.toml` へlinkして `mise install` を実行します。その後 `~/.dotfiles` をcloneし、`script/bootstrap` まで進みます。Git / GitHub CLI / Infisical / cloud CLI / agent CLI等のpackage listを手で覚える必要はありません。
+Flake app が必要なbootstrap toolsとFHS compatibility environmentを一時的に用意し、`~/src/pc-setup` のcheckoutを準備して `mise.global.toml` を `~/.config/mise/config.toml` へlinkします。続く `mise install` とdotfiles bootstrapはそのFHS environment内で実行します。その後 `~/.dotfiles` をcloneし、`script/bootstrap` まで進みます。Git / GitHub CLI / Infisical / cloud CLI / agent CLI等のpackage listを手で覚える必要はありません。
 
 pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になります。remote bootstrap 側は read-only GitHub flake なので、再実行時も `--no-write-lock-file` は維持します。
 
