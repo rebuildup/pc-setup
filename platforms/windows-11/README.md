@@ -6,13 +6,10 @@ machine bootstrapのcanonical entrypointはroot `bootstrap.ps1`。WinGetを直�
 
 ## Fresh setup
 
-> Pre-release note: until 0.1.0 reaches `main`, the common bootstrap intentionally pins branch `1`.
-
-
 PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/rebuildup/pc-setup/1/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.ps1 | iex
 ```
 
 既存checkoutから:
@@ -68,7 +65,7 @@ Git自体もbootstrap dependency / desired stateとしてWinGet管理。
 
 ### Portable tools via mise
 
-OSごとにWinGet packageを重複宣言せず、root `[tools]` を共有する。
+OSごとにWinGet packageを重複宣言せず、`mise.global.toml [tools]` を共有する。
 
 - Node.js / pnpm / Bun
 - Python / Rust
