@@ -13,5 +13,6 @@
 | [ADR-0003](./ADR-0003.md) | Accepted | NixOSをFlake + Home Managerで宣言的に再現 |
 | [ADR-0006](./ADR-0006.md) | Accepted | NixOS以外のcross-platform bootstrapをmiseへ統一 |
 | [ADR-0007](./ADR-0007.md) | Accepted | Open Code Review は検証可能な公式 GitHub Release binary から導入 |
+| [ADR-0008](./ADR-0008.md) | Accepted | Windows Notion は mandatory WinGet phase ではなく公式 MSIX boundary で導入 |
 
 新しい ADR は `ADR-NNNN.md` の連番で追加します。既存 decision を置換する場合は旧 ADR の status と `Superseded by` も更新します。
