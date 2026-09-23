@@ -17,7 +17,7 @@ NixOSだけはmachine stateをNixで管理する。
 nix run 'github:rebuildup/pc-setup/4?dir=platforms/nixos'
 ```
 
-Flake / Home Managerがsystem/build packageのcanonical sourceです。portableなユーザーCLIは他OSと同じroot `mise.toml [tools]` を使い、NixOS bootstrapでは `mise install` だけを適用します。
+Flake / Home Managerがsystem/build packageのcanonical sourceです。portableなユーザーCLIは他OSと同じ `mise.global.toml` を使い、NixOS bootstrapでも同じglobal configを適用します。
 
 ### Ubuntu / Linux
 
@@ -58,9 +58,9 @@ fresh machine
      -> verify
 ```
 
-root `mise.toml` が共通desired state。
+root `mise.toml` がmachine orchestration、`mise.global.toml` がportableなmachine-global CLI defaultsのSoTです。
 
-### mise `[tools]`
+### `mise.global.toml` `[tools]`
 
 OSに依存しにくい開発CLI/runtimeは一度だけ宣言する。
 
@@ -77,7 +77,7 @@ OSに依存しにくい開発CLI/runtimeは一度だけ宣言する。
 - ripgrep / fd / fzf / jq / bat
 - ShellCheck / Neovim
 
-project固有versionは各projectの `mise.toml` / Flake / toolchain file等が所有する。ここはmachine-wide default。
+`mise.global.toml` は `~/.config/mise/config.toml` として適用されます。project固有versionは各projectの `mise.toml` / Flake / toolchain file等が上書きします。
 
 ### mise `[bootstrap.packages]`
 
@@ -155,7 +155,7 @@ Windows:
 .\bootstrap.ps1
 ```
 
-miseがcurrent checkoutの `mise.toml` を適用する。
+root `mise.toml` がhost packages/reposを適用し、`scripts/apply-global-mise.*` が `mise.global.toml` をmachine-global configとして適用します。
 
 ## Verification
 

@@ -1,0 +1,34 @@
+# Managed by rebuildup/pc-setup.
+# Machine-wide portable CLI/runtime defaults. Project configs override these values.
+
+[tools]
+node = "24"
+python = "3.14"
+bun = "latest"
+pnpm = "latest"
+rust = "stable"
+
+gh = "latest"
+infisical = "latest"
+claude = "latest"
+codex = "latest"
+opencode = "latest"
+worktrunk = "latest"
+herdr = "latest"
+
+gcloud = { version = "latest", os = ["linux", "macos"] }
+aws-cli = { version = "latest", os = ["linux", "macos"] }
+supabase = "latest"
+vercel = { version = "latest", depends = ["node"] }
+
+"npm:npkill" = { version = "latest", depends = ["node"] }
+"npm:@alibaba-group/open-code-review" = { version = "latest", depends = ["node"] }
+"cargo:cargo-clean-all" = { version = "latest", depends = ["rust"] }
+
+ripgrep = "latest"
+fd = "latest"
+fzf = "latest"
+jq = "latest"
+bat = "latest"
+shellcheck = "latest"
+neovim = "latest"

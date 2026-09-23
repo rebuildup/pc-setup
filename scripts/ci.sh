@@ -29,13 +29,14 @@ fi
 printf 'Running ShellCheck...\n'
 shellcheck "${shell_scripts[@]}"
 
-printf 'Checking mise.toml syntax...\n'
+printf 'Checking mise TOML syntax...\n'
 python3 - <<'PY'
 import tomllib
 from pathlib import Path
 
-with Path("mise.toml").open("rb") as fh:
-    tomllib.load(fh)
+for path in (Path("mise.toml"), Path("mise.global.toml")):
+    with path.open("rb") as fh:
+        tomllib.load(fh)
 PY
 
 printf 'Checking executable bits...\n'
