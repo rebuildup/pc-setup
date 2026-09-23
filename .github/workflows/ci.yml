@@ -105,11 +105,16 @@ jobs:
             throw "Invoke-Expression unexpectedly resolved a file-backed script root: $inlineRoot"
           }
 
-          $probePath = Join-Path $TestDrive 'pc-setup-root-probe.ps1'
-          Set-Content -LiteralPath $probePath -Value $probe
-          $fileRoot = & $probePath
-          if ($fileRoot -ne (Split-Path -Parent $probePath)) {
-            throw "File-backed script root was not preserved: $fileRoot"
+          $probePath = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-root-probe-$([guid]::NewGuid()).ps1"
+          try {
+            Set-Content -LiteralPath $probePath -Value $probe
+            $fileRoot = & $probePath
+            if ($fileRoot -ne (Split-Path -Parent $probePath)) {
+              throw "File-backed script root was not preserved: $fileRoot"
+            }
+          }
+          finally {
+            Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
           }
 
   nix:
