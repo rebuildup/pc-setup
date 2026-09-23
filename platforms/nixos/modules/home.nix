@@ -44,6 +44,7 @@ in
     unstable.rust-analyzer
 
     unstable.infisical
+    unstable.mise
     unstable.claude-code
     unstable.opencode
     unstable.worktrunk
