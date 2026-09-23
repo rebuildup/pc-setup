@@ -14,6 +14,8 @@ curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.s
 
 That entrypoint installs only the prerequisites needed to start mise, then mise applies the repository desired state.
 
+When launched through `curl | bash`, the root bootstrap reconnects mise/dotfiles bootstrap stdin to `/dev/tty` when a controlling terminal exists, so fresh-machine GitHub and self-hosted Infisical authentication remain interactive.
+
 When working from an existing pc-setup checkout:
 
 ```bash
