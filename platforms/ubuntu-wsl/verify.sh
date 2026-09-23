@@ -144,6 +144,15 @@ commands=(
   rustc
   cargo
   wt
+  herdr
+  pnpm
+  gcloud
+  aws
+  supabase
+  vercel
+  npkill
+  ocr
+  cargo-clean-all
   claude
   opencode
   shellcheck
