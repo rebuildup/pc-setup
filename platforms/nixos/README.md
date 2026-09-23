@@ -187,7 +187,7 @@ nix --extra-experimental-features 'nix-command flakes' \
   run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
-Flake app が必要なbootstrap toolsとFHS compatibility environmentを一時的に用意し、`~/src/pc-setup` のcheckoutを準備して `mise.global.toml` を `~/.config/mise/config.toml` へlinkします。続く `mise install` とdotfiles bootstrapはそのFHS environment内で実行します。その後 `~/.dotfiles` をcloneし、`script/bootstrap` まで進みます。Git / GitHub CLI / Infisical / cloud CLI / agent CLI等のpackage listを手で覚える必要はありません。
+Flake app が必要なbootstrap toolsとFHS compatibility environmentを一時的に用意し、`~/src/pc-setup` のcheckoutを準備します。既存checkoutがある場合はoriginを検証し、`PC_SETUP_REF` をfetchしてtracking branchへ切り替え、fast-forward onlyで同期します。その後 `mise.global.toml` を `~/.config/mise/config.toml` へlinkします。続く `mise install` とdotfiles bootstrapはそのFHS environment内で実行します。その後 `~/.dotfiles` をcloneし、`script/bootstrap` まで進みます。Git / GitHub CLI / Infisical / cloud CLI / agent CLI等のpackage listを手で覚える必要はありません。
 
 pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になります。remote bootstrap 側は read-only GitHub flake なので、再実行時も `--no-write-lock-file` は維持します。
 
