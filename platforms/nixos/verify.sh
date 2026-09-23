@@ -103,10 +103,17 @@ if command -v nix >/dev/null 2>&1; then
   fi
 fi
 
-if [[ -r "$HOME/.bashrc" ]] && grep -Fq 'wt config shell init bash' "$HOME/.bashrc"; then
+if { [[ -r "$HOME/.bashrc" ]] && grep -Fq 'wt config shell init bash' "$HOME/.bashrc"; } ||
+  { [[ -r "$HOME/.config/pc-setup/shell-init.bash" ]] && grep -Fq 'wt config shell init bash' "$HOME/.config/pc-setup/shell-init.bash"; }; then
   ok "Worktrunk Bash integration is present"
 else
-  warn "Worktrunk Bash integration was not found in ~/.bashrc; rebuild Home Manager or inspect the active shell"
+  warn "Worktrunk Bash integration was not found in the active pc-setup shell init"
+fi
+
+if [[ -d "$HOME/.local/state/pc-setup/nix-user-baseline/bin" ]]; then
+  ok "persistent NixOS CLI wrapper baseline is present"
+else
+  fail "persistent NixOS CLI wrapper baseline is missing"
 fi
 
 if command -v gh >/dev/null 2>&1; then
