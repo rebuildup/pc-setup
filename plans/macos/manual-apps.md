@@ -49,7 +49,7 @@ Do not copy a Windows Cubase installation directory onto macOS.
 
 ## Logitech software
 
-`logitech-g-hub` exists as a Homebrew cask and is currently a candidate because Logitech G hardware is used on Windows.
+`logitech-g-hub` is represented as a mise Homebrew-cask candidate because Logitech G hardware is used on Windows.
 
 Do not assume it is the final macOS choice. Evaluate the actual connected devices and whether:
 
@@ -61,7 +61,7 @@ is the smallest sufficient setup.
 
 ## Keyboard remapping
 
-`kanata` exists as a Homebrew formula and is a candidate.
+kanata remains a candidate capability; if adopted on macOS it should be expressed through the mise-managed host/tool configuration rather than a standalone Brewfile.
 
 Before promotion to active state, verify:
 
