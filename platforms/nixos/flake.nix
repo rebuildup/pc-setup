@@ -117,18 +117,10 @@
             text = ''
               pc_setup_dir="''${PC_SETUP_DIR:-$HOME/src/pc-setup}"
               pc_setup_ref="''${PC_SETUP_REF:-main}"
+              pc_setup_repo_url="''${PC_SETUP_REPO_URL:-https://github.com/rebuildup/pc-setup.git}"
               dotfiles_dir="''${DOTFILES_DIR:-$HOME/.dotfiles}"
 
-              if [[ ! -e "$pc_setup_dir" ]]; then
-                printf 'cloning pc-setup (%s) -> %s\n' "$pc_setup_ref" "$pc_setup_dir"
-                mkdir -p "$(dirname "$pc_setup_dir")"
-                git clone --branch "$pc_setup_ref" --single-branch https://github.com/rebuildup/pc-setup.git "$pc_setup_dir"
-              elif [[ ! -d "$pc_setup_dir/.git" ]]; then
-                printf 'refusing to overwrite non-git path: %s\n' "$pc_setup_dir" >&2
-                exit 1
-              else
-                printf 'using existing pc-setup checkout: %s\n' "$pc_setup_dir"
-              fi
+              bash "${./sync-checkout.sh}" "$pc_setup_repo_url" "$pc_setup_ref" "$pc_setup_dir"
 
               printf 'installing portable global CLI baseline through mise (NixOS FHS compatibility)\n'
               MISE_ALL_COMPILE=0 \
@@ -156,7 +148,7 @@
               DOTFILES_BOOTSTRAP="$dotfiles_dir/script/bootstrap" \
                 MISE_ALL_COMPILE=0 \
                 "${miseBootstrapFhs}/bin/pc-setup-mise-bootstrap-fhs" \
-                -c 'exec mise -C "$HOME" exec -- "$DOTFILES_BOOTSTRAP"'
+                -c "exec mise -C \"\$HOME\" exec -- \"\$DOTFILES_BOOTSTRAP\""
             '';
           };
         in
