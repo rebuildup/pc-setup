@@ -29,6 +29,48 @@ printf 'linked  %s -> %s\n' "$target_config" "$source_config"
 export MISE_HTTP_TIMEOUT="${MISE_HTTP_TIMEOUT:-120s}"
 export MISE_HTTP_RETRIES="${MISE_HTTP_RETRIES:-5}"
 
+prepare_github_auth_for_mise() {
+  if [[ -n "${MISE_GITHUB_TOKEN:-}" || -n "${GITHUB_API_TOKEN:-}" || -n "${GITHUB_TOKEN:-}" ]]; then
+    printf 'ok      mise GitHub authentication provided by environment\n'
+    return
+  fi
+
+  # GitHub-backed tools may require authenticated API access for artifact
+  # attestation verification. Install gh first so fresh machines can establish
+  # authentication before the full mise install fan-out reaches github:* tools.
+  mise -C "$HOME" install gh
+
+  if ! mise -C "$HOME" exec gh -- gh auth status --hostname github.com >/dev/null 2>&1; then
+    if [[ ! -t 0 && "${PC_SETUP_ALLOW_INTERACTIVE_AUTH:-0}" != "1" ]]; then
+      printf 'GitHub authentication is required before installing GitHub-backed mise tools.\n' >&2
+      printf 'Re-run interactively or set PC_SETUP_ALLOW_INTERACTIVE_AUTH=1.\n' >&2
+      return 1
+    fi
+
+    local local_git_config="${PC_SETUP_GIT_LOCAL_CONFIG:-$HOME/.gitconfig.local}"
+    mkdir -p "$(dirname "$local_git_config")"
+    touch "$local_git_config"
+    chmod 600 "$local_git_config"
+
+    printf 'GitHub authentication is required before GitHub-backed tool installation.\n'
+    GIT_CONFIG_GLOBAL="$local_git_config" \
+      mise -C "$HOME" exec gh -- gh auth login --hostname github.com --git-protocol https --web
+  fi
+
+  local github_token
+  github_token="$(mise -C "$HOME" exec gh -- gh auth token --hostname github.com)"
+  if [[ -z "$github_token" ]]; then
+    printf 'gh authentication succeeded but no GitHub token could be resolved for mise.\n' >&2
+    return 1
+  fi
+
+  export MISE_GITHUB_TOKEN="$github_token"
+  unset github_token
+  printf 'ok      mise GitHub authentication prepared from gh\n'
+}
+
+prepare_github_auth_for_mise
+
 install_attempts="${PC_SETUP_MISE_INSTALL_ATTEMPTS:-2}"
 retry_delay_seconds="${PC_SETUP_MISE_RETRY_DELAY_SECONDS:-5}"
 
