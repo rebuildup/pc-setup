@@ -38,6 +38,9 @@ if [[ -f "$source_lock" ]]; then
 
   ln -s "$source_lock" "$target_lock"
   printf 'linked  %s -> %s\n' "$target_lock" "$source_lock"
+elif [[ -L "$target_lock" && "$(readlink "$target_lock")" == "$source_lock" ]]; then
+  rm "$target_lock"
+  printf 'removed stale managed mise global lock link: %s\n' "$target_lock"
 fi
 
 export MISE_HTTP_TIMEOUT="${MISE_HTTP_TIMEOUT:-120s}"
