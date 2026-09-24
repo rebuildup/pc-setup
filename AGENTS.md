@@ -198,3 +198,10 @@ Use progressive disclosure: load only the Skill needed for the current task.
 - `skills/onboarding/SKILL.md`
 
 These Skills are reconciled from `rebuildup/project-init`; `skills/README.md` records the upstream source and last reconciliation evidence. Existing copies are not considered permanently current merely because they are present.
+
+
+## Constitution / operating profile
+
+- 最上位 contract: [`constitution/CONSTITUTION.md`](constitution/CONSTITUTION.md)
+- current Operating Model: [`organization/profiles/release-driven-solo.md`](organization/profiles/release-driven-solo.md)
+- 既存の project-specific invariant / ADR は、Constitution と両立する限り generic upstream Practice より具体的な authority として保持する。
