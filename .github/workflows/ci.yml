@@ -376,6 +376,17 @@ jobs:
           MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
             "$HOME/.local/bin/mise" -C "$HOME" "${install_args[@]}"
 
+      - name: Validate continuous update resolution
+        env:
+          MISE_GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
+            "$HOME/.local/bin/mise" lock --global --bump --dry-run \
+            --platform linux-x64,windows-x64,macos-x64,macos-arm64 \
+            --json > "$RUNNER_TEMP/mise-update-dry-run.json"
+          jq -e 'type == "array"' "$RUNNER_TEMP/mise-update-dry-run.json" >/dev/null
+
       - name: Validate Open Code Review install channel
         run: |
           MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
