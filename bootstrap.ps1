@@ -95,14 +95,15 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Refresh-Path
 }
 
-if (-not (Get-Command mise -ErrorAction SilentlyContinue)) {
+$mise = Get-Command mise -CommandType Application -All -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $mise) {
     Write-Step 'Installing mise'
     & winget install --id jdx.mise --exact --source winget --accept-package-agreements --accept-source-agreements --disable-interactivity
     if ($LASTEXITCODE -ne 0) { throw "mise installation failed with exit code $LASTEXITCODE" }
     Refresh-Path
+    $mise = Get-Command mise -CommandType Application -All -ErrorAction SilentlyContinue | Select-Object -First 1
 }
 
-$mise = Get-Command mise -ErrorAction SilentlyContinue
 if (-not $mise) {
     throw 'mise was installed but is not visible on PATH. Open a new PowerShell and rerun bootstrap.ps1.'
 }
@@ -165,10 +166,29 @@ else {
         }
 
         Write-Step "Updating existing pc-setup checkout to $RepoRef"
-        & git -C $TargetDir fetch origin $RepoRef
+        $remoteTrackingRef = "refs/remotes/origin/$RepoRef"
+        $fetchRefSpec = "+refs/heads/${RepoRef}:$remoteTrackingRef"
+        $configuredFetchSpecs = @(& git -C $TargetDir config --get-all remote.origin.fetch)
+
+        if ($configuredFetchSpecs -notcontains $fetchRefSpec) {
+            & git -C $TargetDir config --add remote.origin.fetch $fetchRefSpec
+            if ($LASTEXITCODE -ne 0) { throw "git remote fetch configuration failed with exit code $LASTEXITCODE" }
+        }
+
+        & git -C $TargetDir fetch origin $fetchRefSpec
         if ($LASTEXITCODE -ne 0) { throw "git fetch failed with exit code $LASTEXITCODE" }
-        & git -C $TargetDir switch $RepoRef
+
+        & git -C $TargetDir show-ref --verify --quiet "refs/heads/$RepoRef"
+        $localBranchExists = $LASTEXITCODE -eq 0
+
+        if ($localBranchExists) {
+            & git -C $TargetDir switch $RepoRef
+        }
+        else {
+            & git -C $TargetDir switch --track -c $RepoRef "origin/$RepoRef"
+        }
         if ($LASTEXITCODE -ne 0) { throw "git switch failed with exit code $LASTEXITCODE" }
+
         & git -C $TargetDir merge --ff-only "origin/$RepoRef"
         if ($LASTEXITCODE -ne 0) { throw "git fast-forward failed with exit code $LASTEXITCODE" }
     }
@@ -178,7 +198,7 @@ else {
 
 Push-Location $applyDir
 try {
-    & $mise.Source bootstrap --yes
+    & $mise bootstrap --yes
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
@@ -187,5 +207,6 @@ finally {
     Pop-Location
 }
 
+& (Join-Path $applyDir 'platforms\windows-11\install-apps.ps1')
 Install-NotionMsix
 Install-StoreApps

@@ -30,17 +30,32 @@ platform wrapperも同じroot flowへ委譲する:
 WinGet
   -> Git + mise
   -> mise bootstrap
-     -> Windows host apps / SDKs through WinGet
+     -> Windows foundation SDKs through WinGet
      -> portable developer tools through mise
      -> ~/.dotfiles checkout
      -> Windows post-bootstrap boundary
+  -> best-effort desktop apps from apps.psd1
   -> Notion official MSIX
   -> Microsoft Store-specific apps
 ```
 
-### WinGet via mise
+### Mandatory Windows foundation via mise
 
-root `mise.toml` が以下のようなWindows native desired stateを所有する。
+root `mise.toml` の mandatory Windows package phase には、bootstrap / development foundation を残す。
+
+- Git
+- PowerShell 7
+- .NET SDK 10
+- Visual Studio 2022 Community
+- Android Studio
+- Google Cloud SDK
+- AWS CLI
+
+これらは fail-fast。Git と mise 自体も bootstrap dependency。
+
+### Best-effort desktop apps
+
+GUI / desktop application は `platforms/windows-11/apps.psd1` が canonical inventory。
 
 - Vivaldi
 - Discord
@@ -55,13 +70,11 @@ root `mise.toml` が以下のようなWindows native desired stateを所有す�
 - Visual Studio Code
 - Warp
 - Adobe Creative Cloud
-- Android Studio
-- Visual Studio 2022 Community
-- .NET SDK 10
-- PowerShell 7
 - kanata GUI
 
-Git自体もbootstrap dependency / desired stateとしてWinGet管理。
+root bootstrap は `install-apps.ps1` を呼び、各 app を exact package ID で個別に導入する。1件の installer failure は warning として残し、残り app と bootstrap 全体は続行する。
+
+一方、`verify.ps1` は同じ `apps.psd1` を読み、missing app を failure として扱う。つまり bootstrap continuity と desired-state completeness を分離する。
 
 ### Notion official MSIX boundary
 
@@ -148,6 +161,7 @@ verifyは:
 
 - Windows 11
 - `mise bootstrap status --missing`
+- best-effort desktop app inventory
 - portable command capabilities
 - Store apps / Notion MSIX
 - Adobe/Cubase child apps
