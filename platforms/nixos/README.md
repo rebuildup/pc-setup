@@ -69,7 +69,9 @@ Nix/Home Manager system/build set:
 - GCC / Clang / LLDB / CMake / Ninja / Make / pkg-config
 - mise
 
-remote bootstrap の persistent `user-baseline` にも、通常 shell の verify に必要な Nix-native host/build tools を含めます。したがって Home Manager の system profile 適用前でも `wget`, `gcc`, `clang`, `lldb`, `cmake`, `ninja`, `make`, `pkg-config` が利用可能です。
+remote bootstrap の persistent `user-baseline` にも、通常 shell の verify に必要な Nix-native host/build tools を含めます。したがって Home Manager の system profile 適用前でも `git`, `git-lfs`, `wget`, `gcc`, `clang`, `lldb`, `cmake`, `ninja`, `make`, `pkg-config` が利用可能です。
+
+verify は bootstrap app の一時 `runtimeInputs` PATH を継承せず、`user-baseline/bin:/run/current-system/sw/bin:$HOME/.local/bin` だけで通常 shell を再現します。これにより bootstrap 内だけ見える Git 等を誤って OK にしません。GitHub HTTPS credential helper が `gh auth git-credential` に接続されていることも確認します。
 
 The bootstrap Flake additionally provides temporary GitHub CLI / Infisical / jq / Neovim before the global layer is active.
 
