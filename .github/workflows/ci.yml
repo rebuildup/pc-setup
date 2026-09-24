@@ -28,6 +28,92 @@ jobs:
       - name: Validate repository
         run: ./scripts/ci.sh
 
+      - name: Validate NixOS checkout convergence
+        run: |
+          set -euo pipefail
+
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+
+          origin="$root/origin.git"
+          seed="$root/seed"
+          checkout="$root/checkout"
+
+          git init --bare "$origin"
+          git init -b main "$seed"
+          git -C "$seed" config user.name 'pc-setup CI'
+          git -C "$seed" config user.email 'pc-setup-ci@example.invalid'
+
+          printf '%s\n' main > "$seed/state.txt"
+          git -C "$seed" add state.txt
+          git -C "$seed" commit -m main
+          git -C "$seed" remote add origin "$origin"
+          git -C "$seed" push -u origin main
+
+          git -C "$seed" switch -c test-ref
+          printf '%s\n' test-ref > "$seed/state.txt"
+          git -C "$seed" commit -am 'test ref'
+          git -C "$seed" push -u origin test-ref
+
+          git clone --branch main --single-branch "$origin" "$checkout"
+          bash ./platforms/nixos/sync-checkout.sh "$origin" test-ref "$checkout"
+
+          test "$(git -C "$checkout" branch --show-current)" = test-ref
+          test "$(cat "$checkout/state.txt")" = test-ref
+          test "$(git -C "$checkout" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}')" = origin/test-ref
+
+      - name: Validate bounded mise install retry
+        run: |
+          set -euo pipefail
+
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+
+          fake_bin="$root/bin"
+          mkdir -p "$fake_bin" "$root/home"
+          state="$root/mise-count"
+
+          cat > "$fake_bin/mise" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          count=0
+          if [[ -f "$FAKE_MISE_STATE" ]]; then
+            count="$(cat "$FAKE_MISE_STATE")"
+          fi
+          count=$((count + 1))
+          printf '%s\n' "$count" > "$FAKE_MISE_STATE"
+          printf '%s|%s|%s\n' "$MISE_HTTP_TIMEOUT" "$MISE_HTTP_RETRIES" "$*" >> "$FAKE_MISE_LOG"
+
+          if [[ "${FAKE_MISE_ALWAYS_FAIL:-0}" == "1" || "$count" == "1" ]]; then
+            exit 42
+          fi
+          exit 0
+          SH
+          chmod +x "$fake_bin/mise"
+
+          export PATH="$fake_bin:$PATH"
+          export HOME="$root/home"
+          export MISE_GLOBAL_CONFIG_FILE="$root/config.toml"
+          export FAKE_MISE_STATE="$state"
+          export FAKE_MISE_LOG="$root/mise.log"
+          export PC_SETUP_MISE_RETRY_DELAY_SECONDS=0
+
+          ./scripts/apply-global-mise.sh
+          test "$(cat "$state")" = 2
+          grep -Fxq "120s|5|-C $HOME install" "$FAKE_MISE_LOG"
+
+          rm -f "$state" "$FAKE_MISE_LOG"
+          export FAKE_MISE_ALWAYS_FAIL=1
+
+          set +e
+          ./scripts/apply-global-mise.sh
+          status=$?
+          set -e
+
+          test "$status" = 42
+          test "$(cat "$state")" = 2
+
       - name: Validate mise configuration
         run: |
           curl -fsSL https://mise.run | sh
@@ -123,6 +209,199 @@ jobs:
             Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Validate Notion MSIX boundary
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $miseConfig = Get-Content -LiteralPath ./mise.toml -Raw
+          if ($miseConfig -match 'winget:Notion\.Notion') {
+            throw 'Notion must not be part of the mandatory mise WinGet package phase.'
+          }
+
+          $bootstrap = Get-Content -LiteralPath ./bootstrap.ps1 -Raw
+          foreach ($expected in @(
+            'https://www.notion.com/desktop/windows-msix/download',
+            'https://www.notion.com/desktop/windows-msix-arm/download',
+            'Add-AppxPackage'
+          )) {
+            if (-not $bootstrap.Contains($expected)) {
+              throw "Missing Notion MSIX boundary marker: $expected"
+            }
+          }
+
+          $verify = Get-Content -LiteralPath ./platforms/windows-11/verify.ps1 -Raw
+          if (-not $verify.Contains("Write-Fail 'Notion missing'")) {
+            throw 'Windows verification must fail when Notion is absent.'
+          }
+
+          if ($bootstrap -match '\$mise\.Source') {
+            throw 'bootstrap.ps1 must not invoke mise through the Source property.'
+          }
+          if (-not $bootstrap.Contains('Get-Command mise -CommandType Application -All')) {
+            throw 'bootstrap.ps1 must resolve mise as an application command.'
+          }
+          if (-not $bootstrap.Contains('& $mise bootstrap --yes')) {
+            throw 'bootstrap.ps1 must invoke the selected mise CommandInfo directly.'
+          }
+
+      - name: Validate best-effort Windows desktop apps
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $miseConfig = Get-Content -LiteralPath ./mise.toml -Raw
+          $inventory = Import-PowerShellDataFile -LiteralPath ./platforms/windows-11/apps.psd1
+          if (-not ($inventory.WingetApps | Where-Object Id -eq 'Microsoft.Teams')) {
+            throw 'Microsoft.Teams must remain in the shared desktop app inventory.'
+          }
+
+          foreach ($app in $inventory.WingetApps) {
+            if ($miseConfig.Contains("winget:$($app.Id)")) {
+              throw "$($app.Id) must not be in the mandatory mise package phase."
+            }
+          }
+
+          $verify = Get-Content -LiteralPath ./platforms/windows-11/verify.ps1 -Raw
+          if (-not $verify.Contains('Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptDir ''apps.psd1'')')) {
+            throw 'Windows verification must consume the shared desktop app inventory.'
+          }
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-apps-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $inventoryPath = Join-Path $root 'apps.psd1'
+          $logPath = Join-Path $root 'winget.log'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+
+          try {
+            @'
+          @{
+              WingetApps = @(
+                  @{ Id = 'Fail.App'; Name = 'Fail App' }
+                  @{ Id = 'Next.App'; Name = 'Next App' }
+              )
+          }
+          '@ | Set-Content -LiteralPath $inventoryPath
+
+            @'
+          @echo off
+          if "%1"=="list" exit /b 1
+          if "%1"=="install" (
+            echo %3>>"%FAKE_WINGET_LOG%"
+            if "%3"=="Fail.App" exit /b 42
+            exit /b 0
+          )
+          exit /b 0
+          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'winget.cmd')
+
+            $oldPath = $env:PATH
+            $env:FAKE_WINGET_LOG = $logPath
+            $env:PATH = "$fakeBin;$oldPath"
+
+            & ./platforms/windows-11/install-apps.ps1 -InventoryPath $inventoryPath
+
+            $attempted = @(Get-Content -LiteralPath $logPath)
+            if ($attempted.Count -ne 2 -or $attempted[0] -ne 'Fail.App' -or $attempted[1] -ne 'Next.App') {
+              throw "Desktop app convergence did not continue after failure: $($attempted -join ', ')"
+            }
+          }
+          finally {
+            if ($oldPath) { $env:PATH = $oldPath }
+            Remove-Item Env:FAKE_WINGET_LOG -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Validate arbitrary PC_SETUP_REF tracking
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-ref-$([guid]::NewGuid())"
+          $origin = Join-Path $root 'origin.git'
+          $seed = Join-Path $root 'seed'
+          $checkout = Join-Path $root 'checkout'
+          $fakeBin = Join-Path $root 'bin'
+          $secondFakeBin = Join-Path $root 'bin-secondary'
+
+          New-Item -ItemType Directory -Path $root, $seed, $fakeBin, $secondFakeBin -Force | Out-Null
+
+          try {
+            git init --bare $origin | Out-Null
+            git -C $seed init -b main | Out-Null
+            git -C $seed config user.name 'pc-setup CI'
+            git -C $seed config user.email 'pc-setup-ci@example.invalid'
+            Set-Content -LiteralPath (Join-Path $seed 'state.txt') -Value 'main'
+            $seedWindowsDir = Join-Path $seed 'platforms\windows-11'
+            New-Item -ItemType Directory -Path $seedWindowsDir -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $seedWindowsDir 'install-apps.ps1') -Value '# test fixture: no-op desktop app convergence'
+            git -C $seed add state.txt platforms/windows-11/install-apps.ps1
+            git -C $seed commit -m 'main' | Out-Null
+
+            $originUri = [System.Uri]::new($origin).AbsoluteUri
+            git -C $seed remote add origin $originUri
+            git -C $seed push -u origin main | Out-Null
+
+            git -C $seed switch -c test-ref | Out-Null
+            Set-Content -LiteralPath (Join-Path $seed 'state.txt') -Value 'test-ref'
+            git -C $seed commit -am 'test ref' | Out-Null
+            git -C $seed push -u origin test-ref | Out-Null
+
+            git clone --branch main --single-branch $originUri $checkout | Out-Null
+            if ((git -C $checkout branch --list test-ref)) {
+              throw 'test-ref unexpectedly exists before bootstrap.'
+            }
+
+            @'
+          @echo off
+          if "%1"=="list" (
+            echo Notion Notion.Notion 1.0.0
+            exit /b 0
+          )
+          exit /b 0
+          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'winget.cmd')
+
+            @'
+          @echo off
+          exit /b 0
+          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd')
+
+          @'
+          @echo off
+          exit /b 0
+          '@ | Set-Content -LiteralPath (Join-Path $secondFakeBin 'mise.cmd')
+
+            $env:PATH = "$fakeBin;$secondFakeBin;$env:PATH"
+            $env:PC_SETUP_REPO_URL = $originUri
+            $env:PC_SETUP_REF = 'test-ref'
+            $env:PC_SETUP_DIR = $checkout
+
+            Invoke-Expression (Get-Content -LiteralPath ./bootstrap.ps1 -Raw)
+
+            $branch = git -C $checkout branch --show-current
+            if ($branch -ne 'test-ref') {
+              throw "bootstrap did not switch to test-ref: $branch"
+            }
+
+            $state = (Get-Content -LiteralPath (Join-Path $checkout 'state.txt') -Raw).Trim()
+            if ($state -ne 'test-ref') {
+              throw "bootstrap did not fast-forward to test-ref content: $state"
+            }
+
+            $upstream = git -C $checkout rev-parse --abbrev-ref --symbolic-full-name '@{upstream}'
+            if ($upstream -ne 'origin/test-ref') {
+              throw "test-ref does not track origin/test-ref: $upstream"
+            }
+          }
+          finally {
+            Remove-Item Env:PC_SETUP_REPO_URL -ErrorAction SilentlyContinue
+            Remove-Item Env:PC_SETUP_REF -ErrorAction SilentlyContinue
+            Remove-Item Env:PC_SETUP_DIR -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
   nix:
     runs-on: ubuntu-latest
 
@@ -133,5 +412,29 @@ jobs:
       - name: Install Nix
         uses: NixOS/nix-installer-action@main
 
+      - name: Validate NixOS bootstrap documentation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          files = [Path("README.md"), Path("platforms/nixos/README.md")]
+          required = [
+              "--extra-experimental-features 'nix-command flakes'",
+              "run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'",
+          ]
+
+          for path in files:
+              text = path.read_text()
+              for marker in required:
+                  if marker not in text:
+                      raise SystemExit(f"{path}: missing canonical NixOS bootstrap marker: {marker}")
+          PY
+
       - name: Evaluate NixOS profile
         run: nix flake check --no-build --no-write-lock-file ./platforms/nixos
+
+      - name: Build NixOS mise compatibility wrapper
+        run: nix build --no-link --no-write-lock-file ./platforms/nixos#mise-bootstrap-fhs
+
+      - name: Validate nix-ld boundary
+        run: grep -F 'programs.nix-ld.enable = true;' platforms/nixos/modules/system.nix

@@ -36,6 +36,21 @@ function Test-InstalledDisplayName {
     if ($script:InstalledDisplayNames | Where-Object { $_ -match $Pattern }) { Write-Ok "$Label installed" } else { Write-Fail "$Label not found in uninstall inventory" }
 }
 
+function Test-NotionInstalled {
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        $wingetOutput = & winget list --id Notion.Notion --exact --accept-source-agreements --disable-interactivity 2>$null
+        if ($LASTEXITCODE -eq 0 -and ($wingetOutput -join "`n") -notmatch 'No installed package found') {
+            return $true
+        }
+    }
+
+    $appx = Get-AppxPackage -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match 'Notion' -or $_.PackageFullName -match 'Notion' } |
+        Select-Object -First 1
+
+    return [bool]$appx
+}
+
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw 'This verification targets Windows.' }
 
 Write-Host "pc-setup Windows 11 verification`n"
@@ -60,10 +75,23 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Write-Fail 'winget command missing'
 }
 else {
+    $inventory = Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptDir 'apps.psd1')
+    foreach ($app in $inventory.WingetApps) {
+        & winget list --id $app.Id --exact --source winget --accept-source-agreements --disable-interactivity *> $null
+        if ($LASTEXITCODE -eq 0) { Write-Ok "$($app.Name) installed" } else { Write-Fail "$($app.Name) missing" }
+    }
+
     foreach ($name in @('ChatGPT', 'Microsoft PC Manager')) {
         $output = & winget list --name $name --accept-source-agreements 2>&1
         if ($LASTEXITCODE -eq 0 -and ($output -join "`n") -notmatch 'No installed package found') { Write-Ok "$name installed" } else { Write-Fail "$name missing" }
     }
+}
+
+if (Test-NotionInstalled) {
+    Write-Ok 'Notion installed'
+}
+else {
+    Write-Fail 'Notion missing'
 }
 
 Write-Host "`nCommand capabilities"

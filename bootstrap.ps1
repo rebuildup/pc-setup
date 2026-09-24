@@ -19,6 +19,55 @@ function Refresh-Path {
     $env:Path = @($machinePath, $userPath) -join ';'
 }
 
+function Test-NotionInstalled {
+    $wingetOutput = & winget list --id Notion.Notion --exact --accept-source-agreements --disable-interactivity 2>$null
+    if ($LASTEXITCODE -eq 0 -and ($wingetOutput -join "`n") -notmatch 'No installed package found') {
+        return $true
+    }
+
+    $appx = Get-AppxPackage -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match 'Notion' -or $_.PackageFullName -match 'Notion' } |
+        Select-Object -First 1
+
+    return [bool]$appx
+}
+
+function Install-NotionMsix {
+    if (Test-NotionInstalled) {
+        Write-Host 'ok      Notion already installed'
+        return
+    }
+
+    $architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+    $downloadUrl = switch ($architecture) {
+        'X64' { 'https://www.notion.com/desktop/windows-msix/download' }
+        'Arm64' { 'https://www.notion.com/desktop/windows-msix-arm/download' }
+        default {
+            Write-Warning "Notion MSIX auto-install is unsupported on architecture: $architecture"
+            return
+        }
+    }
+
+    Write-Step "Installing Notion from official MSIX ($architecture)"
+
+    $tempPath = Join-Path ([System.IO.Path]::GetTempPath()) "notion-$([guid]::NewGuid()).msix"
+    try {
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempPath -MaximumRedirection 10
+        Add-AppxPackage -Path $tempPath -ErrorAction Stop
+
+        if (-not (Test-NotionInstalled)) {
+            throw 'Notion MSIX installation returned without a detectable installed package.'
+        }
+
+        Write-Host 'ok      Notion installed'
+    }
+    catch {
+        Write-Warning "Notion could not be installed automatically from the official MSIX endpoint: $($_.Exception.Message)"
+    }
+    finally {
+        Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+    }
+}
 
 function Install-StoreApps {
     $apps = @(
@@ -46,14 +95,15 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Refresh-Path
 }
 
-if (-not (Get-Command mise -ErrorAction SilentlyContinue)) {
+$mise = Get-Command mise -CommandType Application -All -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $mise) {
     Write-Step 'Installing mise'
     & winget install --id jdx.mise --exact --source winget --accept-package-agreements --accept-source-agreements --disable-interactivity
     if ($LASTEXITCODE -ne 0) { throw "mise installation failed with exit code $LASTEXITCODE" }
     Refresh-Path
+    $mise = Get-Command mise -CommandType Application -All -ErrorAction SilentlyContinue | Select-Object -First 1
 }
 
-$mise = Get-Command mise -ErrorAction SilentlyContinue
 if (-not $mise) {
     throw 'mise was installed but is not visible on PATH. Open a new PowerShell and rerun bootstrap.ps1.'
 }
@@ -116,10 +166,29 @@ else {
         }
 
         Write-Step "Updating existing pc-setup checkout to $RepoRef"
-        & git -C $TargetDir fetch origin $RepoRef
+        $remoteTrackingRef = "refs/remotes/origin/$RepoRef"
+        $fetchRefSpec = "+refs/heads/${RepoRef}:$remoteTrackingRef"
+        $configuredFetchSpecs = @(& git -C $TargetDir config --get-all remote.origin.fetch)
+
+        if ($configuredFetchSpecs -notcontains $fetchRefSpec) {
+            & git -C $TargetDir config --add remote.origin.fetch $fetchRefSpec
+            if ($LASTEXITCODE -ne 0) { throw "git remote fetch configuration failed with exit code $LASTEXITCODE" }
+        }
+
+        & git -C $TargetDir fetch origin $fetchRefSpec
         if ($LASTEXITCODE -ne 0) { throw "git fetch failed with exit code $LASTEXITCODE" }
-        & git -C $TargetDir switch $RepoRef
+
+        & git -C $TargetDir show-ref --verify --quiet "refs/heads/$RepoRef"
+        $localBranchExists = $LASTEXITCODE -eq 0
+
+        if ($localBranchExists) {
+            & git -C $TargetDir switch $RepoRef
+        }
+        else {
+            & git -C $TargetDir switch --track -c $RepoRef "origin/$RepoRef"
+        }
         if ($LASTEXITCODE -ne 0) { throw "git switch failed with exit code $LASTEXITCODE" }
+
         & git -C $TargetDir merge --ff-only "origin/$RepoRef"
         if ($LASTEXITCODE -ne 0) { throw "git fast-forward failed with exit code $LASTEXITCODE" }
     }
@@ -129,7 +198,7 @@ else {
 
 Push-Location $applyDir
 try {
-    & $mise.Source bootstrap --yes
+    & $mise bootstrap --yes
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }
@@ -138,4 +207,6 @@ finally {
     Pop-Location
 }
 
+& (Join-Path $applyDir 'platforms\windows-11\install-apps.ps1')
+Install-NotionMsix
 Install-StoreApps
