@@ -45,6 +45,15 @@ ensure_source() {
   local source_line="[[ -r \"\$HOME/.config/pc-setup/shell-init.bash\" ]] && source \"\$HOME/.config/pc-setup/shell-init.bash\""
   local tmp
 
+  # Home Manager and other declarative managers commonly own shell rc files
+  # through symlinks (typically into /nix/store). Never replace or mutate
+  # those links here; the Home Manager module sources shell-init.bash itself.
+  if [[ -L "$rc_file" ]]; then
+    printf 'leaving externally managed shell rc unchanged: %s -> %s\n' \
+      "$rc_file" "$(readlink "$rc_file")"
+    return
+  fi
+
   touch "$rc_file"
 
   if grep -Fq "$begin" "$rc_file"; then
