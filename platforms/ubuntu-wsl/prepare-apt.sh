@@ -29,7 +29,6 @@ enable_ubuntu_universe() {
   if [[ -f "$deb822_source" ]]; then
     local tmp
     tmp="$(mktemp)"
-    trap 'rm -f "$tmp"' RETURN
 
     awk '
       /^Components:/ {
@@ -50,6 +49,7 @@ enable_ubuntu_universe() {
     if ! cmp -s "$tmp" "$deb822_source"; then
       run_root install -m 0644 "$tmp" "$deb822_source"
     fi
+    rm -f "$tmp"
     return
   fi
 
