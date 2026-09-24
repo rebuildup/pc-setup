@@ -273,6 +273,10 @@ jobs:
           export PC_SETUP_ALLOW_INTERACTIVE_AUTH=1
           export PC_SETUP_MISE_RETRY_DELAY_SECONDS=0
 
+          # Reproduce a fresh user shell rather than GitHub Actions' own
+          # authenticated environment.
+          unset GITHUB_TOKEN GITHUB_API_TOKEN MISE_GITHUB_TOKEN
+
           ./scripts/apply-global-mise.sh
 
           test -f "$auth_state"
