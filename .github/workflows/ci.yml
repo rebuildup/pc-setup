@@ -84,6 +84,26 @@ jobs:
           grep -Fq '.dotfiles/script/agent' "$HOME/.config/pc-setup/shell-init.bash"
           grep -Fq 'agent/mimo' "$HOME/.config/pc-setup/shell-init.bash"
 
+          # Once Home Manager owns the rc files they are declarative symlinks.
+          # Re-running bootstrap must preserve those links instead of replacing
+          # or mutating their Nix-store-like targets.
+          managed_dir="$root/managed"
+          mkdir -p "$managed_dir"
+          printf '%s\n' '# Home Manager managed bashrc' > "$managed_dir/bashrc"
+          printf '%s\n' '# Home Manager managed profile' > "$managed_dir/profile"
+          rm -f "$HOME/.bashrc" "$HOME/.profile"
+          ln -s "$managed_dir/bashrc" "$HOME/.bashrc"
+          ln -s "$managed_dir/profile" "$HOME/.profile"
+
+          bash ./platforms/nixos/configure-shell.sh "$baseline"
+
+          test -L "$HOME/.bashrc"
+          test -L "$HOME/.profile"
+          test "$(cat "$managed_dir/bashrc")" = '# Home Manager managed bashrc'
+          test "$(cat "$managed_dir/profile")" = '# Home Manager managed profile'
+
+          grep -Fq 'source "$HOME/.config/pc-setup/shell-init.bash"' platforms/nixos/modules/home.nix
+
       - name: Validate bounded mise install retry
         run: |
           set -euo pipefail
