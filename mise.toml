@@ -44,21 +44,6 @@
 "winget:Google.AndroidStudio" = { os = "windows" }
 "winget:Google.CloudSDK" = { os = "windows" }
 "winget:Amazon.AWSCLI" = { os = "windows" }
-"winget:Vivaldi.Vivaldi" = { os = "windows" }
-"winget:Discord.Discord" = { os = "windows" }
-"winget:Microsoft.PowerToys" = { os = "windows" }
-"winget:AntibodySoftware.WizTree" = { os = "windows" }
-"winget:Google.JapaneseIME" = { os = "windows" }
-"winget:Logitech.GHUB" = { os = "windows" }
-"winget:LinearOrbit.Linear" = { os = "windows" }
-"winget:Notion.Notion" = { os = "windows" }
-"winget:SlackTechnologies.Slack" = { os = "windows" }
-"winget:Microsoft.Teams" = { os = "windows" }
-"winget:Anysphere.Cursor" = { os = "windows" }
-"winget:Microsoft.VisualStudioCode" = { os = "windows" }
-"winget:Warp.Warp" = { os = "windows" }
-"winget:Adobe.CreativeCloud" = { os = "windows" }
-"winget:jtroo.kanata_gui" = { os = "windows" }
 
 [bootstrap.repos]
 "~/.dotfiles" = { url = "https://github.com/rebuildup/dotfiles.git", ref = "main" }

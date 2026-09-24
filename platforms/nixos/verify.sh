@@ -103,10 +103,26 @@ if command -v nix >/dev/null 2>&1; then
   fi
 fi
 
-if [[ -r "$HOME/.bashrc" ]] && grep -Fq 'wt config shell init bash' "$HOME/.bashrc"; then
+if { [[ -r "$HOME/.bashrc" ]] && grep -Fq 'wt config shell init bash' "$HOME/.bashrc"; } ||
+  { [[ -r "$HOME/.config/pc-setup/shell-init.bash" ]] && grep -Fq 'wt config shell init bash' "$HOME/.config/pc-setup/shell-init.bash"; }; then
   ok "Worktrunk Bash integration is present"
 else
-  warn "Worktrunk Bash integration was not found in ~/.bashrc; rebuild Home Manager or inspect the active shell"
+  warn "Worktrunk Bash integration was not found in the active pc-setup shell init"
+fi
+
+shell_init_file="$HOME/.config/pc-setup/shell-init.bash"
+if [[ -r "$shell_init_file" ]] &&
+  grep -Fq '.dotfiles/script/agent' "$shell_init_file" &&
+  grep -Fq 'agent/mimo' "$shell_init_file"; then
+  ok "dotfiles provider entrypoint routing is present in shell init"
+else
+  fail "dotfiles provider entrypoint routing is missing from $shell_init_file; rerun platforms/nixos/configure-shell.sh"
+fi
+
+if [[ -d "$HOME/.local/state/pc-setup/nix-user-baseline/bin" ]]; then
+  ok "persistent NixOS CLI wrapper baseline is present"
+else
+  fail "persistent NixOS CLI wrapper baseline is missing"
 fi
 
 if command -v gh >/dev/null 2>&1; then
@@ -151,6 +167,12 @@ if git config --get user.email >/dev/null 2>&1; then
   ok "effective Git user.email is configured"
 else
   warn "effective Git user.email is not configured; dotfiles bootstrap stores it in ~/.gitconfig.local"
+fi
+
+if git config --get-all credential.https://github.com.helper 2>/dev/null | grep -q 'gh auth git-credential'; then
+  ok "GitHub HTTPS credential helper is configured through gh"
+else
+  fail "GitHub HTTPS credential helper is missing; rerun ~/.dotfiles/script/bootstrap or gh auth setup-git"
 fi
 
 printf '\nResult: %d failure(s), %d warning(s)\n' "$failures" "$warnings"

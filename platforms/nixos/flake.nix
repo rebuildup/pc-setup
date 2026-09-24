@@ -56,6 +56,117 @@
           pcSetupUnstable.mise
         ];
 
+      mkMiseBootstrapFhs =
+        pkgs:
+        pkgs.buildFHSEnv {
+          name = "pc-setup-mise-bootstrap-fhs";
+
+          targetPkgs =
+            fhsPkgs:
+            (bootstrapPackages fhsPkgs)
+            ++ (with fhsPkgs; [
+              bashInteractive
+              cacert
+              coreutils
+              curl
+              file
+              findutils
+              gawk
+              gcc
+              git
+              gnugrep
+              gnumake
+              gnused
+              gzip
+              openssl
+              pkg-config
+              python3
+              stdenv.cc.cc.lib
+              gnutar
+              unzip
+              which
+              xz
+              zlib
+            ]);
+
+          runScript = "bash";
+        };
+
+      nativeUserBaselinePackages =
+        pkgs:
+        with pkgs; [
+          git
+          git-lfs
+          curl
+          wget
+          tree
+          unzip
+          zip
+          xz
+          rsync
+          gcc
+          clang
+          lldb
+          cmake
+          ninja
+          gnumake
+          pkg-config
+        ];
+
+      miseWrappedCommands = [
+        "node"
+        "python"
+        "python3"
+        "bun"
+        "pnpm"
+        "rustc"
+        "cargo"
+        "rustfmt"
+        "cargo-clippy"
+        "rust-analyzer"
+        "gh"
+        "infisical"
+        "claude"
+        "codex"
+        "opencode"
+        "wt"
+        "herdr"
+        "gcloud"
+        "aws"
+        "supabase"
+        "vercel"
+        "npkill"
+        "ocr"
+        "cargo-clean-all"
+        "rg"
+        "fd"
+        "fzf"
+        "jq"
+        "bat"
+        "shellcheck"
+        "nvim"
+      ];
+
+      mkMiseUserBaseline =
+        pkgs:
+        let
+          miseFhs = mkMiseBootstrapFhs pkgs;
+          mkWrapper =
+            command:
+            pkgs.writeShellScriptBin command ''
+              exec "${miseFhs}/bin/pc-setup-mise-bootstrap-fhs" \
+                -c "exec mise -C \"\$PWD\" exec -- ${command} \"\$@\"" \
+                pc-setup-mise-wrapper "$@"
+            '';
+        in
+        pkgs.symlinkJoin {
+          name = "pc-setup-nixos-user-baseline";
+          paths =
+            [ pkgs.pcSetupUnstable.mise ]
+            ++ nativeUserBaselinePackages pkgs
+            ++ map mkWrapper miseWrappedCommands;
+        };
+
       mkBootstrapShell =
         system:
         let
@@ -74,27 +185,24 @@
         system:
         let
           pkgs = mkPkgs system;
+          miseBootstrapFhs = mkMiseBootstrapFhs pkgs;
           app = pkgs.writeShellApplication {
             name = "pc-setup-bootstrap";
             runtimeInputs = bootstrapPackages pkgs;
             text = ''
               pc_setup_dir="''${PC_SETUP_DIR:-$HOME/src/pc-setup}"
               pc_setup_ref="''${PC_SETUP_REF:-main}"
+              pc_setup_repo_url="''${PC_SETUP_REPO_URL:-https://github.com/rebuildup/pc-setup.git}"
               dotfiles_dir="''${DOTFILES_DIR:-$HOME/.dotfiles}"
 
-              if [[ ! -e "$pc_setup_dir" ]]; then
-                printf 'cloning pc-setup (%s) -> %s\n' "$pc_setup_ref" "$pc_setup_dir"
-                mkdir -p "$(dirname "$pc_setup_dir")"
-                git clone --branch "$pc_setup_ref" --single-branch https://github.com/rebuildup/pc-setup.git "$pc_setup_dir"
-              elif [[ ! -d "$pc_setup_dir/.git" ]]; then
-                printf 'refusing to overwrite non-git path: %s\n' "$pc_setup_dir" >&2
-                exit 1
-              else
-                printf 'using existing pc-setup checkout: %s\n' "$pc_setup_dir"
-              fi
+              bash "${./sync-checkout.sh}" "$pc_setup_repo_url" "$pc_setup_ref" "$pc_setup_dir"
 
-              printf 'installing portable global CLI baseline through mise\n'
-              "$pc_setup_dir/scripts/apply-global-mise.sh"
+              printf 'installing portable global CLI baseline through mise (NixOS FHS compatibility)\n'
+              MISE_ALL_COMPILE=0 \
+                MISE_NODE_COMPILE=0 \
+                MISE_PYTHON_COMPILE=0 \
+                "${miseBootstrapFhs}/bin/pc-setup-mise-bootstrap-fhs" \
+                "$pc_setup_dir/scripts/apply-global-mise.sh"
 
               if [[ ! -e "$dotfiles_dir" ]]; then
                 printf 'cloning dotfiles -> %s\n' "$dotfiles_dir"
@@ -112,7 +220,41 @@
                 exit 1
               fi
 
-              exec mise -C "$HOME" exec -- "$dotfiles_dir/script/bootstrap"
+              DOTFILES_BOOTSTRAP="$dotfiles_dir/script/bootstrap" \
+                MISE_ALL_COMPILE=0 \
+                "${miseBootstrapFhs}/bin/pc-setup-mise-bootstrap-fhs" \
+                -c "exec mise -C \"\$HOME\" exec -- \"\$DOTFILES_BOOTSTRAP\""
+
+              user_baseline_link="$HOME/.local/state/pc-setup/nix-user-baseline"
+              mkdir -p "$(dirname "$user_baseline_link")"
+
+              printf 'building persistent NixOS CLI wrapper baseline\n'
+              nix --extra-experimental-features 'nix-command flakes' \
+                build --no-write-lock-file \
+                --out-link "$user_baseline_link" \
+                "$pc_setup_dir/platforms/nixos#user-baseline"
+
+              bash "$pc_setup_dir/platforms/nixos/configure-shell.sh" "$user_baseline_link"
+
+              print_shell_activation_hint() {
+                printf '\nNOTE: this process cannot modify the parent shell PATH.\n'
+                printf 'After this command returns, open a new shell or run:\n'
+                printf '  source %s/.config/pc-setup/shell-init.bash\n' "$HOME"
+              }
+
+              print_shell_activation_hint
+
+              printf '\nverifying pc-setup NixOS baseline through a clean normal-shell PATH\n'
+              normal_shell_path="$user_baseline_link/bin:/run/current-system/sw/bin:$HOME/.local/bin"
+              if ! PATH="$normal_shell_path" \
+                "$pc_setup_dir/platforms/nixos/verify.sh"; then
+                printf '\npc-setup verification failed; bootstrap is not complete.\n' >&2
+                print_shell_activation_hint >&2
+                exit 1
+              fi
+
+              printf '\npc-setup bootstrap complete\n'
+              print_shell_activation_hint
             '';
           };
         in
@@ -175,6 +317,11 @@
         bootstrap = mkBootstrapApp system;
       });
 
+      packages = forAllSystems (system: {
+        mise-bootstrap-fhs = mkMiseBootstrapFhs (mkPkgs system);
+        user-baseline = mkMiseUserBaseline (mkPkgs system);
+      });
+
       devShells = forAllSystems (system: {
         default = mkBootstrapShell system;
       });
@@ -211,6 +358,8 @@
         in
         {
           bootstrap-shell = self.devShells.${system}.default;
+          bootstrap-fhs = self.packages.${system}.mise-bootstrap-fhs;
+          user-baseline = self.packages.${system}.user-baseline;
           home-profile = homeProfile.activationPackage;
           nixos-profile = nixosProfile.config.system.build.toplevel;
         }

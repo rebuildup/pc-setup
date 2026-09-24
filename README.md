@@ -10,11 +10,24 @@
 
 NixOSだけはmachine stateをNixで管理する。
 
+fresh NixOS / NixOS-WSL では `nix-command` / `flakes` がまだ無効な場合があるため、初回 entrypoint は experimental features をその invocation だけ有効化して実行する。
+
 ```bash
-nix run 'github:rebuildup/pc-setup?dir=platforms/nixos'
+nix --extra-experimental-features 'nix-command flakes' \
+  run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
-Flake / Home Managerがsystem/build packageのcanonical sourceです。portableなユーザーCLIは他OSと同じ `mise.global.toml` を使い、NixOS bootstrapでも同じglobal configを適用します。
+`--extra-experimental-features` は feature list を1つの引数として受け取るため、`'nix-command flakes'` は引用符でまとめる。`--extra-experimental-features nix-command flakes` と書くと `flakes` が別引数として解釈され、Flakes は有効にならない。
+
+remote bootstrap Flake 自体には `flake.lock` を置いていない。GitHub の remote flake は read-only なので、初回 bootstrap では `--no-write-lock-file` を付け、解決した input lock をその場限りで使用する。exact input revision は actual host 側の concrete `flake.lock` が所有する。
+
+pc-setup の NixOS system profile 適用後は `nix-command` / `flakes` が恒久的に有効になる。ただし remote bootstrap を再実行する場合は `--no-write-lock-file` は引き続き必要。
+
+Flake / Home Managerがsystem/build packageのcanonical sourceです。portableなユーザーCLIは他OSと同じ `mise.global.toml` を使いますが、NixOS bootstrapでは bare host の dynamic linker に依存しないよう、mise install を一時的な FHS compatibility environment 内で実行します。既存 `~/src/pc-setup` がある場合も `PC_SETUP_REF` へ fast-forward only で同期してから適用します。source compile のNixOS自動fallbackは使わず、bootstrap中だけ `MISE_ALL_COMPILE=0` としてprebuilt artifactを利用します。
+
+NixOS bootstrap は install 済み CLI を bare PATH へ直接出さず、persistent FHS wrapper baseline を `~/.local/state/pc-setup/nix-user-baseline` に構築する。通常 shell の `claude` / `opencode` / `node` 等は、その wrapper から FHS 内の `mise exec` を呼ぶため、system profile 適用前でも generic Linux binary を実行できる。project-local mise config も同じ wrapper から解決する。
+
+pc-setup のNixOS system profileは引き続き `programs.nix-ld.enable = true` を有効化する。global `LD_LIBRARY_PATH` は設定しない。
 
 ### Ubuntu / Linux
 
