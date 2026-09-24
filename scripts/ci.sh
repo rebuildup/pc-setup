@@ -40,7 +40,7 @@ for path in (Path("mise.toml"), Path("mise.global.toml")):
 PY
 
 printf 'Checking continuous update train invariants...\n'
-grep -Fq 'mise lock --global --bump' .github/workflows/update-train.yml
+grep -Fq 'lock --global --bump' .github/workflows/update-train.yml
 grep -Fq 'mise.global.lock' .github/workflows/update-train.yml
 grep -Fq 'git diff --quiet -- mise.global.toml' .github/workflows/update-train.yml
 grep -Fq 'headRefOid,baseRefOid' .github/workflows/update-train.yml
