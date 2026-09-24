@@ -285,11 +285,16 @@ gh auth status
 
 ### Claude Code
 
+Claude Code 本体は `mise.global.toml` の portable CLI baseline から導入します。
+
+provider 接続は machine provisioning ではなく `rebuildup/dotfiles` の Infisical runtime integration が所有します。MiMo 利用時は dotfiles の provider entrypoint 経由で起動します。
+
 ```bash
 claude
+# equivalent: ~/.dotfiles/script/agent/mimo claude
 ```
 
-browser login 等の対話手順で認証します。
+`~/.config/pc-setup/shell-init.bash` は `~/.dotfiles/script/agent` を PATH に加え、`mimo` entrypoint が存在する場合に `claude` を process-scoped injection へ委譲します。provider URL / model / credential は shell には export されません。
 
 ### OpenCode
 

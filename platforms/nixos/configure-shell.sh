@@ -17,10 +17,25 @@ if [[ -d "$pc_setup_user_baseline" ]]; then
   esac
 fi
 
+# Dotfiles provider entrypoints (non-secret PATH only).
+# Provider URL/model/credential flags stay process-scoped inside the entrypoint.
+pc_setup_agent_entry="$HOME/.dotfiles/script/agent"
+if [[ -d "$pc_setup_agent_entry" ]]; then
+  case ":$PATH:" in
+    *":$pc_setup_agent_entry:"*) ;;
+    *) export PATH="$pc_setup_agent_entry:$PATH" ;;
+  esac
+fi
+if [[ -x "$pc_setup_agent_entry/mimo" ]]; then
+  claude() {
+    "$HOME/.dotfiles/script/agent/mimo" claude "$@"
+  }
+fi
+
 if command -v wt >/dev/null 2>&1; then
   eval "$(wt config shell init bash)"
 fi
-unset pc_setup_user_baseline
+unset pc_setup_agent_entry pc_setup_user_baseline
 EOF
 
 ensure_source() {
