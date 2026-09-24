@@ -74,6 +74,23 @@ install_mise_if_needed() {
   export PATH="$HOME/.local/bin:$PATH"
 }
 
+prepare_host_package_manager() {
+  local checkout_dir="$1"
+
+  if [[ "$(uname -s)" != Linux ]]; then
+    return
+  fi
+
+  local prepare_script="$checkout_dir/platforms/ubuntu-wsl/prepare-apt.sh"
+  if [[ ! -f "$prepare_script" ]]; then
+    printf 'APT preparation script is missing from checkout: %s\n' "$prepare_script" >&2
+    exit 1
+  fi
+
+  log "Preparing APT repositories"
+  bash "$prepare_script"
+}
+
 install_git_if_needed
 install_mise_if_needed
 
@@ -103,6 +120,7 @@ fi
 if [[ -n "$script_dir" && -f "$script_dir/mise.toml" && -d "$script_dir/.git" ]]; then
   log "Applying pc-setup from current checkout"
   cd "$script_dir"
+  prepare_host_package_manager "$script_dir"
   run_mise_bootstrap
 fi
 
@@ -128,4 +146,5 @@ else
 fi
 
 cd "$target_dir"
+prepare_host_package_manager "$target_dir"
 run_mise_bootstrap
