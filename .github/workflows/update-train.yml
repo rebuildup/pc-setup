@@ -1,0 +1,215 @@
+name: Continuous update train
+
+on:
+  schedule:
+    # 09:17 JST. Normal releases should be adopted daily without waiting for a sprint.
+    - cron: "17 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pc-setup-continuous-update-train
+  cancel-in-progress: false
+
+env:
+  TRAIN_BRANCH: automation/update-train
+  CI_WORKFLOW: ci.yml
+  LOCK_PLATFORMS: linux-x64,windows-x64,macos-x64,macos-arm64
+  GH_TOKEN: ${{ github.token }}
+  MISE_GITHUB_TOKEN: ${{ github.token }}
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Install mise
+        run: curl -fsSL https://mise.run | sh
+
+      - name: Resolve adopted tool state
+        id: resolve
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mise="$HOME/.local/bin/mise"
+          export MISE_GLOBAL_CONFIG_FILE="$GITHUB_WORKSPACE/mise.global.toml"
+
+          "$mise" lock --global --bump --platform "$LOCK_PLATFORMS" --json > "$RUNNER_TEMP/mise-update.json"
+
+          if ! git diff --quiet -- mise.global.toml; then
+            echo "update train modified desired policy; refusing generated-state adoption" >&2
+            git diff -- mise.global.toml >&2
+            exit 1
+          fi
+
+          mapfile -t changed_paths < <(git status --porcelain=v1 | sed -E 's/^.. //')
+          for path in "${changed_paths[@]}"; do
+            if [[ "$path" != "mise.global.lock" ]]; then
+              echo "update train changed non-generated path: $path" >&2
+              exit 1
+            fi
+          done
+
+          if [[ "${#changed_paths[@]}" -eq 0 ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/mise-update.json"
+
+      - name: Publish automation branch
+        if: steps.resolve.outputs.changed == 'true'
+        id: publish
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name "pc-setup update train"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          base_sha="$(git rev-parse HEAD)"
+          git switch -C "$TRAIN_BRANCH"
+          git add -- mise.global.lock
+          git commit -m "chore: reconcile machine-global tool versions"
+          head_sha="$(git rev-parse HEAD)"
+          git push --force origin "HEAD:$TRAIN_BRANCH"
+
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Open or refresh maintenance PR
+        if: steps.resolve.outputs.changed == 'true'
+        id: pr
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          body_file="$RUNNER_TEMP/update-train-pr.md"
+          {
+            echo "## Continuous update train"
+            echo
+            echo "Generated adopted state only: mise.global.lock"
+            echo
+            echo "- desired policy: mise.global.toml"
+            echo "- resolved platforms: $LOCK_PLATFORMS"
+            echo "- base SHA: ${{ steps.publish.outputs.base_sha }}"
+            echo "- candidate SHA: ${{ steps.publish.outputs.head_sha }}"
+            echo "- merge condition: repository CI succeeds on this exact SHA and main remains at the recorded base SHA"
+            echo
+            echo "If verification fails, this PR remains open and main is not advanced."
+          } > "$body_file"
+
+          pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --base main --head "$TRAIN_BRANCH" --json number --jq '.[0].number // empty')"
+
+          if [[ -z "$pr_number" ]]; then
+            set +e
+            pr_url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$TRAIN_BRANCH" --title "chore: reconcile machine-global tool versions" --body-file "$body_file" 2>"$RUNNER_TEMP/pr-create.err")"
+            pr_status=$?
+            set -e
+
+            if [[ "$pr_status" -ne 0 ]]; then
+              cat "$RUNNER_TEMP/pr-create.err" >&2
+              echo "::error::Continuous update train requires Settings > Actions > General > Allow GitHub Actions to create and approve pull requests." >&2
+              exit "$pr_status"
+            fi
+            pr_number="${pr_url##*/}"
+          else
+            gh pr edit "$pr_number" --repo "$GITHUB_REPOSITORY" --body-file "$body_file"
+          fi
+
+          echo "number=$pr_number" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch CI for exact train SHA
+        if: steps.resolve.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run "$CI_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$TRAIN_BRANCH" -f ref="$TRAIN_BRANCH"
+
+      - name: Wait for exact-SHA CI
+        if: steps.resolve.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          expected_sha="${{ steps.publish.outputs.head_sha }}"
+          run_id=""
+          completed=0
+
+          for _ in $(seq 1 120); do
+            runs_json="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$CI_WORKFLOW" --branch "$TRAIN_BRANCH" --event workflow_dispatch --limit 20 --json databaseId,headSha,status,conclusion,createdAt)"
+            run_json="$(jq -c --arg sha "$expected_sha" '[.[] | select(.headSha == $sha)] | sort_by(.createdAt) | last // {}' <<< "$runs_json")"
+
+            candidate_id="$(jq -r '.databaseId // empty' <<< "$run_json")"
+            status="$(jq -r '.status // empty' <<< "$run_json")"
+            conclusion="$(jq -r '.conclusion // empty' <<< "$run_json")"
+
+            if [[ -n "$candidate_id" ]]; then
+              run_id="$candidate_id"
+              if [[ "$status" == "completed" ]]; then
+                completed=1
+                if [[ "$conclusion" != "success" ]]; then
+                  echo "CI run $run_id completed with $conclusion; adopted state will not advance" >&2
+                  exit 1
+                fi
+                break
+              fi
+            fi
+
+            sleep 10
+          done
+
+          if [[ -z "$run_id" || "$completed" != "1" ]]; then
+            echo "CI did not complete for exact train SHA $expected_sha" >&2
+            exit 1
+          fi
+
+          final_status="$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --json status,conclusion,headSha --jq '[.status,.conclusion,.headSha] | @tsv')"
+          IFS=$'\t' read -r status conclusion head_sha <<< "$final_status"
+
+          if [[ "$status" != "completed" || "$conclusion" != "success" || "$head_sha" != "$expected_sha" ]]; then
+            echo "exact-SHA CI gate not satisfied: $final_status" >&2
+            exit 1
+          fi
+
+      - name: Merge verified adopted state
+        if: steps.resolve.outputs.changed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          expected_base="${{ steps.publish.outputs.base_sha }}"
+          expected_sha="${{ steps.publish.outputs.head_sha }}"
+          pr_number="${{ steps.pr.outputs.number }}"
+
+          pr_state="$(gh pr view "$pr_number" --repo "$GITHUB_REPOSITORY" --json headRefOid,baseRefOid --jq '[.headRefOid,.baseRefOid] | @tsv')"
+          IFS=$'\t' read -r current_head current_base <<< "$pr_state"
+
+          if [[ "$current_head" != "$expected_sha" ]]; then
+            echo "PR head changed after verification: expected $expected_sha, found $current_head" >&2
+            exit 1
+          fi
+          if [[ "$current_base" != "$expected_base" ]]; then
+            echo "main changed during train: expected base $expected_base, found $current_base" >&2
+            exit 1
+          fi
+
+          mapfile -t pr_paths < <(gh pr diff "$pr_number" --repo "$GITHUB_REPOSITORY" --name-only)
+          if [[ "${#pr_paths[@]}" -ne 1 || "${pr_paths[0]}" != "mise.global.lock" ]]; then
+            echo "maintenance PR contains paths other than mise.global.lock" >&2
+            printf '%s\n' "${pr_paths[@]}" >&2
+            exit 1
+          fi
+
+          gh pr merge "$pr_number" --repo "$GITHUB_REPOSITORY" --merge --delete-branch

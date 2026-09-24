@@ -3,7 +3,9 @@ set -euo pipefail
 
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 source_config="$repo_root/mise.global.toml"
+source_lock="${PC_SETUP_MISE_SOURCE_LOCK_FILE:-$repo_root/mise.global.lock}"
 target_config="${MISE_GLOBAL_CONFIG_FILE:-$HOME/.config/mise/config.toml}"
+target_lock="${MISE_GLOBAL_LOCK_FILE:-${target_config%.toml}.lock}"
 managed_marker="# Managed by rebuildup/pc-setup."
 
 if [[ ! -f "$source_config" ]]; then
@@ -25,6 +27,21 @@ fi
 
 ln -s "$source_config" "$target_config"
 printf 'linked  %s -> %s\n' "$target_config" "$source_config"
+
+if [[ -f "$source_lock" ]]; then
+  if [[ -L "$target_lock" ]]; then
+    rm "$target_lock"
+  elif [[ -e "$target_lock" ]]; then
+    printf 'refusing to overwrite unmanaged mise global lock: %s\n' "$target_lock" >&2
+    exit 1
+  fi
+
+  ln -s "$source_lock" "$target_lock"
+  printf 'linked  %s -> %s\n' "$target_lock" "$source_lock"
+elif [[ -L "$target_lock" && "$(readlink "$target_lock")" == "$source_lock" ]]; then
+  rm "$target_lock"
+  printf 'removed stale managed mise global lock link: %s\n' "$target_lock"
+fi
 
 export MISE_HTTP_TIMEOUT="${MISE_HTTP_TIMEOUT:-120s}"
 export MISE_HTTP_RETRIES="${MISE_HTTP_RETRIES:-5}"
@@ -79,9 +96,15 @@ if ! [[ "$install_attempts" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 
+install_args=(install)
+if [[ -f "$source_lock" ]]; then
+  install_args+=(--locked)
+  printf 'ok      using committed mise global lock\n'
+fi
+
 last_status=1
 for ((attempt = 1; attempt <= install_attempts; attempt++)); do
-  if mise -C "$HOME" install; then
+  if mise -C "$HOME" "${install_args[@]}"; then
     exit 0
   else
     last_status=$?
