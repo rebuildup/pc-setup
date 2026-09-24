@@ -23,7 +23,9 @@ remote bootstrap Flake 自体には `flake.lock` を置いていない。GitHub 
 
 pc-setup の NixOS system profile 適用後は `nix-command` / `flakes` が恒久的に有効になる。ただし remote bootstrap を再実行する場合は `--no-write-lock-file` は引き続き必要。
 
-Flake / Home Managerがsystem/build packageのcanonical sourceです。portableなユーザーCLIは他OSと同じ `mise.global.toml` を使い、NixOS bootstrapでも同じglobal configを適用します。
+Flake / Home Managerがsystem/build packageのcanonical sourceです。portableなユーザーCLIは他OSと同じ `mise.global.toml` を使いますが、NixOS bootstrapでは bare host の dynamic linker に依存しないよう、mise install を一時的な FHS compatibility environment 内で実行します。既存 `~/src/pc-setup` がある場合も `PC_SETUP_REF` へ fast-forward only で同期してから適用します。source compile のNixOS自動fallbackは使わず、bootstrap中だけ `MISE_ALL_COMPILE=0` としてprebuilt artifactを利用します。
+
+pc-setup のNixOS system profileは `programs.nix-ld.enable = true` を有効化するため、profile適用後はmise-managedなgeneric Linux binaryも通常shellから実行できます。global `LD_LIBRARY_PATH` は設定しません。
 
 ### Ubuntu / Linux
 
