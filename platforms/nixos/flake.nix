@@ -95,6 +95,8 @@
       nativeUserBaselinePackages =
         pkgs:
         with pkgs; [
+          git
+          git-lfs
           curl
           wget
           tree
@@ -242,8 +244,9 @@
 
               print_shell_activation_hint
 
-              printf '\nverifying pc-setup NixOS baseline through persistent wrappers\n'
-              if ! PATH="$user_baseline_link/bin:$PATH" \
+              printf '\nverifying pc-setup NixOS baseline through a clean normal-shell PATH\n'
+              normal_shell_path="$user_baseline_link/bin:/run/current-system/sw/bin:$HOME/.local/bin"
+              if ! PATH="$normal_shell_path" \
                 "$pc_setup_dir/platforms/nixos/verify.sh"; then
                 printf '\npc-setup verification failed; bootstrap is not complete.\n' >&2
                 print_shell_activation_hint >&2
