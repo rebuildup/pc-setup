@@ -78,12 +78,14 @@ jobs:
           git config user.name "pc-setup update train"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          base_sha="$(git rev-parse HEAD)"
           git switch -C "$TRAIN_BRANCH"
           git add -- mise.global.lock
           git commit -m "chore: reconcile machine-global tool versions"
           head_sha="$(git rev-parse HEAD)"
           git push --force origin "HEAD:$TRAIN_BRANCH"
 
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
           echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
 
       - name: Open or refresh maintenance PR
@@ -101,19 +103,29 @@ jobs:
             echo
             echo "- desired policy: mise.global.toml"
             echo "- resolved platforms: $LOCK_PLATFORMS"
+            echo "- base SHA: ${{ steps.publish.outputs.base_sha }}"
             echo "- candidate SHA: ${{ steps.publish.outputs.head_sha }}"
-            echo "- merge condition: repository CI succeeds on this exact SHA"
+            echo "- merge condition: repository CI succeeds on this exact SHA and main remains at the recorded base SHA"
             echo
             echo "If verification fails, this PR remains open and main is not advanced."
           } > "$body_file"
 
-          pr_number="$(gh pr list             --repo "$GITHUB_REPOSITORY"             --state open             --base main             --head "$TRAIN_BRANCH"             --json number             --jq '.[0].number // empty')"
+          pr_number="$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --base main --head "$TRAIN_BRANCH" --json number --jq '.[0].number // empty')"
 
           if [[ -z "$pr_number" ]]; then
-            pr_url="$(gh pr create               --repo "$GITHUB_REPOSITORY"               --base main               --head "$TRAIN_BRANCH"               --title "chore: reconcile machine-global tool versions"               --body-file "$body_file")"
+            set +e
+            pr_url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$TRAIN_BRANCH" --title "chore: reconcile machine-global tool versions" --body-file "$body_file" 2>"$RUNNER_TEMP/pr-create.err")"
+            pr_status=$?
+            set -e
+
+            if [[ "$pr_status" -ne 0 ]]; then
+              cat "$RUNNER_TEMP/pr-create.err" >&2
+              echo "::error::Continuous update train requires Settings > Actions > General > Allow GitHub Actions to create and approve pull requests." >&2
+              exit "$pr_status"
+            fi
             pr_number="${pr_url##*/}"
           else
-            gh pr edit "$pr_number"               --repo "$GITHUB_REPOSITORY"               --body-file "$body_file"
+            gh pr edit "$pr_number" --repo "$GITHUB_REPOSITORY" --body-file "$body_file"
           fi
 
           echo "number=$pr_number" >> "$GITHUB_OUTPUT"
@@ -123,7 +135,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh workflow run "$CI_WORKFLOW"             --repo "$GITHUB_REPOSITORY"             --ref "$TRAIN_BRANCH"             -f ref="$TRAIN_BRANCH"
+          gh workflow run "$CI_WORKFLOW" --repo "$GITHUB_REPOSITORY" --ref "$TRAIN_BRANCH" -f ref="$TRAIN_BRANCH"
 
       - name: Wait for exact-SHA CI
         if: steps.resolve.outputs.changed == 'true'
@@ -136,7 +148,8 @@ jobs:
           completed=0
 
           for _ in $(seq 1 120); do
-            run_json="$(gh run list               --repo "$GITHUB_REPOSITORY"               --workflow "$CI_WORKFLOW"               --branch "$TRAIN_BRANCH"               --event workflow_dispatch               --limit 20               --json databaseId,headSha,status,conclusion,createdAt               --jq --arg sha "$expected_sha"               '[.[] | select(.headSha == $sha)] | sort_by(.createdAt) | last // {}')"
+            runs_json="$(gh run list --repo "$GITHUB_REPOSITORY" --workflow "$CI_WORKFLOW" --branch "$TRAIN_BRANCH" --event workflow_dispatch --limit 20 --json databaseId,headSha,status,conclusion,createdAt)"
+            run_json="$(jq -c --arg sha "$expected_sha" '[.[] | select(.headSha == $sha)] | sort_by(.createdAt) | last // {}' <<< "$runs_json")"
 
             candidate_id="$(jq -r '.databaseId // empty' <<< "$run_json")"
             status="$(jq -r '.status // empty' <<< "$run_json")"
@@ -162,7 +175,7 @@ jobs:
             exit 1
           fi
 
-          final_status="$(gh run view "$run_id"             --repo "$GITHUB_REPOSITORY"             --json status,conclusion,headSha             --jq '[.status,.conclusion,.headSha] | @tsv')"
+          final_status="$(gh run view "$run_id" --repo "$GITHUB_REPOSITORY" --json status,conclusion,headSha --jq '[.status,.conclusion,.headSha] | @tsv')"
           IFS=$'\t' read -r status conclusion head_sha <<< "$final_status"
 
           if [[ "$status" != "completed" || "$conclusion" != "success" || "$head_sha" != "$expected_sha" ]]; then
@@ -176,13 +189,27 @@ jobs:
         run: |
           set -euo pipefail
 
+          expected_base="${{ steps.publish.outputs.base_sha }}"
           expected_sha="${{ steps.publish.outputs.head_sha }}"
           pr_number="${{ steps.pr.outputs.number }}"
-          current_head="$(gh pr view "$pr_number"             --repo "$GITHUB_REPOSITORY"             --json headRefOid             --jq '.headRefOid')"
+
+          pr_state="$(gh pr view "$pr_number" --repo "$GITHUB_REPOSITORY" --json headRefOid,baseRefOid --jq '[.headRefOid,.baseRefOid] | @tsv')"
+          IFS=$'\t' read -r current_head current_base <<< "$pr_state"
 
           if [[ "$current_head" != "$expected_sha" ]]; then
             echo "PR head changed after verification: expected $expected_sha, found $current_head" >&2
             exit 1
           fi
+          if [[ "$current_base" != "$expected_base" ]]; then
+            echo "main changed during train: expected base $expected_base, found $current_base" >&2
+            exit 1
+          fi
 
-          gh pr merge "$pr_number"             --repo "$GITHUB_REPOSITORY"             --merge             --delete-branch
+          mapfile -t pr_paths < <(gh pr diff "$pr_number" --repo "$GITHUB_REPOSITORY" --name-only)
+          if [[ "${#pr_paths[@]}" -ne 1 || "${pr_paths[0]}" != "mise.global.lock" ]]; then
+            echo "maintenance PR contains paths other than mise.global.lock" >&2
+            printf '%s\n' "${pr_paths[@]}" >&2
+            exit 1
+          fi
+
+          gh pr merge "$pr_number" --repo "$GITHUB_REPOSITORY" --merge --delete-branch
