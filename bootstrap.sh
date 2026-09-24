@@ -106,10 +106,27 @@ fi
 
 run_mise_bootstrap() {
   if [[ -r /dev/tty && -w /dev/tty ]]; then
-    exec "$mise_bin" bootstrap --yes </dev/tty
+    "$mise_bin" bootstrap --yes </dev/tty
+    return
   fi
 
-  exec "$mise_bin" bootstrap --yes
+  "$mise_bin" bootstrap --yes
+}
+
+print_shell_activation_hint() {
+  printf '\nNOTE: bootstrap ran in a child process and cannot modify the parent shell PATH.\n'
+  case "$(basename "${SHELL:-/bin/bash}")" in
+    bash)
+      printf 'Activate the installed mise tools in this shell with:\n'
+      printf '  source ~/.bashrc\n'
+      ;;
+    zsh)
+      printf 'Open a new shell, or source your zsh startup file before using mise-managed tools.\n'
+      ;;
+    *)
+      printf 'Open a new shell before using mise-managed tools.\n'
+      ;;
+  esac
 }
 
 script_dir=""
@@ -122,6 +139,8 @@ if [[ -n "$script_dir" && -f "$script_dir/mise.toml" && -d "$script_dir/.git" ]]
   cd "$script_dir"
   prepare_host_package_manager "$script_dir"
   run_mise_bootstrap
+  print_shell_activation_hint
+  exit 0
 fi
 
 log "Preparing pc-setup checkout ($repo_ref)"
@@ -148,3 +167,4 @@ fi
 cd "$target_dir"
 prepare_host_package_manager "$target_dir"
 run_mise_bootstrap
+print_shell_activation_hint
