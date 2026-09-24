@@ -93,6 +93,24 @@ Open Code Review は npm trust policy を迂回せず、公式 `alibaba/open-cod
 
 `mise.global.toml` は `~/.config/mise/config.toml` として適用されます。project固有versionは各projectの `mise.toml` / Flake / toolchain file等が上書きします。
 
+### Continuous update train
+
+machine-global tool の rolling update は各マシンが独立に upstream を解決せず、pc-setup が一度だけ解決・検証して採用します。
+
+```text
+desired policy   mise.global.toml
+        ↓ daily resolution
+adopted state    mise.global.lock
+        ↓ locked reconciliation
+installed state  each machine
+```
+
+`latest` / `stable` は rolling policy のまま維持し、`node = "24"` のような bounded selector はその範囲内で最新へ追従します。GitHub Actions の continuous update train は毎日 `mise lock --global --bump` 相当を実行し、Linux x64 / Windows x64 / macOS x64 / macOS arm64 の adopted state を更新します。
+
+差分がある場合だけ automation PR を作り、同じ head SHA に対する repository CI が成功した場合に限って merge commit で自動採用します。失敗時は `main` を進めず、PR を調査 evidence として残します。通常の source/policy 変更は引き続き release branch workflow を通します。
+
+machine 側は committed lockfile が存在する場合、strict locked install で adopted state へ収束します。各 tool 自身の update notification は、pc-setup が update ownership を持ち、かつ vendor が公式の disable 手段を提供している場合だけ抑制します。
+
 ### mise `[bootstrap.packages]`
 
 OS固有package/applicationはnative package managerを使うが、人間が直接package一覧を実行しない。
@@ -212,6 +230,7 @@ bootstrapが終了したことと、desired stateを満たしていることは�
 - [ADR-0002](./docs/adr/ADR-0002.md) — historical Ubuntu/WSL installation-channel decision
 - [ADR-0006](./docs/adr/ADR-0006.md) — mise cross-platform bootstrap orchestrator
 - [ADR-0007](./docs/adr/ADR-0007.md) — Open Code Review verified GitHub Release channel
+- [ADR-0010](./docs/adr/ADR-0010.md) — machine-global tools continuous update train
 
 ## Development
 
