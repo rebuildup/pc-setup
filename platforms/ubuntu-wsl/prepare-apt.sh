@@ -23,22 +23,52 @@ run_root() {
   sudo "$@"
 }
 
+enable_ubuntu_universe() {
+  local deb822_source="/etc/apt/sources.list.d/ubuntu.sources"
+
+  if [[ -f "$deb822_source" ]]; then
+    local tmp
+    tmp="$(mktemp)"
+    trap 'rm -f "$tmp"' RETURN
+
+    awk '
+      /^Components:/ {
+        found = 0
+        for (i = 2; i <= NF; i++) {
+          if ($i == "universe") {
+            found = 1
+            break
+          }
+        }
+        if (!found) {
+          $0 = $0 " universe"
+        }
+      }
+      { print }
+    ' "$deb822_source" > "$tmp"
+
+    if ! cmp -s "$tmp" "$deb822_source"; then
+      run_root install -m 0644 "$tmp" "$deb822_source"
+    fi
+    return
+  fi
+
+  # Ubuntu releases using legacy sources.list are delegated to the distro's
+  # repository management helper rather than rewriting arbitrary mirror lines.
+  run_root apt-get update
+  if ! command -v add-apt-repository >/dev/null 2>&1; then
+    printf 'installing Ubuntu repository management prerequisite\n'
+    run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y software-properties-common
+  fi
+  run_root add-apt-repository -y universe
+}
+
 case "${ID:-}" in
   ubuntu)
-    printf 'refreshing Ubuntu APT metadata\n'
-    run_root apt-get update
-
-    if ! command -v add-apt-repository >/dev/null 2>&1; then
-      printf 'installing Ubuntu repository management prerequisite\n'
-      run_root env DEBIAN_FRONTEND=noninteractive         apt-get install -y software-properties-common
-    fi
-
     printf 'ensuring Ubuntu universe repository component is enabled\n'
-    run_root add-apt-repository -y universe
+    enable_ubuntu_universe
 
-    # Keep the package index boundary explicit. Some minimal images start with
-    # only main enabled, while mise's declared host baseline includes packages
-    # such as clang/lldb from universe.
+    printf 'refreshing Ubuntu APT metadata\n'
     run_root apt-get update
     ;;
 
