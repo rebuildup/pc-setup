@@ -204,21 +204,8 @@
                 "${miseBootstrapFhs}/bin/pc-setup-mise-bootstrap-fhs" \
                 "$pc_setup_dir/scripts/apply-global-mise.sh"
 
-              if [[ ! -e "$dotfiles_dir" ]]; then
-                printf 'cloning dotfiles -> %s\n' "$dotfiles_dir"
-                git clone https://github.com/rebuildup/dotfiles.git "$dotfiles_dir"
-              elif [[ ! -d "$dotfiles_dir/.git" ]]; then
-                printf 'refusing to overwrite non-git path: %s\n' "$dotfiles_dir" >&2
-                exit 1
-              else
-                printf 'using existing dotfiles checkout: %s\n' "$dotfiles_dir"
-              fi
-
-              if [[ ! -x "$dotfiles_dir/script/bootstrap" ]]; then
-                printf 'dotfiles bootstrap is unavailable in %s\n' "$dotfiles_dir" >&2
-                printf 'update the checkout to a release containing script/bootstrap, then retry\n' >&2
-                exit 1
-              fi
+              DOTFILES_DIR="$dotfiles_dir" \
+                bash "$pc_setup_dir/scripts/sync-dotfiles.sh"
 
               DOTFILES_BOOTSTRAP="$dotfiles_dir/script/bootstrap" \
                 MISE_ALL_COMPILE=0 \
