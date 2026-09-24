@@ -160,6 +160,12 @@ else
   warn "effective Git user.email is not configured; dotfiles bootstrap stores it in ~/.gitconfig.local"
 fi
 
+if git config --get-all credential.https://github.com.helper 2>/dev/null | grep -q 'gh auth git-credential'; then
+  ok "GitHub HTTPS credential helper is configured through gh"
+else
+  fail "GitHub HTTPS credential helper is missing; rerun ~/.dotfiles/script/bootstrap or gh auth setup-git"
+fi
+
 printf '\nResult: %d failure(s), %d warning(s)\n' "$failures" "$warnings"
 
 if [[ "$failures" -ne 0 ]]; then
