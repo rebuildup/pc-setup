@@ -9,10 +9,10 @@ The machine baseline is now applied through the root mise bootstrap rather than 
 From a fresh Ubuntu/WSL distribution:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.sh | bash && source ~/.bashrc
 ```
 
-That entrypoint installs only the prerequisites needed to start mise, then mise applies the repository desired state.
+That entrypoint installs only the prerequisites needed to start mise, then mise applies the repository desired state. The final `source ~/.bashrc` runs in the calling shell, so mise-managed commands such as `claude` are available immediately after the one-liner returns. A child bootstrap process cannot mutate its parent shell's `PATH` by itself.
 
 Before mise applies the Ubuntu host package inventory, the bootstrap refreshes APT metadata and idempotently enables Ubuntu's `universe` component. This makes fresh/minimal Ubuntu and WSL images converge even when packages such as Clang, LLDB, Ninja, Git LFS, `tree`, or Python venv support are not initially visible to APT.
 
@@ -22,6 +22,7 @@ When working from an existing pc-setup checkout:
 
 ```bash
 ./bootstrap.sh
+source ~/.bashrc
 ```
 
 The compatibility platform entrypoint delegates to the same root flow:
@@ -108,7 +109,7 @@ The root bootstrap checkout itself defaults to:
 
 ## Verify
 
-After bootstrap, open a fresh shell and run:
+After the canonical fresh-setup one-liner above, the current Bash shell is already refreshed. If bootstrap was invoked directly without the trailing `source ~/.bashrc`, either source it manually or open a fresh shell, then run:
 
 ```bash
 cd ~/src/pc-setup
@@ -138,6 +139,7 @@ export PATH="$HOME/.local/bin:$PATH"
 git clone --branch main --single-branch https://github.com/rebuildup/pc-setup.git "$HOME/src/pc-setup"
 cd "$HOME/src/pc-setup"
 ./bootstrap.sh
+source ~/.bashrc
 ```
 
 Do not reconstruct the old package-by-package installation procedure manually.
