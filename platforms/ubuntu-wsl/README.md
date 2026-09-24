@@ -74,7 +74,7 @@ mise clones `rebuildup/dotfiles` to:
 ~/.dotfiles
 ```
 
-After the tool phase, the final bootstrap task runs:
+After the tool phase, pc-setup first fast-forwards the existing `~/.dotfiles` checkout to its canonical `main` ref (or clones it when absent), then the final bootstrap task runs:
 
 ```bash
 ~/.dotfiles/script/bootstrap
