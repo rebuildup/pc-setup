@@ -45,12 +45,14 @@ jobs:
               rm -rf /var/lib/apt/lists/*
               apt-get update >/dev/null
 
-              if apt-cache show clang >/dev/null 2>&1; then
-                echo "clang unexpectedly available before universe enablement" >&2
+              if grep -Eq "^Components:.*(^|[[:space:]])universe([[:space:]]|$)" /etc/apt/sources.list.d/ubuntu.sources; then
+                echo "universe unexpectedly enabled before preflight" >&2
                 exit 1
               fi
 
               bash /repo/platforms/ubuntu-wsl/prepare-apt.sh
+
+              grep -Eq "^Components:.*(^|[[:space:]])universe([[:space:]]|$)" /etc/apt/sources.list.d/ubuntu.sources
 
               for package in git-lfs ninja-build clang lldb tree python3-venv; do
                 apt-cache show "$package" >/dev/null
