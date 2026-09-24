@@ -198,7 +198,7 @@ jobs:
 
           grep -Fq 'source "$HOME/.config/pc-setup/shell-init.bash"' platforms/nixos/modules/home.nix
 
-      - name: Validate bounded mise install retry
+      - name: Validate GitHub auth ordering and bounded mise install retry
         run: |
           set -euo pipefail
 
@@ -207,24 +207,60 @@ jobs:
 
           fake_bin="$root/bin"
           mkdir -p "$fake_bin" "$root/home"
-          state="$root/mise-count"
+          state="$root/full-install-count"
+          auth_state="$root/gh-authenticated"
+          log="$root/mise.log"
 
           cat > "$fake_bin/mise" <<'SH'
           #!/usr/bin/env bash
           set -euo pipefail
 
-          count=0
-          if [[ -f "$FAKE_MISE_STATE" ]]; then
-            count="$(cat "$FAKE_MISE_STATE")"
+          args="$*"
+          token_state=none
+          if [[ -n "${MISE_GITHUB_TOKEN:-}" ]]; then
+            token_state=set
           fi
-          count=$((count + 1))
-          printf '%s\n' "$count" > "$FAKE_MISE_STATE"
-          printf '%s|%s|%s\n' "$MISE_HTTP_TIMEOUT" "$MISE_HTTP_RETRIES" "$*" >> "$FAKE_MISE_LOG"
+          printf '%s|%s|%s|token=%s\n' "${MISE_HTTP_TIMEOUT:-unset}" "${MISE_HTTP_RETRIES:-unset}" "$args" "$token_state" >> "$FAKE_MISE_LOG"
 
-          if [[ "${FAKE_MISE_ALWAYS_FAIL:-0}" == "1" || "$count" == "1" ]]; then
-            exit 42
+          if [[ "$args" == "-C $HOME install gh" ]]; then
+            exit 0
           fi
-          exit 0
+
+          if [[ "$args" == "-C $HOME exec gh -- gh auth status --hostname github.com" ]]; then
+            [[ -f "$FAKE_GH_AUTH_STATE" ]]
+            exit
+          fi
+
+          if [[ "$args" == "-C $HOME exec gh -- gh auth login --hostname github.com --git-protocol https --web" ]]; then
+            test "${GIT_CONFIG_GLOBAL:-}" = "$HOME/.gitconfig.local"
+            : > "$FAKE_GH_AUTH_STATE"
+            exit 0
+          fi
+
+          if [[ "$args" == "-C $HOME exec gh -- gh auth token --hostname github.com" ]]; then
+            [[ -f "$FAKE_GH_AUTH_STATE" ]] || exit 1
+            printf '%s\n' 'gho_ci_test_token'
+            exit 0
+          fi
+
+          if [[ "$args" == "-C $HOME install" ]]; then
+            test "${MISE_GITHUB_TOKEN:-}" = 'gho_ci_test_token'
+
+            count=0
+            if [[ -f "$FAKE_MISE_STATE" ]]; then
+              count="$(cat "$FAKE_MISE_STATE")"
+            fi
+            count=$((count + 1))
+            printf '%s\n' "$count" > "$FAKE_MISE_STATE"
+
+            if [[ "${FAKE_MISE_ALWAYS_FAIL:-0}" == "1" || "$count" == "1" ]]; then
+              exit 42
+            fi
+            exit 0
+          fi
+
+          printf 'unexpected mise invocation: %s\n' "$args" >&2
+          exit 99
           SH
           chmod +x "$fake_bin/mise"
 
@@ -232,14 +268,26 @@ jobs:
           export HOME="$root/home"
           export MISE_GLOBAL_CONFIG_FILE="$root/config.toml"
           export FAKE_MISE_STATE="$state"
-          export FAKE_MISE_LOG="$root/mise.log"
+          export FAKE_GH_AUTH_STATE="$auth_state"
+          export FAKE_MISE_LOG="$log"
+          export PC_SETUP_ALLOW_INTERACTIVE_AUTH=1
           export PC_SETUP_MISE_RETRY_DELAY_SECONDS=0
 
           ./scripts/apply-global-mise.sh
-          test "$(cat "$state")" = 2
-          grep -Fxq "120s|5|-C $HOME install" "$FAKE_MISE_LOG"
 
-          rm -f "$state" "$FAKE_MISE_LOG"
+          test -f "$auth_state"
+          test "$(cat "$state")" = 2
+          grep -Fxq "120s|5|-C $HOME install gh|token=none" "$log"
+          grep -Fxq "120s|5|-C $HOME exec gh -- gh auth login --hostname github.com --git-protocol https --web|token=none" "$log"
+          grep -Fxq "120s|5|-C $HOME install|token=set" "$log"
+
+          gh_install_line="$(grep -nF "|-C $HOME install gh|" "$log" | head -n1 | cut -d: -f1)"
+          auth_line="$(grep -nF "|-C $HOME exec gh -- gh auth login " "$log" | head -n1 | cut -d: -f1)"
+          full_install_line="$(grep -nF "|-C $HOME install|token=set" "$log" | head -n1 | cut -d: -f1)"
+          test "$gh_install_line" -lt "$auth_line"
+          test "$auth_line" -lt "$full_install_line"
+
+          rm -f "$state" "$log"
           export FAKE_MISE_ALWAYS_FAIL=1
 
           set +e
@@ -249,6 +297,11 @@ jobs:
 
           test "$status" = 42
           test "$(cat "$state")" = 2
+          if grep -Fq 'gh auth login' "$log"; then
+            printf 'already-authenticated retry unexpectedly repeated gh login\n' >&2
+            exit 1
+          fi
+          grep -Fxq "120s|5|-C $HOME install|token=set" "$log"
 
       - name: Validate mise configuration
         run: |
