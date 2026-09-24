@@ -294,7 +294,7 @@ claude
 # equivalent: ~/.dotfiles/script/agent/mimo claude
 ```
 
-`~/.config/pc-setup/shell-init.bash` は `~/.dotfiles/script/agent` を PATH に加え、`mimo` entrypoint が存在する場合に `claude` を process-scoped injection へ委譲します。provider URL / model / credential は shell には export されません。
+`~/.config/pc-setup/shell-init.bash` は `~/.dotfiles/script/agent` を PATH 先頭に置き、`mimo` entrypoint が存在する場合に `claude` を process-scoped injection へ委譲します。委譲は shell function と、agent 配下の `claude` PATH shim の両方で行うため、function 未定義のシェルでも素の Claude Code に落ちません。provider URL / model / credential は shell には export されません。
 
 ### OpenCode
 

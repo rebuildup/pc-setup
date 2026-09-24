@@ -81,6 +81,8 @@ jobs:
           grep -Fq '.config/pc-setup/shell-init.bash' "$HOME/.bashrc"
           grep -Fq 'nix-user-baseline/bin' "$HOME/.config/pc-setup/shell-init.bash"
           grep -Fq 'wt config shell init bash' "$HOME/.config/pc-setup/shell-init.bash"
+          grep -Fq '.dotfiles/script/agent' "$HOME/.config/pc-setup/shell-init.bash"
+          grep -Fq 'agent/mimo' "$HOME/.config/pc-setup/shell-init.bash"
 
       - name: Validate bounded mise install retry
         run: |
