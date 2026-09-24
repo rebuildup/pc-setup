@@ -658,6 +658,10 @@ jobs:
 
   nix:
     runs-on: ubuntu-latest
+    env:
+      # Nix resolves GitHub flake refs through the API. Authenticate those
+      # requests so CI is not coupled to the shared runner IP rate limit.
+      NIX_CONFIG: access-tokens = github.com=${{ github.token }}
 
     steps:
       - name: Checkout
