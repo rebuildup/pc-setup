@@ -459,7 +459,7 @@ jobs:
       - name: Build NixOS persistent CLI wrapper baseline
         run: |
           nix build --no-write-lock-file --out-link result-user-baseline ./platforms/nixos#user-baseline
-          for command in mise claude opencode node cargo gcloud wget gcc clang lldb cmake ninja make pkg-config; do
+          for command in git git-lfs mise claude opencode node cargo gcloud wget gcc clang lldb cmake ninja make pkg-config; do
             test -x "result-user-baseline/bin/$command"
           done
           grep -Fq 'mise -C' "$(readlink -f result-user-baseline/bin/claude)"
@@ -470,6 +470,9 @@ jobs:
           grep -Fq 'this process cannot modify the parent shell PATH' platforms/nixos/flake.nix
           grep -Fq 'source %s/.config/pc-setup/shell-init.bash' platforms/nixos/flake.nix
           grep -Fq 'bootstrap is not complete' platforms/nixos/flake.nix
+          grep -Fq 'normal_shell_path="$user_baseline_link/bin:/run/current-system/sw/bin:$HOME/.local/bin"' platforms/nixos/flake.nix
+          ! grep -Fq 'PATH="$user_baseline_link/bin:$PATH"' platforms/nixos/flake.nix
+          grep -Fq 'GitHub HTTPS credential helper is configured through gh' platforms/nixos/verify.sh
 
       - name: Validate nix-ld boundary
         run: grep -F 'programs.nix-ld.enable = true;' platforms/nixos/modules/system.nix
