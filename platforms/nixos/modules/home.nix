@@ -44,7 +44,9 @@ in
     enable = true;
 
     initExtra = ''
-      if command -v wt >/dev/null 2>&1; then
+      if [[ -r "$HOME/.config/pc-setup/shell-init.bash" ]]; then
+        source "$HOME/.config/pc-setup/shell-init.bash"
+      elif command -v wt >/dev/null 2>&1; then
         eval "$(wt config shell init bash)"
       fi
     '';
