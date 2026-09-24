@@ -1,6 +1,12 @@
 name: CI
 
 on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to validate
+        required: false
+        type: string
   pull_request:
   push:
     branches:
@@ -19,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Install ShellCheck
         run: |
@@ -307,6 +315,53 @@ jobs:
           fi
           grep -Fxq "120s|5|-C $HOME install|token=set" "$log"
 
+      - name: Validate global lock adoption
+        run: |
+          set -euo pipefail
+
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+
+          fake_bin="$root/bin"
+          mkdir -p "$fake_bin" "$root/home"
+          log="$root/mise.log"
+          source_lock="$root/adopted.lock"
+          target_lock="$root/config.lock"
+
+          cat > "$fake_bin/mise" <<'SH'
+          #!/usr/bin/env bash
+          set -euo pipefail
+          printf '%s\n' "$*" >> "$FAKE_MISE_LOG"
+          exit 0
+          SH
+          chmod +x "$fake_bin/mise"
+
+          export PATH="$fake_bin:$PATH"
+          export HOME="$root/home"
+          export FAKE_MISE_LOG="$log"
+          export MISE_GLOBAL_CONFIG_FILE="$root/config.toml"
+          export MISE_GLOBAL_LOCK_FILE="$target_lock"
+          export PC_SETUP_MISE_SOURCE_LOCK_FILE="$source_lock"
+          export MISE_GITHUB_TOKEN="ci-token"
+
+          : > "$source_lock"
+          ./scripts/apply-global-mise.sh
+
+          test -L "$target_lock"
+          test "$(readlink "$target_lock")" = "$source_lock"
+          grep -Fxq -- "-C $HOME install --locked" "$log"
+
+          : > "$log"
+          rm "$source_lock"
+          ./scripts/apply-global-mise.sh
+
+          test ! -e "$target_lock"
+          grep -Fxq -- "-C $HOME install" "$log"
+          if grep -Fq -- "--locked" "$log"; then
+            echo "locked mode remained enabled after adopted lock was removed" >&2
+            exit 1
+          fi
+
       - name: Validate mise configuration
         run: |
           curl -fsSL https://mise.run | sh
@@ -314,8 +369,12 @@ jobs:
           "$HOME/.local/bin/mise" config >/dev/null
           MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
             "$HOME/.local/bin/mise" -C "$HOME" config >/dev/null
+          install_args=(install --dry-run)
+          if [[ -f "$PWD/mise.global.lock" ]]; then
+            install_args+=(--locked)
+          fi
           MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
-            "$HOME/.local/bin/mise" -C "$HOME" install --dry-run
+            "$HOME/.local/bin/mise" -C "$HOME" "${install_args[@]}"
 
       - name: Validate Open Code Review install channel
         run: |
@@ -330,6 +389,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Parse PowerShell scripts
         shell: pwsh
@@ -601,6 +662,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Install Nix
         uses: NixOS/nix-installer-action@main
