@@ -47,7 +47,17 @@ pc-setup の system profile 適用後は `nix-command` / `flakes` が恒久的�
 
 NixOSではgeneric Linux binaryをbare hostから直接実行できないため、このmise install phaseだけはFlakeが用意する一時FHS compatibility environment内で実行します。bootstrap中は `MISE_ALL_COMPILE=0`（Node/Pythonもcompile=false）として、miseのNixOS source-build fallbackではなくprebuilt artifactを使用します。これによりBun / rustup / Node等のinstaller child processも同じFHS environment内で動作します。
 
-system profile適用後は `programs.nix-ld.enable = true` によりmise-managed binaryを通常shellから実行できます。NixOS全体へ `LD_LIBRARY_PATH` をexportする方式は採りません。個別 package 名を覚えたり、`nix-shell -p ...` を組み立てたりしません。
+install 後は `user-baseline` package を persistent out-link `~/.local/state/pc-setup/nix-user-baseline` として構築します。この package は `claude` / `opencode` / `node` / `cargo` / `gcloud` 等の command wrapper を持ち、各 command を FHS environment 内の `mise -C "$PWD" exec` へ渡します。これにより system profile / nix-ld 適用前でも通常 shell からCLIを実行でき、project-local mise configも反映されます。
+
+Bash は `~/.config/pc-setup/shell-init.bash` を source し、この wrapper baseline を PATH に追加します。bootstrap は parent shell の環境を変更できないため、wrapper 構築直後に必ず次の案内を表示します。verify が失敗してもこの案内は再表示されます。
+
+```bash
+source ~/.config/pc-setup/shell-init.bash
+```
+
+新しい shell を開く場合は手動 source は不要です。
+
+system profile適用後は `programs.nix-ld.enable = true` も利用できます。NixOS全体へ `LD_LIBRARY_PATH` をexportする方式は採りません。
 
 ## What this profile installs
 
@@ -58,6 +68,10 @@ Nix/Home Manager system/build set:
 - zip / unzip / xz / rsync
 - GCC / Clang / LLDB / CMake / Ninja / Make / pkg-config
 - mise
+
+remote bootstrap の persistent `user-baseline` にも、通常 shell の verify に必要な Nix-native host/build tools を含めます。したがって Home Manager の system profile 適用前でも `git`, `git-lfs`, `wget`, `gcc`, `clang`, `lldb`, `cmake`, `ninja`, `make`, `pkg-config` が利用可能です。
+
+verify は bootstrap app の一時 `runtimeInputs` PATH を継承せず、`user-baseline/bin:/run/current-system/sw/bin:$HOME/.local/bin` だけで通常 shell を再現します。これにより bootstrap 内だけ見える Git 等を誤って OK にしません。GitHub HTTPS credential helper が `gh auth git-credential` に接続されていることも確認します。
 
 The bootstrap Flake additionally provides temporary GitHub CLI / Infisical / jq / Neovim before the global layer is active.
 
@@ -97,6 +111,7 @@ reusable outputs:
 - `checks.<system>.bootstrap-shell`
 - `checks.<system>.home-profile`
 - `checks.<system>.nixos-profile`
+- `packages.<system>.user-baseline`
 
 ### `modules/system.nix`
 
@@ -189,7 +204,7 @@ nix --extra-experimental-features 'nix-command flakes' \
   run --no-write-lock-file 'github:rebuildup/pc-setup?dir=platforms/nixos'
 ```
 
-Flake app が必要なbootstrap toolsとFHS compatibility environmentを一時的に用意し、`~/src/pc-setup` のcheckoutを準備します。既存checkoutがある場合はoriginを検証し、`PC_SETUP_REF` をfetchしてtracking branchへ切り替え、fast-forward onlyで同期します。その後 `mise.global.toml` を `~/.config/mise/config.toml` へlinkします。続く `mise install` とdotfiles bootstrapはそのFHS environment内で実行します。その後 `~/.dotfiles` をcloneし、`script/bootstrap` まで進みます。Git / GitHub CLI / Infisical / cloud CLI / agent CLI等のpackage listを手で覚える必要はありません。
+Flake app が必要なbootstrap toolsとFHS compatibility environmentを一時的に用意し、`~/src/pc-setup` のcheckoutを準備します。既存checkoutがある場合はoriginを検証し、`PC_SETUP_REF` をfetchしてtracking branchへ切り替え、fast-forward onlyで同期します。その後 `mise.global.toml` を適用し、`mise install` とdotfiles bootstrapをFHS environment内で実行します。最後に persistent CLI wrapper baseline を構築し、通常 shell 相当の PATH で `verify.sh` を通してから `pc-setup bootstrap complete` とします。
 
 pc-setup の system profile 適用後は `nix-command` / `flakes` が有効になります。remote bootstrap 側は read-only GitHub flake なので、再実行時も `--no-write-lock-file` は維持します。
 
@@ -270,11 +285,16 @@ gh auth status
 
 ### Claude Code
 
+Claude Code 本体は `mise.global.toml` の portable CLI baseline から導入します。
+
+provider 接続は machine provisioning ではなく `rebuildup/dotfiles` の Infisical runtime integration が所有します。MiMo 利用時は dotfiles の provider entrypoint 経由で起動します。
+
 ```bash
 claude
+# equivalent: ~/.dotfiles/script/agent/mimo claude
 ```
 
-browser login 等の対話手順で認証します。
+`~/.config/pc-setup/shell-init.bash` は `~/.dotfiles/script/agent` を PATH 先頭に置き、`mimo` entrypoint が存在する場合に `claude` を process-scoped injection へ委譲します。委譲は shell function と、agent 配下の `claude` PATH shim の両方で行うため、function 未定義のシェルでも素の Claude Code に落ちません。provider URL / model / credential は shell には export されません。
 
 ### OpenCode
 

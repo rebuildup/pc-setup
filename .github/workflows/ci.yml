@@ -62,6 +62,48 @@ jobs:
           test "$(cat "$checkout/state.txt")" = test-ref
           test "$(git -C "$checkout" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}')" = origin/test-ref
 
+      - name: Validate NixOS shell init convergence
+        run: |
+          set -euo pipefail
+
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+
+          export HOME="$root/home"
+          baseline="$HOME/.local/state/pc-setup/nix-user-baseline"
+          mkdir -p "$baseline/bin"
+
+          bash ./platforms/nixos/configure-shell.sh "$baseline"
+          bash ./platforms/nixos/configure-shell.sh "$baseline"
+
+          test "$(grep -Fc '# >>> pc-setup shell init >>>' "$HOME/.bashrc")" = 1
+          test "$(grep -Fc '# >>> pc-setup shell init >>>' "$HOME/.profile")" = 1
+          grep -Fq '.config/pc-setup/shell-init.bash' "$HOME/.bashrc"
+          grep -Fq 'nix-user-baseline/bin' "$HOME/.config/pc-setup/shell-init.bash"
+          grep -Fq 'wt config shell init bash' "$HOME/.config/pc-setup/shell-init.bash"
+          grep -Fq '.dotfiles/script/agent' "$HOME/.config/pc-setup/shell-init.bash"
+          grep -Fq 'agent/mimo' "$HOME/.config/pc-setup/shell-init.bash"
+
+          # Once Home Manager owns the rc files they are declarative symlinks.
+          # Re-running bootstrap must preserve those links instead of replacing
+          # or mutating their Nix-store-like targets.
+          managed_dir="$root/managed"
+          mkdir -p "$managed_dir"
+          printf '%s\n' '# Home Manager managed bashrc' > "$managed_dir/bashrc"
+          printf '%s\n' '# Home Manager managed profile' > "$managed_dir/profile"
+          rm -f "$HOME/.bashrc" "$HOME/.profile"
+          ln -s "$managed_dir/bashrc" "$HOME/.bashrc"
+          ln -s "$managed_dir/profile" "$HOME/.profile"
+
+          bash ./platforms/nixos/configure-shell.sh "$baseline"
+
+          test -L "$HOME/.bashrc"
+          test -L "$HOME/.profile"
+          test "$(cat "$managed_dir/bashrc")" = '# Home Manager managed bashrc'
+          test "$(cat "$managed_dir/profile")" = '# Home Manager managed profile'
+
+          grep -Fq 'source "$HOME/.config/pc-setup/shell-init.bash"' platforms/nixos/modules/home.nix
+
       - name: Validate bounded mise install retry
         run: |
           set -euo pipefail
@@ -435,6 +477,24 @@ jobs:
 
       - name: Build NixOS mise compatibility wrapper
         run: nix build --no-link --no-write-lock-file ./platforms/nixos#mise-bootstrap-fhs
+
+      - name: Build NixOS persistent CLI wrapper baseline
+        run: |
+          nix build --no-write-lock-file --out-link result-user-baseline ./platforms/nixos#user-baseline
+          for command in git git-lfs mise claude opencode node cargo gcloud wget gcc clang lldb cmake ninja make pkg-config; do
+            test -x "result-user-baseline/bin/$command"
+          done
+          grep -Fq 'mise -C' "$(readlink -f result-user-baseline/bin/claude)"
+          grep -Fq 'pc-setup-mise-bootstrap-fhs' "$(readlink -f result-user-baseline/bin/opencode)"
+
+      - name: Validate bootstrap shell activation guidance
+        run: |
+          grep -Fq 'this process cannot modify the parent shell PATH' platforms/nixos/flake.nix
+          grep -Fq 'source %s/.config/pc-setup/shell-init.bash' platforms/nixos/flake.nix
+          grep -Fq 'bootstrap is not complete' platforms/nixos/flake.nix
+          grep -Fq 'normal_shell_path="$user_baseline_link/bin:/run/current-system/sw/bin:$HOME/.local/bin"' platforms/nixos/flake.nix
+          ! grep -Fq 'PATH="$user_baseline_link/bin:$PATH"' platforms/nixos/flake.nix
+          grep -Fq 'GitHub HTTPS credential helper is configured through gh' platforms/nixos/verify.sh
 
       - name: Validate nix-ld boundary
         run: grep -F 'programs.nix-ld.enable = true;' platforms/nixos/modules/system.nix
