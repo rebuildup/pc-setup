@@ -207,5 +207,6 @@ finally {
     Pop-Location
 }
 
+& (Join-Path $applyDir 'platforms\windows-11\install-apps.ps1')
 Install-NotionMsix
 Install-StoreApps
