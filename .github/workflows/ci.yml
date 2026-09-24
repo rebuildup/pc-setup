@@ -62,6 +62,66 @@ jobs:
               bash /repo/platforms/ubuntu-wsl/prepare-apt.sh
             '
 
+      - name: Validate dotfiles checkout convergence
+        run: |
+          set -euo pipefail
+
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+
+          origin="$root/origin.git"
+          seed="$root/seed"
+          checkout="$root/dotfiles"
+          fresh_checkout="$root/dotfiles-fresh"
+
+          git init --bare "$origin"
+          git init -b main "$seed"
+          git -C "$seed" config user.name 'pc-setup CI'
+          git -C "$seed" config user.email 'pc-setup-ci@example.invalid'
+
+          mkdir -p "$seed/script"
+          cat > "$seed/script/bootstrap" <<'SH'
+          #!/usr/bin/env bash
+          printf '%s\n' v1
+          SH
+          chmod +x "$seed/script/bootstrap"
+          printf '%s\n' v1 > "$seed/state.txt"
+          git -C "$seed" add script/bootstrap state.txt
+          git -C "$seed" commit -m v1
+          git -C "$seed" remote add origin "$origin"
+          git -C "$seed" push -u origin main
+
+          git clone --branch main --single-branch "$origin" "$checkout"
+
+          printf '%s\n' v2 > "$seed/state.txt"
+          git -C "$seed" commit -am v2
+          git -C "$seed" push origin main
+
+          DOTFILES_REPO_URL="$origin" DOTFILES_DIR="$checkout" ./scripts/sync-dotfiles.sh
+          test "$(cat "$checkout/state.txt")" = v2
+          test "$(git -C "$checkout" rev-parse HEAD)" = "$(git -C "$seed" rev-parse HEAD)"
+
+          # Rerun must converge without changing the checkout.
+          before="$(git -C "$checkout" rev-parse HEAD)"
+          DOTFILES_REPO_URL="$origin" DOTFILES_DIR="$checkout" ./scripts/sync-dotfiles.sh
+          test "$(git -C "$checkout" rev-parse HEAD)" = "$before"
+
+          # Fresh clone uses the same convergence boundary.
+          DOTFILES_REPO_URL="$origin" DOTFILES_DIR="$fresh_checkout" ./scripts/sync-dotfiles.sh
+          test "$(cat "$fresh_checkout/state.txt")" = v2
+
+          # Never discard local work while trying to reach desired state.
+          printf '%s\n' dirty >> "$checkout/state.txt"
+          set +e
+          DOTFILES_REPO_URL="$origin" DOTFILES_DIR="$checkout" ./scripts/sync-dotfiles.sh
+          status=$?
+          set -e
+          test "$status" -ne 0
+          grep -Fq dirty "$checkout/state.txt"
+
+          grep -Fq 'bash scripts/sync-dotfiles.sh && mise -C' mise.toml
+          grep -Fq 'bash "$pc_setup_dir/scripts/sync-dotfiles.sh"' platforms/nixos/flake.nix
+
       - name: Validate NixOS checkout convergence
         run: |
           set -euo pipefail
