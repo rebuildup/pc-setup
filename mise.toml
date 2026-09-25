@@ -1,6 +1,11 @@
 # Cross-platform machine bootstrap for Ubuntu, macOS, and Windows.
 # Portable machine-global CLI/runtime defaults live in mise.global.toml.
 # NixOS keeps Flake/Home Manager as the system/build-state source of truth.
+# The repository-local Bun pin below exists only so project-local Agent Skills
+# management is reproducible before machine-global bootstrap has completed.
+
+[tools]
+bun = "1.4.2"
 
 [bootstrap.packages]
 # Ubuntu / Debian-family host foundation. Portable CLIs belong in mise.global.toml.
