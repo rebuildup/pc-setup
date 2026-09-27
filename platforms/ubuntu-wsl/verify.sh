@@ -47,6 +47,7 @@ snapshot() {
   printf 'fzf=%s\n' "$(first_line fzf --version)"
   printf 'jq=%s\n' "$(first_line jq --version)"
   printf 'bat=%s\n' "$(first_line bat --version)"
+  printf 'gdu=%s\n' "$(first_line gdu --version)"
   printf 'bun=%s\n' "$(first_line bun --version)"
   printf 'rustc=%s\n' "$(first_line rustc --version)"
   printf 'cargo=%s\n' "$(first_line cargo --version)"
@@ -60,7 +61,7 @@ snapshot() {
 }
 
 if [[ "$SNAPSHOT" -eq 1 ]]; then
-  required=(git gh rg fd fzf jq bat bun rustc cargo wt claude opencode shellcheck python3 cmake clang)
+  required=(git gh rg fd fzf jq bat gdu bun rustc cargo wt claude opencode shellcheck python3 cmake clang)
   for cmd in "${required[@]}"; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
       printf 'Cannot create complete snapshot: missing command %s\n' "$cmd" >&2
@@ -140,6 +141,7 @@ commands=(
   fzf
   jq
   bat
+  gdu
   bun
   rustc
   cargo

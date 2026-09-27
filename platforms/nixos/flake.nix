@@ -143,6 +143,7 @@
         "fzf"
         "jq"
         "bat"
+        "gdu"
         "shellcheck"
         "nvim"
       ];
