@@ -97,7 +97,7 @@ OSごとにWinGet packageを重複宣言せず、`mise.global.toml [tools]` を�
 - Open Code Review / npkill / cargo-clean-all
 - Google Cloud CLI / AWS CLI
 - Supabase CLI / Vercel CLI
-- ripgrep / fd / fzf / jq / bat
+- ripgrep / fd / fzf / jq / bat / gdu
 - ShellCheck / Neovim
 
 ## Microsoft Store boundary
