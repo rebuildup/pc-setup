@@ -6,11 +6,23 @@ $ErrorActionPreference = 'Stop'
 
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $SourceConfig = Join-Path $RepoRoot 'mise.global.toml'
+$SourceLock = if ($env:PC_SETUP_MISE_SOURCE_LOCK_FILE) {
+    $env:PC_SETUP_MISE_SOURCE_LOCK_FILE
+}
+else {
+    Join-Path $RepoRoot 'mise.global.lock'
+}
 $TargetConfig = if ($env:MISE_GLOBAL_CONFIG_FILE) {
     $env:MISE_GLOBAL_CONFIG_FILE
 }
 else {
     Join-Path $HOME '.config\mise\config.toml'
+}
+$TargetLock = if ($env:MISE_GLOBAL_LOCK_FILE) {
+    $env:MISE_GLOBAL_LOCK_FILE
+}
+else {
+    [System.IO.Path]::ChangeExtension($TargetConfig, '.lock')
 }
 $ManagedMarker = '# Managed by rebuildup/pc-setup.'
 
@@ -30,6 +42,14 @@ if (Test-Path -LiteralPath $TargetConfig) {
 
 Copy-Item -LiteralPath $SourceConfig -Destination $TargetConfig -Force
 Write-Host "synced  $TargetConfig <- $SourceConfig"
+
+if (Test-Path -LiteralPath $SourceLock) {
+    Copy-Item -LiteralPath $SourceLock -Destination $TargetLock -Force
+    Write-Host "synced  $TargetLock <- $SourceLock"
+}
+elseif (Test-Path -LiteralPath $TargetLock) {
+    Remove-Item -LiteralPath $TargetLock -Force
+}
 
 function Prepare-MiseGitHubAuth {
     if ($env:MISE_GITHUB_TOKEN -or $env:GITHUB_API_TOKEN -or $env:GITHUB_TOKEN) {
@@ -71,7 +91,13 @@ Prepare-MiseGitHubAuth
 
 Push-Location $HOME
 try {
-    & mise install
+    $installArgs = @('install')
+    if (Test-Path -LiteralPath $TargetLock) {
+        $installArgs += '--locked'
+        Write-Host 'ok      using committed mise global lock'
+    }
+
+    & mise @installArgs
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }

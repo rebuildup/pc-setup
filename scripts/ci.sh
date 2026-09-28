@@ -39,6 +39,17 @@ for path in (Path("mise.toml"), Path("mise.global.toml")):
         tomllib.load(fh)
 PY
 
+printf 'Checking continuous update train invariants...\n'
+grep -Fq 'lock --global --bump' .github/workflows/update-train.yml
+grep -Fq 'mise.global.lock' .github/workflows/update-train.yml
+grep -Fq 'git diff --quiet -- mise.global.toml' .github/workflows/update-train.yml
+grep -Fq 'headRefOid,baseRefOid' .github/workflows/update-train.yml
+grep -Fq 'workflow_dispatch:' .github/workflows/ci.yml
+grep -Fq 'PC_SETUP_MISE_SOURCE_LOCK_FILE' scripts/apply-global-mise.sh
+grep -Fq -- '--locked' scripts/apply-global-mise.sh
+grep -Fq 'PC_SETUP_MISE_SOURCE_LOCK_FILE' scripts/apply-global-mise.ps1
+grep -Fq -- "'--locked'" scripts/apply-global-mise.ps1
+
 printf 'Checking executable bits...\n'
 for script in "${shell_scripts[@]}"; do
   if [[ ! -x "$script" ]]; then

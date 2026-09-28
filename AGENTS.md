@@ -141,6 +141,7 @@ Use the current `project-init` release-driven profile:
 - independent ticket PR base: target release branch
 - active durable ticket branches require a published remote head and Draft PR
 - `main` changes through the release PR path
+- exception: the repository-owned continuous update train may merge a generated `mise.global.lock`-only PR directly to `main` after repository CI succeeds on the exact PR head SHA; this exception does not apply to agents, humans, source policy, workflow code, or any other path
 - PR landing method is merge commit; squash/rebase merge are not part of the intended repository policy
 - agents do not merge PRs without explicit human authorization
 
