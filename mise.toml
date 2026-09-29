@@ -1,6 +1,11 @@
 # Cross-platform machine bootstrap for Ubuntu, macOS, and Windows.
 # Portable machine-global CLI/runtime defaults live in mise.global.toml.
 # NixOS keeps Flake/Home Manager as the system/build-state source of truth.
+# The repository-local Bun pin below exists only so project-local Agent Skills
+# management is reproducible before machine-global bootstrap has completed.
+
+[tools]
+bun = "1.4.2"
 
 [bootstrap.packages]
 # Ubuntu / Debian-family host foundation. Portable CLIs belong in mise.global.toml.
@@ -52,3 +57,18 @@
 description = "Apply machine-global mise tools and finish personal user configuration"
 run = "bash scripts/apply-global-mise.sh && bash scripts/sync-dotfiles.sh && mise -C \"$HOME\" exec -- bash ~/.dotfiles/script/bootstrap"
 run_windows = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/apply-global-mise.ps1"
+
+
+# Agent Skills lifecycle. Bun itself remains a portable CLI default in
+# mise.global.toml; these tasks only define repository-local Skills operations.
+[tasks.skills-list]
+description = "List Agent Skills available from rebuildup/project-init"
+run = "bunx skills add rebuildup/project-init --list"
+
+[tasks.skills-bootstrap]
+description = "Install project-init Skills for Claude Code and universal .agents/skills consumers"
+run = "bunx skills add rebuildup/project-init --skill '*' --agent claude-code --agent codex -y"
+
+[tasks.skills-update]
+description = "Update tracked project-local Agent Skills non-interactively"
+run = "bunx skills update -p -y"

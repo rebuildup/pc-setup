@@ -86,7 +86,7 @@ OSに依存しにくい開発CLI/runtimeは一度だけ宣言する。
 - Open Code Review / npkill / cargo-clean-all
 - Google Cloud CLI / AWS CLI
 - Supabase CLI / Vercel CLI
-- ripgrep / fd / fzf / jq / bat
+- ripgrep / fd / fzf / jq / bat / gdu
 - ShellCheck / Neovim
 
 Open Code Review は npm trust policy を迂回せず、公式 `alibaba/open-code-review` GitHub Release のplatform binaryをmiseから導入する。詳細は [ADR-0007](./docs/adr/ADR-0007.md) を参照。

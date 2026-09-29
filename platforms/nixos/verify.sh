@@ -60,6 +60,7 @@ commands=(
   fzf
   jq
   bat
+  gdu
   shellcheck
   nvim
   python3
