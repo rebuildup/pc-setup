@@ -710,7 +710,7 @@ jobs:
       - name: Build NixOS persistent CLI wrapper baseline
         run: |
           nix build --no-write-lock-file --out-link result-user-baseline ./platforms/nixos#user-baseline
-          for command in git git-lfs mise claude opencode node cargo gcloud wget gcc clang lldb cmake ninja make pkg-config; do
+          for command in git git-lfs mise claude opencode node cargo gdu gcloud wget gcc clang lldb cmake ninja make pkg-config; do
             test -x "result-user-baseline/bin/$command"
           done
           grep -Fq 'mise -C' "$(readlink -f result-user-baseline/bin/claude)"

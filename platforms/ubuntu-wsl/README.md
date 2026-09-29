@@ -62,7 +62,7 @@ Portable developer tools are declared once in `mise.global.toml`, which is linke
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
 - Google Cloud CLI / AWS CLI / Supabase CLI / Vercel CLI
-- ripgrep / fd / fzf / jq / bat
+- ripgrep / fd / fzf / jq / bat / gdu
 - ShellCheck / Neovim
 
 The Ubuntu bootstrap does not duplicate installation logic for those tools.

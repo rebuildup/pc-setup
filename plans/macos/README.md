@@ -41,7 +41,7 @@ Cross-machine developer CLI/runtime requirements are inherited from root `mise.t
 - Claude Code / Codex / OpenCode / Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
 - Google Cloud CLI / AWS CLI / Supabase CLI / Vercel CLI
-- ripgrep / fd / fzf / jq / bat / ShellCheck / Neovim
+- ripgrep / fd / fzf / jq / bat / gdu / ShellCheck / Neovim
 
 macOS-specific application candidates are recorded separately in `mise.candidate.toml`.
 
