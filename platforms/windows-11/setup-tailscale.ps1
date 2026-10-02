@@ -120,7 +120,7 @@ if ($LASTEXITCODE -eq 0 -and $statusOutput.Count -gt 0) {
 
 if (-not $status -or $status.BackendState -ne 'Running') {
     Write-Host 'Registering Windows host with Tailscale'
-    $authKey = "$oauthSecret?$($config.Tailscale.AuthKeyParameters)"
+    $authKey = "${oauthSecret}?$($config.Tailscale.AuthKeyParameters)"
     try {
         Invoke-Checked -Command $tailscale -Arguments @(
             'up',
