@@ -629,7 +629,7 @@ jobs:
             '--env=',
             '--path=',
             '-Injected',
-            'TAILSCALE_OAUTH_CLIENT_SECRET'
+            '$config.Infisical.RequiredSecrets'
           )) {
             if (-not $setupScript.Contains($marker)) {
               throw "Missing Infisical/Tailscale setup marker: $marker"
