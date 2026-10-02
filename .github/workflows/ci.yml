@@ -644,14 +644,21 @@ jobs:
           $logPath = Join-Path $root 'tailscale.log'
           New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
 
+          $oldPath = $null
           try {
             $fakeTailscaleSource = @'
           using System;
           using System.IO;
-          using System.Linq;
 
           public static class Program
           {
+              private static string JoinTail(string[] args)
+              {
+                  return args.Length <= 1
+                      ? ""
+                      : string.Join(" ", args, 1, args.Length - 1);
+              }
+
               public static int Main(string[] args)
               {
                   string logPath = Environment.GetEnvironmentVariable("FAKE_TAILSCALE_LOG");
@@ -665,7 +672,7 @@ jobs:
 
                   if (args.Length >= 1 && args[0] == "up")
                   {
-                      File.AppendAllText(logPath, "up " + string.Join(" ", args.Skip(1)) + Environment.NewLine);
+                      File.AppendAllText(logPath, "up " + JoinTail(args) + Environment.NewLine);
                       return 0;
                   }
 
@@ -680,7 +687,7 @@ jobs:
 
                   if (args.Length >= 1 && args[0] == "serve")
                   {
-                      File.AppendAllText(logPath, "serve " + string.Join(" ", args.Skip(1)) + Environment.NewLine);
+                      File.AppendAllText(logPath, "serve " + JoinTail(args) + Environment.NewLine);
                       return 0;
                   }
 
@@ -688,9 +695,22 @@ jobs:
               }
           }
           '@
-            Add-Type -TypeDefinition $fakeTailscaleSource -Language CSharp `
-              -OutputAssembly (Join-Path $fakeBin 'tailscale.exe') `
-              -OutputType ConsoleApplication
+            $sourcePath = Join-Path $root 'FakeTailscale.cs'
+            $fakeExe = Join-Path $fakeBin 'tailscale.exe'
+            Set-Content -LiteralPath $sourcePath -Value $fakeTailscaleSource
+
+            $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+            if (-not (Test-Path -LiteralPath $csc)) {
+              $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+            }
+            if (-not (Test-Path -LiteralPath $csc)) {
+              throw 'Windows .NET Framework C# compiler is unavailable for the Tailscale test double.'
+            }
+
+            & $csc /nologo /target:exe "/out:$fakeExe" $sourcePath
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to compile Tailscale test double: exit $LASTEXITCODE"
+            }
 
             $oldPath = $env:PATH
             $env:PATH = "$fakeBin;$oldPath"
