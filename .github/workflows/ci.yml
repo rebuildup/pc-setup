@@ -645,45 +645,52 @@ jobs:
           New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
 
           try {
-            @'
-          @echo off
-          setlocal EnableDelayedExpansion
+            $fakeTailscaleSource = @'
+          using System;
+          using System.IO;
+          using System.Linq;
 
-          if "%1"=="status" if "%2"=="--json" (
-            if "%FAKE_TAILSCALE_BACKEND%"=="Running" (
-              echo {"BackendState":"Running"}
-            ) else (
-              echo {"BackendState":"NeedsLogin"}
-            )
-            exit /b 0
-          )
+          public static class Program
+          {
+              public static int Main(string[] args)
+              {
+                  string logPath = Environment.GetEnvironmentVariable("FAKE_TAILSCALE_LOG");
 
-          if "%1"=="up" (
-            set "a2=%2"
-            set "a3=%3"
-            >>"%FAKE_TAILSCALE_LOG%" echo(up !a2! !a3!
-            exit /b 0
-          )
+                  if (args.Length >= 2 && args[0] == "status" && args[1] == "--json")
+                  {
+                      string backend = Environment.GetEnvironmentVariable("FAKE_TAILSCALE_BACKEND") ?? "NeedsLogin";
+                      Console.WriteLine("{\"BackendState\":\"" + backend + "\"}");
+                      return 0;
+                  }
 
-          if "%1"=="serve" if "%2"=="status" (
-            echo tcp://host.test:2222
-            echo ^|-- tcp://127.0.0.1:2222
-            echo tcp://host.test:2223
-            echo ^|-- tcp://127.0.0.1:2223
-            exit /b 0
-          )
+                  if (args.Length >= 1 && args[0] == "up")
+                  {
+                      File.AppendAllText(logPath, "up " + string.Join(" ", args.Skip(1)) + Environment.NewLine);
+                      return 0;
+                  }
 
-          if "%1"=="serve" (
-            set "a2=%2"
-            set "a3=%3"
-            set "a4=%4"
-            set "a5=%5"
-            >>"%FAKE_TAILSCALE_LOG%" echo(serve !a2! !a3! !a4! !a5!
-            exit /b 0
-          )
+                  if (args.Length >= 2 && args[0] == "serve" && args[1] == "status")
+                  {
+                      Console.WriteLine("tcp://host.test:2222");
+                      Console.WriteLine("|-- tcp://127.0.0.1:2222");
+                      Console.WriteLine("tcp://host.test:2223");
+                      Console.WriteLine("|-- tcp://127.0.0.1:2223");
+                      return 0;
+                  }
 
-          exit /b 99
-          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'tailscale.cmd')
+                  if (args.Length >= 1 && args[0] == "serve")
+                  {
+                      File.AppendAllText(logPath, "serve " + string.Join(" ", args.Skip(1)) + Environment.NewLine);
+                      return 0;
+                  }
+
+                  return 99;
+              }
+          }
+          '@
+            Add-Type -TypeDefinition $fakeTailscaleSource -Language CSharp `
+              -OutputAssembly (Join-Path $fakeBin 'tailscale.exe') `
+              -OutputType ConsoleApplication
 
             $oldPath = $env:PATH
             $env:PATH = "$fakeBin;$oldPath"
