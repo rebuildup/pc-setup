@@ -578,6 +578,188 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Validate Infisical-backed Tailscale provisioning
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $miseConfig = Get-Content -LiteralPath ./mise.toml -Raw
+          if (-not $miseConfig.Contains('"winget:Tailscale.Tailscale" = { os = "windows" }')) {
+            throw 'Tailscale must be part of the mandatory Windows foundation.'
+          }
+
+          $config = Import-PowerShellDataFile -LiteralPath ./platforms/windows-11/tailscale.psd1
+          if ($config.Infisical.ApiUrl -ne 'https://secrets.rebuildup.dev/api') {
+            throw 'Tailscale provisioning must use the self-hosted Infisical API.'
+          }
+          if ($config.Infisical.ProjectId -ne 'd4c2fc09-a923-4a38-9cf4-b51769aadb76') {
+            throw 'Unexpected Infisical project ID for Tailscale provisioning.'
+          }
+          if ($config.Infisical.Environment -ne 'prod' -or $config.Infisical.Path -ne '/infrastructure/tailscale') {
+            throw 'Unexpected Infisical environment/path for Tailscale provisioning.'
+          }
+          if ($config.Infisical.RequiredSecrets -notcontains 'TAILSCALE_OAUTH_CLIENT_SECRET') {
+            throw 'Tailscale OAuth secret contract is missing.'
+          }
+          if ($config.Tailscale.AdvertiseTag -ne 'tag:personal-device') {
+            throw 'Unexpected Tailscale device tag.'
+          }
+          if ($config.Tailscale.AuthKeyParameters -ne 'ephemeral=false&preauthorized=true') {
+            throw 'Tailscale node registration must be persistent and preauthorized.'
+          }
+
+          $expectedMappings = @{
+            2222 = 'tcp://127.0.0.1:2222'
+            2223 = 'tcp://127.0.0.1:2223'
+          }
+          foreach ($entry in $expectedMappings.GetEnumerator()) {
+            $mapping = $config.Tailscale.Serve |
+              Where-Object { $_.ListenPort -eq $entry.Key -and $_.Target -eq $entry.Value } |
+              Select-Object -First 1
+            if (-not $mapping) {
+              throw "Missing Tailscale Serve mapping $($entry.Key) -> $($entry.Value)"
+            }
+          }
+
+          $setupScript = Get-Content -LiteralPath ./platforms/windows-11/setup-tailscale.ps1 -Raw
+          foreach ($marker in @(
+            'INFISICAL_API_URL',
+            '--projectId=',
+            '--env=',
+            '--path=',
+            '-Injected',
+            '$config.Infisical.RequiredSecrets'
+          )) {
+            if (-not $setupScript.Contains($marker)) {
+              throw "Missing Infisical/Tailscale setup marker: $marker"
+            }
+          }
+          if ($setupScript -match 'tskey-') {
+            throw 'A Tailscale credential literal must never be committed.'
+          }
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-tailscale-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $logPath = Join-Path $root 'tailscale.log'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+
+          $oldPath = $null
+          try {
+            $fakeTailscaleSource = @'
+          using System;
+          using System.IO;
+
+          public static class Program
+          {
+              private static string JoinTail(string[] args)
+              {
+                  return args.Length <= 1
+                      ? ""
+                      : string.Join(" ", args, 1, args.Length - 1);
+              }
+
+              public static int Main(string[] args)
+              {
+                  string logPath = Environment.GetEnvironmentVariable("FAKE_TAILSCALE_LOG");
+
+                  if (args.Length >= 2 && args[0] == "status" && args[1] == "--json")
+                  {
+                      string backend = Environment.GetEnvironmentVariable("FAKE_TAILSCALE_BACKEND") ?? "NeedsLogin";
+                      Console.WriteLine("{\"BackendState\":\"" + backend + "\"}");
+                      return 0;
+                  }
+
+                  if (args.Length >= 1 && args[0] == "up")
+                  {
+                      File.AppendAllText(logPath, "up " + JoinTail(args) + Environment.NewLine);
+                      return 0;
+                  }
+
+                  if (args.Length >= 2 && args[0] == "serve" && args[1] == "status")
+                  {
+                      Console.WriteLine("tcp://host.test:2222");
+                      Console.WriteLine("|-- tcp://127.0.0.1:2222");
+                      Console.WriteLine("tcp://host.test:2223");
+                      Console.WriteLine("|-- tcp://127.0.0.1:2223");
+                      return 0;
+                  }
+
+                  if (args.Length >= 1 && args[0] == "serve")
+                  {
+                      File.AppendAllText(logPath, "serve " + JoinTail(args) + Environment.NewLine);
+                      return 0;
+                  }
+
+                  return 99;
+              }
+          }
+          '@
+            $sourcePath = Join-Path $root 'FakeTailscale.cs'
+            $fakeExe = Join-Path $fakeBin 'tailscale.exe'
+            Set-Content -LiteralPath $sourcePath -Value $fakeTailscaleSource
+
+            $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+            if (-not (Test-Path -LiteralPath $csc)) {
+              $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+            }
+            if (-not (Test-Path -LiteralPath $csc)) {
+              throw 'Windows .NET Framework C# compiler is unavailable for the Tailscale test double.'
+            }
+
+            & $csc /nologo /target:exe "/out:$fakeExe" $sourcePath
+            if ($LASTEXITCODE -ne 0) {
+              throw "Failed to compile Tailscale test double: exit $LASTEXITCODE"
+            }
+
+            $oldPath = $env:PATH
+            $env:PATH = "$fakeBin;$oldPath"
+            $env:FAKE_TAILSCALE_LOG = $logPath
+            $env:FAKE_TAILSCALE_BACKEND = 'NeedsLogin'
+            $env:TAILSCALE_OAUTH_CLIENT_SECRET = 'oauth-ci-placeholder'
+
+            & ./platforms/windows-11/setup-tailscale.ps1 -Injected
+
+            $attempts = @(Get-Content -LiteralPath $logPath)
+            $expectedUp = 'up --auth-key=oauth-ci-placeholder?ephemeral=false&preauthorized=true --advertise-tags=tag:personal-device'
+            if ($attempts -notcontains $expectedUp) {
+              throw "Fresh Tailscale registration did not use the expected scoped OAuth parameters: $($attempts -join '; ')"
+            }
+            foreach ($expected in @(
+              'serve --bg --yes --tcp=2222 tcp://127.0.0.1:2222',
+              'serve --bg --yes --tcp=2223 tcp://127.0.0.1:2223'
+            )) {
+              if ($attempts -notcontains $expected) {
+                throw "Missing Tailscale Serve convergence call: $expected"
+              }
+            }
+
+            Clear-Content -LiteralPath $logPath
+            $env:FAKE_TAILSCALE_BACKEND = 'Running'
+
+            & ./platforms/windows-11/setup-tailscale.ps1 -Injected
+
+            $rerun = @(Get-Content -LiteralPath $logPath)
+            if ($rerun | Where-Object { $_ -like 'up *' }) {
+              throw 'Already-connected Tailscale node was unexpectedly re-registered.'
+            }
+            foreach ($expected in @(
+              'serve --bg --yes --tcp=2222 tcp://127.0.0.1:2222',
+              'serve --bg --yes --tcp=2223 tcp://127.0.0.1:2223'
+            )) {
+              if ($rerun -notcontains $expected) {
+                throw "Rerun did not preserve Tailscale Serve convergence: $expected"
+              }
+            }
+          }
+          finally {
+            if ($oldPath) { $env:PATH = $oldPath }
+            Remove-Item Env:FAKE_TAILSCALE_LOG -ErrorAction SilentlyContinue
+            Remove-Item Env:FAKE_TAILSCALE_BACKEND -ErrorAction SilentlyContinue
+            Remove-Item Env:TAILSCALE_OAUTH_CLIENT_SECRET -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Validate arbitrary PC_SETUP_REF tracking
         shell: pwsh
         run: |
