@@ -50,6 +50,7 @@ root `mise.toml` の mandatory Windows package phase には、bootstrap / develo
 - Android Studio
 - Google Cloud SDK
 - AWS CLI
+- Tailscale
 
 これらは fail-fast。Git と mise 自体も bootstrap dependency。
 
@@ -109,6 +110,36 @@ miseのWinGet managerではStore sourceをこのrepositoryの要件どおり明�
 
 region/account availabilityに依存する場合はWARNにし、regionを自動変更しない。
 
+## Tailscale / WSL SSH
+
+Windows host の Tailscale client 自体は通常の `bootstrap.ps1` で導入する。tailnet enrollment は secret-backed post-bootstrap boundary とし、interactive browser loginを bootstrap から開始しない。
+
+secret-free contract は `platforms/windows-11/tailscale.psd1` に保持する。
+
+- Infisical site: `https://secrets.rebuildup.dev`
+- environment: `prod`
+- path: `/infrastructure/tailscale`
+- required secret: `TAILSCALE_OAUTH_CLIENT_SECRET`
+- Tailscale device tag: `tag:personal-device`
+- tailnet TCP `2222` -> `tcp://127.0.0.1:2222` (Ubuntu SSH)
+- tailnet TCP `2223` -> `tcp://127.0.0.1:2223` (Ubuntu2 SSH)
+
+Tailscale 側の OAuth client は `auth_keys` scope と `tag:personal-device` の発行権限を持たせ、その client secret を上記 Infisical path に保存する。secret value は repository や PowerShell profileへ保存しない。
+
+Infisical CLI の認証が利用可能になった後、Windows PowerShell 7 から実行する。
+
+```powershell
+$env:INFISICAL_API_URL = 'https://secrets.rebuildup.dev/api'
+infisical login --domain=https://secrets.rebuildup.dev
+.\platforms\windows-11\setup-tailscale.ps1
+```
+
+setup script は Infisical から OAuth secret を runtime injectionし、未接続の host だけを persistent / preauthorized node として登録する。既に Tailscale backend が `Running` の host は既存 node identity を維持し、再登録しない。
+
+その後 Tailscale Serve を idempotent に収束させるため、WSL 側の SSH endpoint は従来どおり Windows localhost にだけ bind したままでよい。LAN interfaceへ `2222` / `2223` を直接公開しない。
+
+詳細な authority / recovery boundary は [ADR-0011](../../docs/adr/ADR-0011.md) を参照。
+
 ## dotfiles
 
 `~/.dotfiles` のcheckout自体はmiseが用意する。
@@ -164,6 +195,7 @@ verifyは:
 - best-effort desktop app inventory
 - portable command capabilities
 - Store apps / Notion MSIX
+- Tailscale backend / WSL SSH Serve mapping
 - Adobe/Cubase child apps
 - GitHub auth
 - Git identity
@@ -184,4 +216,4 @@ snapshotはevidenceであり、検出した全appを自動的にdesired stateへ
 
 password / token / API key / cookie / license secret / private keyはrepositoryへ保存しない。
 
-portable secretはInfisicalがsource of truth。各サービスのinteractive login / licensingは必要に応じて実機で行う。
+portable secretはInfisicalがsource of truth。Tailscale provisioning の provider pointer / required key / forwarding contract は `tailscale.psd1` に置き、OAuth client secret value は Infisical だけに保持する。各サービスのinteractive login / licensingは必要に応じて実機で行う。
