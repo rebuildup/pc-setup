@@ -51,6 +51,23 @@ function Test-NotionInstalled {
     return [bool]$appx
 }
 
+function Resolve-TailscaleCommand {
+    $command = Get-Command tailscale -CommandType Application -All -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($command) {
+        return $command
+    }
+
+    if ($env:ProgramFiles) {
+        $fallback = Join-Path $env:ProgramFiles 'Tailscale\tailscale.exe'
+        if (Test-Path -LiteralPath $fallback) {
+            return $fallback
+        }
+    }
+
+    return $null
+}
+
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw 'This verification targets Windows.' }
 
 Write-Host "pc-setup Windows 11 verification`n"
@@ -92,6 +109,52 @@ if (Test-NotionInstalled) {
 }
 else {
     Write-Fail 'Notion missing'
+}
+
+Write-Host "`nTailscale / WSL SSH"
+$tailscaleConfig = Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptDir 'tailscale.psd1')
+$tailscale = Resolve-TailscaleCommand
+if (-not $tailscale) {
+    Write-Fail 'Tailscale command missing'
+}
+else {
+    Write-Ok 'Tailscale command available'
+
+    $statusOutput = @(& $tailscale status --json 2>$null)
+    if ($LASTEXITCODE -ne 0 -or $statusOutput.Count -eq 0) {
+        Write-Fail 'Tailscale status unavailable'
+    }
+    else {
+        try {
+            $status = ($statusOutput -join [Environment]::NewLine) | ConvertFrom-Json
+            if ($status.BackendState -eq 'Running') {
+                Write-Ok 'Tailscale backend running'
+            }
+            else {
+                Write-Fail "Tailscale backend state is $($status.BackendState)"
+            }
+        }
+        catch {
+            Write-Fail 'Tailscale status returned invalid JSON'
+        }
+    }
+
+    $serveStatus = @(& $tailscale serve status 2>$null) -join [Environment]::NewLine
+    if ($LASTEXITCODE -ne 0) {
+        Write-Fail 'Tailscale Serve status unavailable'
+    }
+    else {
+        foreach ($mapping in $tailscaleConfig.Tailscale.Serve) {
+            $targetPresent = $serveStatus.Contains([string]$mapping.Target)
+            $portPresent = $serveStatus.Contains(":$($mapping.ListenPort)")
+            if ($targetPresent -and $portPresent) {
+                Write-Ok "Tailscale Serve $($mapping.ListenPort) -> $($mapping.Target)"
+            }
+            else {
+                Write-Fail "Tailscale Serve mapping missing for port $($mapping.ListenPort)"
+            }
+        }
+    }
 }
 
 Write-Host "`nCommand capabilities"

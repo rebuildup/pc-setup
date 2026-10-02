@@ -16,5 +16,6 @@
 | [ADR-0008](./ADR-0008.md) | Accepted | Windows Notion は mandatory WinGet phase ではなく公式 MSIX boundary で導入 |
 | [ADR-0009](./ADR-0009.md) | Accepted | Windows desktop apps は best-effort convergence + strict verification で扱う |
 | [ADR-0010](./ADR-0010.md) | Accepted | machine-global tools を continuous update train で日次検証・採用する |
+| [ADR-0011](./ADR-0011.md) | Accepted | Tailscale device provisioning は Infisical runtime injection を使用する |
 
 新しい ADR は `ADR-NNNN.md` の連番で追加します。既存 decision を置換する場合は旧 ADR の status と `Superseded by` も更新します。
