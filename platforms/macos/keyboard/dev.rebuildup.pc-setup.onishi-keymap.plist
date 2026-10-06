@@ -12,6 +12,18 @@
   <string>root</string>
   <key>RunAtLoad</key>
   <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ONISHI_SETTLE_SECONDS</key>
+    <string>90</string>
+  </dict>
   <key>ProcessType</key>
   <string>Background</string>
   <key>StandardOutPath</key>
