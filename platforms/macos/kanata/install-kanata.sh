@@ -11,8 +11,9 @@ source_dir="$repo_root/platforms/macos/kanata"
 
 kanata_version="1.12.0"
 driver_version="6.2.0"
-config_ref="583f54d196b30ca00d4c5a8142514409c9757aef"
+config_ref="732a4b4e8cce0936c147b42e3ba66fc553354ada"
 config_url="https://raw.githubusercontent.com/rebuildup/key-map-kanata/$config_ref/mac/kanata-us.kbd"
+layout_url="https://raw.githubusercontent.com/rebuildup/key-map-kanata/$config_ref/mac/layout.html"
 
 driver_manager="/Applications/.Karabiner-VirtualHIDDevice-Manager.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Manager"
 driver_daemon="/Library/Application Support/org.pqrs/Karabiner-DriverKit-VirtualHIDDevice/Applications/Karabiner-VirtualHIDDevice-Daemon.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Daemon"
@@ -20,6 +21,7 @@ driver_pkg_url="https://github.com/pqrs-org/Karabiner-DriverKit-VirtualHIDDevice
 
 config_dir="/usr/local/etc/pc-setup/kanata"
 config_path="$config_dir/kanata-us.kbd"
+layout_path="$config_dir/layout.html"
 source_ref_path="$config_dir/SOURCE_REF"
 
 driver_label="org.pqrs.Karabiner-VirtualHIDDevice-Daemon"
@@ -91,12 +93,18 @@ fi
 sudo "$driver_manager" forceActivate || true
 
 tmp_config="$(mktemp -t pc-setup-kanata-config)"
+tmp_layout="$(mktemp -t pc-setup-kanata-layout)"
 tmp_plist="$(mktemp -t pc-setup-kanata-plist)"
-trap 'rm -f "$tmp_config" "$tmp_plist"' EXIT
+trap 'rm -f "$tmp_config" "$tmp_layout" "$tmp_plist"' EXIT
 curl -fsSL "$config_url" -o "$tmp_config"
+curl -fsSL "$layout_url" -o "$tmp_layout"
+
+printf 'Validating pinned Kanata config before install...\n'
+"$kanata_bin" --check --cfg "$tmp_config"
 
 sudo mkdir -p "$config_dir"
 sudo install -o root -g wheel -m 0644 "$tmp_config" "$config_path"
+sudo install -o root -g wheel -m 0644 "$tmp_layout" "$layout_path"
 printf '%s\n' "$config_ref" | sudo tee "$source_ref_path" >/dev/null
 sudo chown root:wheel "$source_ref_path"
 sudo chmod 0644 "$source_ref_path"
@@ -124,9 +132,13 @@ sudo /bin/launchctl bootstrap system "$kanata_plist"
 printf 'Installed persistent macOS keyboard services.\n'
 printf '  Kanata: %s\n' "$kanata_bin"
 printf '  Config: %s @ %s\n' "$config_path" "$config_ref"
+printf '  Layout: %s\n' "$layout_path"
 printf '  DriverKit: %s\n' "$driver_version"
 printf '\n'
 printf 'The exact Kanata binary above must remain enabled in both:\n'
 printf '  System Settings > Privacy & Security > Accessibility\n'
 printf '  System Settings > Privacy & Security > Input Monitoring\n'
 printf 'Then rerun this installer or kickstart system/%s.\n' "$kanata_label"
+printf '\n'
+printf 'Open the keyboard cheat sheet with:\n'
+printf '  open "%s"\n' "$layout_path"
