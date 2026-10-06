@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>dev.rebuildup.pc-setup.onishi-keymap</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/libexec/pc-setup/macos-keyboard/apply-onishi.sh</string>
+  </array>
+  <key>UserName</key>
+  <string>root</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/var/log/pc-setup-onishi.log</string>
+  <key>StandardErrorPath</key>
+  <string>/var/log/pc-setup-onishi.log</string>
+</dict>
+</plist>

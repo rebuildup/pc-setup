@@ -158,7 +158,7 @@ Windows nativeのdotfiles symlinkはcross-platform adapterが完成するまで�
 | Ubuntu / WSL2 | mise + APT | Active |
 | NixOS / NixOS-WSL | Flake + Home Manager | Active |
 | Windows 11 | mise + WinGet | Active / native dotfiles linking pending |
-| macOS | mise + Homebrew backend | Candidate until actual Mac reconciliation |
+| macOS | mise + Homebrew backend | Active / GUI candidate reconciliation ongoing |
 
 Platform固有のmanual boundary / verificationは各directoryに残す。
 
@@ -167,6 +167,7 @@ platforms/
   ubuntu-wsl/
   nixos/
   windows-11/
+  macos/
 plans/
   macos/
 ```
@@ -205,6 +206,12 @@ NixOS:
 ./platforms/nixos/verify.sh
 ```
 
+macOS:
+
+```bash
+./platforms/macos/verify.sh
+```
+
 Windows:
 
 ```powershell
@@ -231,6 +238,7 @@ bootstrapが終了したことと、desired stateを満たしていることは�
 - [ADR-0006](./docs/adr/ADR-0006.md) — mise cross-platform bootstrap orchestrator
 - [ADR-0007](./docs/adr/ADR-0007.md) — Open Code Review verified GitHub Release channel
 - [ADR-0010](./docs/adr/ADR-0010.md) — machine-global tools continuous update train
+- [ADR-0012](./docs/adr/ADR-0012.md) — macOS hidutil keyboard baseline
 
 ## Development
 

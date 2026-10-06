@@ -1,10 +1,10 @@
-# macOS candidate profile
+# macOS candidate application inventory
 
-> Status: **Candidate / planning only**
+> Status: **Candidate inventory for unresolved macOS applications**
 >
-> This is not yet an active `pc-setup` platform. The actual Mac environment has not been observed.
+> The macOS platform itself is active under `platforms/macos`. This directory now keeps only choices that have not yet been adopted into canonical desired state.
 
-The purpose of this directory is to avoid starting from memory when a Mac is configured while still preserving the repository rule that desired state must represent a real environment.
+The purpose of this directory is to keep unresolved GUI/creative/audio candidates separate from the observed active macOS baseline. Installing an application for evaluation does not by itself promote it into desired state.
 
 Long-lived policy: [ADR-0005](../../docs/adr/ADR-0005.md).
 
@@ -45,7 +45,7 @@ Cross-machine developer CLI/runtime requirements are inherited from root `mise.t
 
 macOS-specific application candidates are recorded separately in `mise.candidate.toml`.
 
-These are still reconciled against the real Mac before promotion.
+These remain candidate application choices until actual continued use justifies promotion into the active macOS package graph.
 
 ## Cross-platform GUI candidates
 
@@ -81,7 +81,7 @@ plans/macos/mise.candidate.toml
 
 This file is planning state and is not loaded by the active root bootstrap yet.
 
-When the actual Mac is configured, reconcile the candidate list with what is really used. Accepted entries then move into the active mise configuration; rejected entries are deleted.
+As the actual Mac is used, reconcile this list with what remains genuinely required. Accepted entries move into the active mise configuration; rejected entries are deleted.
 
 Do not run a Homebrew/Brewfile path merely to make the candidate list true. The intended active entrypoint is the root pc-setup bootstrap, with Homebrew acting only as a mise backend.
 
@@ -113,9 +113,9 @@ The following should be decided from actual use:
 - package-manager ownership for app-specific plugins
 - backup/migration of non-secret app preferences
 
-## Promotion to active platform
+## Promotion of candidate applications
 
-After configuring the actual Mac, collect evidence before moving this directory to `platforms/macos`.
+Before promoting candidate applications into active desired state, collect current machine evidence.
 
 At minimum:
 
@@ -137,8 +137,8 @@ Then:
 3. Add real missing daily tools.
 4. Capture relevant non-secret system settings.
 5. Add real verification.
-6. Promote to `platforms/macos`.
-7. Replace/supersede ADR-0005 as needed.
+6. Move accepted application declarations into the active machine configuration.
+7. Keep rejected or still-undecided entries out of canonical desired state.
 
 ## Authentication / permissions
 

@@ -127,7 +127,7 @@ jobs:
           test "$status" -ne 0
           grep -Fq dirty "$checkout/state.txt"
 
-          grep -Fq 'bash scripts/sync-dotfiles.sh && mise -C' mise.toml
+          grep -Fq 'bash scripts/sync-dotfiles.sh && bash scripts/apply-platform.sh && mise -C' mise.toml
           grep -Fq 'bash "$pc_setup_dir/scripts/sync-dotfiles.sh"' platforms/nixos/flake.nix
 
       - name: Validate NixOS checkout convergence
