@@ -45,6 +45,35 @@ import json
 import plistlib
 from pathlib import Path
 
+usage = 0x700000000
+expected = {
+    usage + 0x2D: usage + 0x38,  # physical - -> /
+    usage + 0x1A: usage + 0x0F,  # W -> L
+    usage + 0x08: usage + 0x18,  # E -> U
+    usage + 0x15: usage + 0x36,  # R -> ,
+    usage + 0x17: usage + 0x37,  # T -> .
+    usage + 0x1C: usage + 0x09,  # Y -> F
+    usage + 0x18: usage + 0x1A,  # U -> W
+    usage + 0x0C: usage + 0x15,  # I -> R
+    usage + 0x12: usage + 0x1C,  # O -> Y
+    usage + 0x04: usage + 0x08,  # A -> E
+    usage + 0x16: usage + 0x0C,  # S -> I
+    usage + 0x07: usage + 0x04,  # D -> A
+    usage + 0x09: usage + 0x12,  # F -> O
+    usage + 0x0A: usage + 0x2D,  # G -> -
+    usage + 0x0B: usage + 0x0E,  # H -> K
+    usage + 0x0D: usage + 0x17,  # J -> T
+    usage + 0x0E: usage + 0x11,  # K -> N
+    usage + 0x0F: usage + 0x16,  # L -> S
+    usage + 0x33: usage + 0x0B,  # ; -> H
+    usage + 0x05: usage + 0x33,  # B -> ;
+    usage + 0x11: usage + 0x0A,  # N -> G
+    usage + 0x10: usage + 0x07,  # M -> D
+    usage + 0x36: usage + 0x10,  # , -> M
+    usage + 0x37: usage + 0x0D,  # . -> J
+    usage + 0x38: usage + 0x05,  # / -> B
+}
+
 mapping_path = Path("platforms/macos/keyboard/onishi.json")
 with mapping_path.open(encoding="utf-8") as fh:
     entries = json.load(fh)["UserKeyMapping"]
@@ -54,15 +83,9 @@ mapping = {
     for entry in entries
 }
 
-critical_pairs = {
-    30064771082: 30064771117,  # physical G -> -
-    30064771117: 30064771128,  # physical - -> /
-    30064771128: 30064771077,  # physical / -> B
-}
-for src, dst in critical_pairs.items():
-    assert mapping.get(src) == dst, (src, mapping.get(src), dst)
-
-assert 30064771125 not in mapping, "backtick must not map to slash"
+assert len(mapping) == len(entries), "duplicate source HID usage in Onishi mapping"
+assert mapping == expected, (mapping, expected)
+assert usage + 0x35 not in mapping, "backtick must not map to slash"
 
 plist_path = Path("platforms/macos/keyboard/dev.rebuildup.pc-setup.onishi-keymap.plist")
 with plist_path.open("rb") as fh:
