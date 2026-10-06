@@ -45,7 +45,7 @@ Cross-machine developer CLI/runtime requirements are inherited from root `mise.t
 
 macOS-specific application candidates are recorded separately in `mise.candidate.toml`.
 
-These are still reconciled against the real Mac before promotion.
+These candidates are reconciled against actual use before being promoted into active desired state.
 
 ## Cross-platform GUI candidates
 
