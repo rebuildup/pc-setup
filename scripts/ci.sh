@@ -39,6 +39,28 @@ for path in (Path("mise.toml"), Path("mise.global.toml")):
         tomllib.load(fh)
 PY
 
+printf 'Checking macOS LaunchAgent plist...\n'
+python3 - <<'PY'
+import plistlib
+from pathlib import Path
+
+path = Path("platforms/macos/dev.rebuildup.pc-setup.onishi.plist")
+with path.open("rb") as fh:
+    plist = plistlib.load(fh)
+
+assert plist["Label"] == "dev.rebuildup.pc-setup.onishi"
+assert plist["RunAtLoad"] is True
+PY
+
+printf 'Checking macOS Onishi mapping invariants...\n'
+grep -Fq '"HIDKeyboardModifierMappingSrc":0x70000002D,"HIDKeyboardModifierMappingDst":0x700000038' platforms/macos/apply-onishi.sh
+grep -Fq '"HIDKeyboardModifierMappingSrc":0x70000000A,"HIDKeyboardModifierMappingDst":0x70000002D' platforms/macos/apply-onishi.sh
+grep -Fq '"HIDKeyboardModifierMappingSrc":0x700000038,"HIDKeyboardModifierMappingDst":0x700000005' platforms/macos/apply-onishi.sh
+if grep -Fq '"HIDKeyboardModifierMappingSrc":0x700000035' platforms/macos/apply-onishi.sh; then
+  printf 'Backtick must not be remapped by the Onishi baseline.\n' >&2
+  exit 1
+fi
+
 printf 'Checking continuous update train invariants...\n'
 grep -Fq 'lock --global --bump' .github/workflows/update-train.yml
 grep -Fq 'mise.global.lock' .github/workflows/update-train.yml
