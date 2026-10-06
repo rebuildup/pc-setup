@@ -67,10 +67,22 @@ hidutil property --set '{"UserKeyMapping":[]}'
 
 次回macOS起動またはinstaller再実行でdesired mappingへ戻る。
 
+## Kanata custom layer
+
+F1でのOnishi/QWERTY切替、Caps extra layer等は `platforms/macos/kanata` が所有する。
+
+```bash
+./platforms/macos/kanata/install-kanata.sh
+./platforms/macos/kanata/verify.sh
+```
+
+KanataとKarabiner VirtualHID daemonはsystem LaunchDaemonとして起動する。詳細とTCC permission boundaryは [kanata/README.md](./kanata/README.md) を参照。
+
 ## Verification
 
 ```bash
 ./platforms/macos/verify.sh
+./platforms/macos/kanata/verify.sh
 ```
 
 GUI application inventoryは実機利用に応じて `plans/macos` から段階的に昇格する。platformがActiveであることはcandidate GUI一覧をすべて採用したことを意味しない。

@@ -40,6 +40,7 @@ bun = "1.4.2"
 "brew:tree" = { os = "macos" }
 "brew:xz" = { os = "macos" }
 "brew:rsync" = { os = "macos" }
+"brew:kanata" = { os = "macos" }
 
 # Windows applications and native SDKs. Portable developer CLIs are in mise.global.toml.
 "winget:Git.Git" = { os = "windows" }
