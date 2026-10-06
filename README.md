@@ -43,7 +43,7 @@ pipe経由で起動しても、controlling TTYがある場合は後段のGitHub 
 curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.sh | bash
 ```
 
-fresh macOSでGitがまだ使えない場合はApple Command Line Toolsの導入が先に必要になる。bootstrapが検出して案内する。
+fresh macOSでGitがまだ使えない場合はApple Command Line Toolsの導入が先に必要になる。bootstrapが検出して案内する。\n\n実機で採用済みのmacOS固有設定は `platforms/macos/` が所有する。現在は大西配列の1:1置換を `hidutil` + user LaunchAgent でログイン時に自動適用する。
 
 ### Windows 11
 
@@ -119,7 +119,7 @@ OS固有package/applicationはnative package managerを使うが、人間が直�
 - macOS: mise built-in Homebrew formula/cask backend
 - Windows: WinGet
 
-Desktop applications that are genuinely machine-global are also part of the baseline. Windows currently includes VS Code, Linear, and Notion; macOS candidate state contains their Homebrew cask equivalents. WSL does not install duplicate Linux GUI copies.
+Desktop applications that are genuinely machine-global are also part of the baseline. Windows currently includes VS Code, Linear, and Notion. macOSは実機で確認したcapabilityから段階的にactive stateへ昇格し、未採用のGUI候補は `plans/macos/` に残す。WSL does not install duplicate Linux GUI copies.
 
 HomebrewはmacOS setupのentrypointではなくbackendの1つ。
 
@@ -158,7 +158,7 @@ Windows nativeのdotfiles symlinkはcross-platform adapterが完成するまで�
 | Ubuntu / WSL2 | mise + APT | Active |
 | NixOS / NixOS-WSL | Flake + Home Manager | Active |
 | Windows 11 | mise + WinGet | Active / native dotfiles linking pending |
-| macOS | mise + Homebrew backend | Candidate until actual Mac reconciliation |
+| macOS | mise + Homebrew backend | Active / observed capabilities are promoted incrementally |
 
 Platform固有のmanual boundary / verificationは各directoryに残す。
 
@@ -230,7 +230,7 @@ bootstrapが終了したことと、desired stateを満たしていることは�
 - [ADR-0002](./docs/adr/ADR-0002.md) — historical Ubuntu/WSL installation-channel decision
 - [ADR-0006](./docs/adr/ADR-0006.md) — mise cross-platform bootstrap orchestrator
 - [ADR-0007](./docs/adr/ADR-0007.md) — Open Code Review verified GitHub Release channel
-- [ADR-0010](./docs/adr/ADR-0010.md) — machine-global tools continuous update train
+- [ADR-0010](./docs/adr/ADR-0010.md) — machine-global tools continuous update train\n- [ADR-0012](./docs/adr/ADR-0012.md) — observed macOS capabilities are promoted incrementally
 
 ## Development
 
