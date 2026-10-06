@@ -99,6 +99,36 @@ PY
 
 grep -Fq 'bash scripts/apply-platform.sh' mise.toml
 
+printf 'Checking macOS Kanata service contract...\n'
+python3 - <<'PY'
+import plistlib
+from pathlib import Path
+
+driver_path = Path("platforms/macos/kanata/org.pqrs.Karabiner-VirtualHIDDevice-Daemon.plist")
+with driver_path.open("rb") as fh:
+    driver = plistlib.load(fh)
+assert driver["Label"] == "org.pqrs.Karabiner-VirtualHIDDevice-Daemon"
+assert driver["UserName"] == "root"
+assert driver["RunAtLoad"] is True
+assert driver["KeepAlive"] is True
+
+kanata_path = Path("platforms/macos/kanata/dev.rebuildup.pc-setup.kanata.plist.in")
+with kanata_path.open("rb") as fh:
+    kanata = plistlib.load(fh)
+assert kanata["Label"] == "dev.rebuildup.pc-setup.kanata"
+assert kanata["UserName"] == "root"
+assert kanata["RunAtLoad"] is True
+assert kanata["ProgramArguments"][0] == "__KANATA_BIN__"
+assert kanata["ProgramArguments"][2] == "__KANATA_CONFIG__"
+PY
+
+grep -Fq 'kanata_version="1.12.0"' platforms/macos/kanata/install-kanata.sh
+grep -Fq 'driver_version="6.2.0"' platforms/macos/kanata/install-kanata.sh
+grep -Fq 'config_ref="583f54d196b30ca00d4c5a8142514409c9757aef"' platforms/macos/kanata/install-kanata.sh
+grep -Fq '"brew:kanata" = { os = "macos" }' mise.toml
+grep -Fq 'platforms/macos/kanata/install-kanata.sh' scripts/apply-platform.sh
+
+
 printf 'Checking continuous update train invariants...\n'
 grep -Fq 'lock --global --bump' .github/workflows/update-train.yml
 grep -Fq 'mise.global.lock' .github/workflows/update-train.yml
