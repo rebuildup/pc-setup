@@ -9,8 +9,9 @@ fi
 kanata_label="dev.rebuildup.pc-setup.kanata"
 driver_label="org.pqrs.Karabiner-VirtualHIDDevice-Daemon"
 config_path="/usr/local/etc/pc-setup/kanata/kanata-us.kbd"
+layout_path="/usr/local/etc/pc-setup/kanata/layout.html"
 source_ref_path="/usr/local/etc/pc-setup/kanata/SOURCE_REF"
-expected_ref="583f54d196b30ca00d4c5a8142514409c9757aef"
+expected_ref="732a4b4e8cce0936c147b42e3ba66fc553354ada"
 kanata_log="/var/log/pc-setup-kanata.log"
 
 for label in "$driver_label" "$kanata_label"; do
@@ -22,7 +23,7 @@ for label in "$driver_label" "$kanata_label"; do
   fi
 done
 
-if [[ ! -r "$config_path" || ! -r "$source_ref_path" ]]; then
+if [[ ! -r "$config_path" || ! -r "$layout_path" || ! -r "$source_ref_path" ]]; then
   printf 'installed Kanata config metadata is missing.\n' >&2
   exit 1
 fi
