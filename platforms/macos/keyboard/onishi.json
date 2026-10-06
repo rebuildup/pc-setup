@@ -1,0 +1,29 @@
+{
+  "UserKeyMapping": [
+    {"HIDKeyboardModifierMappingSrc": 30064771117, "HIDKeyboardModifierMappingDst": 30064771128},
+    {"HIDKeyboardModifierMappingSrc": 30064771098, "HIDKeyboardModifierMappingDst": 30064771087},
+    {"HIDKeyboardModifierMappingSrc": 30064771080, "HIDKeyboardModifierMappingDst": 30064771096},
+    {"HIDKeyboardModifierMappingSrc": 30064771093, "HIDKeyboardModifierMappingDst": 30064771126},
+    {"HIDKeyboardModifierMappingSrc": 30064771095, "HIDKeyboardModifierMappingDst": 30064771127},
+    {"HIDKeyboardModifierMappingSrc": 30064771100, "HIDKeyboardModifierMappingDst": 30064771081},
+    {"HIDKeyboardModifierMappingSrc": 30064771096, "HIDKeyboardModifierMappingDst": 30064771098},
+    {"HIDKeyboardModifierMappingSrc": 30064771084, "HIDKeyboardModifierMappingDst": 30064771093},
+    {"HIDKeyboardModifierMappingSrc": 30064771090, "HIDKeyboardModifierMappingDst": 30064771100},
+    {"HIDKeyboardModifierMappingSrc": 30064771076, "HIDKeyboardModifierMappingDst": 30064771080},
+    {"HIDKeyboardModifierMappingSrc": 30064771094, "HIDKeyboardModifierMappingDst": 30064771084},
+    {"HIDKeyboardModifierMappingSrc": 30064771079, "HIDKeyboardModifierMappingDst": 30064771076},
+    {"HIDKeyboardModifierMappingSrc": 30064771081, "HIDKeyboardModifierMappingDst": 30064771090},
+    {"HIDKeyboardModifierMappingSrc": 30064771082, "HIDKeyboardModifierMappingDst": 30064771117},
+    {"HIDKeyboardModifierMappingSrc": 30064771083, "HIDKeyboardModifierMappingDst": 30064771086},
+    {"HIDKeyboardModifierMappingSrc": 30064771085, "HIDKeyboardModifierMappingDst": 30064771095},
+    {"HIDKeyboardModifierMappingSrc": 30064771086, "HIDKeyboardModifierMappingDst": 30064771089},
+    {"HIDKeyboardModifierMappingSrc": 30064771087, "HIDKeyboardModifierMappingDst": 30064771094},
+    {"HIDKeyboardModifierMappingSrc": 30064771123, "HIDKeyboardModifierMappingDst": 30064771083},
+    {"HIDKeyboardModifierMappingSrc": 30064771077, "HIDKeyboardModifierMappingDst": 30064771123},
+    {"HIDKeyboardModifierMappingSrc": 30064771089, "HIDKeyboardModifierMappingDst": 30064771082},
+    {"HIDKeyboardModifierMappingSrc": 30064771088, "HIDKeyboardModifierMappingDst": 30064771079},
+    {"HIDKeyboardModifierMappingSrc": 30064771126, "HIDKeyboardModifierMappingDst": 30064771088},
+    {"HIDKeyboardModifierMappingSrc": 30064771127, "HIDKeyboardModifierMappingDst": 30064771085},
+    {"HIDKeyboardModifierMappingSrc": 30064771128, "HIDKeyboardModifierMappingDst": 30064771077}
+  ]
+}
