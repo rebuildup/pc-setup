@@ -6,13 +6,17 @@
   <string>dev.rebuildup.pc-setup.onishi-keymap</string>
   <key>ProgramArguments</key>
   <array>
-    <string>/bin/sh</string>
-    <string>-c</string>
-    <string>exec "$HOME/.local/libexec/pc-setup/macos-keyboard/apply-onishi.sh"</string>
+    <string>/usr/local/libexec/pc-setup/macos-keyboard/apply-onishi.sh</string>
   </array>
+  <key>UserName</key>
+  <string>root</string>
   <key>RunAtLoad</key>
   <true/>
   <key>ProcessType</key>
   <string>Background</string>
+  <key>StandardOutPath</key>
+  <string>/var/log/pc-setup-onishi.log</string>
+  <key>StandardErrorPath</key>
+  <string>/var/log/pc-setup-onishi.log</string>
 </dict>
 </plist>
