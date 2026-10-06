@@ -11,7 +11,7 @@ source_dir="$repo_root/platforms/macos/kanata"
 
 kanata_version="1.12.0"
 driver_version="6.2.0"
-config_ref="732a4b4e8cce0936c147b42e3ba66fc553354ada"
+config_ref="7e127ecdf20b1589d636589a1b0e6f00c7fa2876"
 config_url="https://raw.githubusercontent.com/rebuildup/key-map-kanata/$config_ref/mac/kanata-us.kbd"
 layout_url="https://raw.githubusercontent.com/rebuildup/key-map-kanata/$config_ref/mac/layout.html"
 

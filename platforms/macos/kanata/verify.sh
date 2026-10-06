@@ -11,7 +11,7 @@ driver_label="org.pqrs.Karabiner-VirtualHIDDevice-Daemon"
 config_path="/usr/local/etc/pc-setup/kanata/kanata-us.kbd"
 layout_path="/usr/local/etc/pc-setup/kanata/layout.html"
 source_ref_path="/usr/local/etc/pc-setup/kanata/SOURCE_REF"
-expected_ref="732a4b4e8cce0936c147b42e3ba66fc553354ada"
+expected_ref="7e127ecdf20b1589d636589a1b0e6f00c7fa2876"
 kanata_log="/var/log/pc-setup-kanata.log"
 
 for label in "$driver_label" "$kanata_label"; do
