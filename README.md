@@ -43,7 +43,9 @@ pipe経由で起動しても、controlling TTYがある場合は後段のGitHub 
 curl -fsSL https://raw.githubusercontent.com/rebuildup/pc-setup/main/bootstrap.sh | bash
 ```
 
-fresh macOSでGitがまだ使えない場合はApple Command Line Toolsの導入が先に必要になる。bootstrapが検出して案内する。\n\n実機で採用済みのmacOS固有設定は `platforms/macos/` が所有する。現在は大西配列の1:1置換を `hidutil` + user LaunchAgent でログイン時に自動適用する。
+fresh macOSでGitがまだ使えない場合はApple Command Line Toolsの導入が先に必要になる。bootstrapが検出して案内する。
+
+実機で採用済みのmacOS固有設定は `platforms/macos/` が所有する。現在は大西配列の1:1置換を `hidutil` + user LaunchAgent でログイン時に自動適用する。
 
 ### Windows 11
 
@@ -237,7 +239,8 @@ bootstrapが終了したことと、desired stateを満たしていることは�
 - [ADR-0002](./docs/adr/ADR-0002.md) — historical Ubuntu/WSL installation-channel decision
 - [ADR-0006](./docs/adr/ADR-0006.md) — mise cross-platform bootstrap orchestrator
 - [ADR-0007](./docs/adr/ADR-0007.md) — Open Code Review verified GitHub Release channel
-- [ADR-0010](./docs/adr/ADR-0010.md) — machine-global tools continuous update train\n- [ADR-0012](./docs/adr/ADR-0012.md) — observed macOS capabilities are promoted incrementally
+- [ADR-0010](./docs/adr/ADR-0010.md) — machine-global tools continuous update train
+- [ADR-0012](./docs/adr/ADR-0012.md) — observed macOS capabilities are promoted incrementally
 
 ## Development
 
