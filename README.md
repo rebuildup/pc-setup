@@ -167,8 +167,9 @@ platforms/
   ubuntu-wsl/
   nixos/
   windows-11/
-plans/
   macos/
+plans/
+  macos/  # unresolved candidates only
 ```
 
 ## Existing checkout
@@ -203,6 +204,12 @@ NixOS:
 
 ```bash
 ./platforms/nixos/verify.sh
+```
+
+macOS:
+
+```bash
+./platforms/macos/verify.sh
 ```
 
 Windows:
