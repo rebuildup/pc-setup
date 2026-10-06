@@ -124,7 +124,9 @@ PY
 
 grep -Fq 'kanata_version="1.12.0"' platforms/macos/kanata/install-kanata.sh
 grep -Fq 'driver_version="6.2.0"' platforms/macos/kanata/install-kanata.sh
-grep -Fq 'config_ref="583f54d196b30ca00d4c5a8142514409c9757aef"' platforms/macos/kanata/install-kanata.sh
+grep -Fq 'config_ref="732a4b4e8cce0936c147b42e3ba66fc553354ada"' platforms/macos/kanata/install-kanata.sh
+grep -Fq 'layout_url="https://raw.githubusercontent.com/rebuildup/key-map-kanata/$config_ref/mac/layout.html"' platforms/macos/kanata/install-kanata.sh
+grep -Fq '"$kanata_bin" --check --cfg "$tmp_config"' platforms/macos/kanata/install-kanata.sh
 grep -Fq '"brew:kanata" = { os = "macos" }' mise.toml
 grep -Fq 'platforms/macos/kanata/install-kanata.sh' scripts/apply-platform.sh
 
