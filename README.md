@@ -167,6 +167,7 @@ platforms/
   ubuntu-wsl/
   nixos/
   windows-11/
+  macos/
 plans/
   macos/
 ```
@@ -205,6 +206,12 @@ NixOS:
 ./platforms/nixos/verify.sh
 ```
 
+macOS:
+
+```bash
+./platforms/macos/verify.sh
+```
+
 Windows:
 
 ```powershell
@@ -230,7 +237,8 @@ bootstrapが終了したことと、desired stateを満たしていることは�
 - [ADR-0002](./docs/adr/ADR-0002.md) — historical Ubuntu/WSL installation-channel decision
 - [ADR-0006](./docs/adr/ADR-0006.md) — mise cross-platform bootstrap orchestrator
 - [ADR-0007](./docs/adr/ADR-0007.md) — Open Code Review verified GitHub Release channel
-- [ADR-0010](./docs/adr/ADR-0010.md) — machine-global tools continuous update train\n- [ADR-0012](./docs/adr/ADR-0012.md) — macOS hidutil keyboard baseline
+- [ADR-0010](./docs/adr/ADR-0010.md) — machine-global tools continuous update train
+- [ADR-0012](./docs/adr/ADR-0012.md) — macOS hidutil keyboard baseline
 
 ## Development
 
