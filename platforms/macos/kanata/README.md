@@ -1,6 +1,6 @@
 # Kanata on macOS
 
-macOSでは低レイヤーの1:1大西配列を `hidutil` が所有し、KanataはF1のOnishi/QWERTY切替、Caps extra layer等のstateful customizationを所有する。
+macOSでは低レイヤーの1:1大西配列を `hidutil` が所有し、KanataはF1のOnishi/QWERTY切替と、Space/左右Shiftを中心としたstateful customizationを所有する。
 
 ## Version pair
 
@@ -21,10 +21,13 @@ pc-setupは実機smoke test済みcommitをpinしてsystem-readable locationへ�
 
 ```text
 key-map-kanata ref:
-583f54d196b30ca00d4c5a8142514409c9757aef
+732a4b4e8cce0936c147b42e3ba66fc553354ada
 
 installed config:
 /usr/local/etc/pc-setup/kanata/kanata-us.kbd
+
+installed cheat sheet:
+/usr/local/etc/pc-setup/kanata/layout.html
 ```
 
 ## Install
@@ -41,8 +44,30 @@ installerは次を行う。
 - VirtualHID daemonをsystem LaunchDaemonとして登録する
 - Kanataをroot system LaunchDaemonとして登録する
 - key-map-kanataのpin済みconfigをroot-readable pathへ配置する
+- 同じcommitの `mac/layout.html` も配置する
+- live configを置き換える前に `kanata --check` でparser validationする
 
 Kanata binaryはHomebrewのsymlinkではなく、その時点のreal pathをLaunchDaemonへ記録する。Homebrew updateでreal pathが変わった場合はinstallerを再実行し、macOS TCC permissionも新しい実体へ再付与する。
+
+## Space HUB
+
+現在のmacOS US ANSI configは次の操作を持つ。
+
+- `Space tap`: Space
+- `Space hold`: HUB
+- `Space + H/J/K/L`: Vim順の矢印
+- `Space + LShift tap`: 英数
+- `Space + RShift tap`: かな
+- `Space + LShift hold`: 左記号 + 右テンキー
+- `Space + RShift hold`: 左テンキー + 右記号
+- side layer中に反対Shiftをtap: one-shot Automation
+- `Space + M`: Mouse mode
+
+配列確認:
+
+```bash
+open /usr/local/etc/pc-setup/kanata/layout.html
+```
 
 ## Required manual permissions
 
