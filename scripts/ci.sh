@@ -39,6 +39,42 @@ for path in (Path("mise.toml"), Path("mise.global.toml")):
         tomllib.load(fh)
 PY
 
+printf 'Checking macOS keyboard contract...\n'
+python3 - <<'PY'
+import json
+import plistlib
+from pathlib import Path
+
+mapping_path = Path("platforms/macos/keyboard/onishi.json")
+with mapping_path.open(encoding="utf-8") as fh:
+    entries = json.load(fh)["UserKeyMapping"]
+
+mapping = {
+    entry["HIDKeyboardModifierMappingSrc"]: entry["HIDKeyboardModifierMappingDst"]
+    for entry in entries
+}
+
+critical_pairs = {
+    30064771082: 30064771117,  # physical G -> -
+    30064771117: 30064771128,  # physical - -> /
+    30064771128: 30064771077,  # physical / -> B
+}
+for src, dst in critical_pairs.items():
+    assert mapping.get(src) == dst, (src, mapping.get(src), dst)
+
+assert 30064771125 not in mapping, "backtick must not map to slash"
+
+plist_path = Path("platforms/macos/keyboard/dev.rebuildup.pc-setup.onishi-keymap.plist")
+with plist_path.open("rb") as fh:
+    plist = plistlib.load(fh)
+
+assert plist["Label"] == "dev.rebuildup.pc-setup.onishi-keymap"
+assert plist["RunAtLoad"] is True
+assert "apply-onishi.sh" in plist["ProgramArguments"][-1]
+PY
+
+grep -Fq 'bash scripts/apply-platform.sh' mise.toml
+
 printf 'Checking continuous update train invariants...\n'
 grep -Fq 'lock --global --bump' .github/workflows/update-train.yml
 grep -Fq 'mise.global.lock' .github/workflows/update-train.yml
