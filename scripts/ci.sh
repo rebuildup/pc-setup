@@ -125,7 +125,10 @@ PY
 grep -Fq 'kanata_version="1.12.0"' platforms/macos/kanata/install-kanata.sh
 grep -Fq 'driver_version="6.2.0"' platforms/macos/kanata/install-kanata.sh
 grep -Fq 'config_ref="7e127ecdf20b1589d636589a1b0e6f00c7fa2876"' platforms/macos/kanata/install-kanata.sh
+# These checks intentionally match literal shell expressions in the installer.
+# shellcheck disable=SC2016
 grep -Fq 'layout_url="https://raw.githubusercontent.com/rebuildup/key-map-kanata/$config_ref/mac/layout.html"' platforms/macos/kanata/install-kanata.sh
+# shellcheck disable=SC2016
 grep -Fq '"$kanata_bin" --check --cfg "$tmp_config"' platforms/macos/kanata/install-kanata.sh
 grep -Fq '"brew:kanata" = { os = "macos" }' mise.toml
 grep -Fq 'platforms/macos/kanata/install-kanata.sh' scripts/apply-platform.sh
