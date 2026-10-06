@@ -33,18 +33,30 @@ physical - -> /
 ./platforms/macos/install-keyboard.sh
 ```
 
-installerは次をuser-localに配置する。
+installerはsystem-wideに次を配置する。
 
-- `~/.local/libexec/pc-setup/macos-keyboard/apply-onishi.sh`
-- `~/.local/libexec/pc-setup/macos-keyboard/onishi.json`
-- `~/Library/LaunchAgents/dev.rebuildup.pc-setup.onishi-keymap.plist`
+- `/usr/local/libexec/pc-setup/macos-keyboard/apply-onishi.sh`
+- `/usr/local/libexec/pc-setup/macos-keyboard/onishi.json`
+- `/Library/LaunchDaemons/dev.rebuildup.pc-setup.onishi-keymap.plist`
 
-LaunchAgentはログイン時にmappingを再適用する。現在のログインsessionにはinstaller自身が即時適用する。
+LaunchDaemonはmacOS起動時にrootでmappingを再適用する。これはログイン後だけ動くLaunchAgentではなく、macOSのloginwindowより前に起動できるsystem serviceとして扱う。
 
 手動再適用:
 
 ```bash
-~/.local/libexec/pc-setup/macos-keyboard/apply-onishi.sh
+sudo /usr/local/libexec/pc-setup/macos-keyboard/apply-onishi.sh
+```
+
+### Login screen boundary
+
+`hidutil` のmapping自体は全ユーザーに適用されるため、通常のmacOS loginwindowではsystem LaunchDaemonにより適用可能。
+
+ただしFileVaultが有効なcold boot直後のpassword画面はmacOSのuserlandではなくPreboot環境で動く。その段階では `launchd` / `hidutil` / Kanata はまだ起動していないため、このrepositoryの仕組みではカスタマイズできない。
+
+確認:
+
+```bash
+fdesetup status
 ```
 
 一時的にQWERTYへ戻す:
@@ -53,7 +65,7 @@ LaunchAgentはログイン時にmappingを再適用する。現在のログイ�
 hidutil property --set '{"UserKeyMapping":[]}'
 ```
 
-次回ログインまたはinstaller再実行でdesired mappingへ戻る。
+次回macOS起動またはinstaller再実行でdesired mappingへ戻る。
 
 ## Verification
 
