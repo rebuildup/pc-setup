@@ -93,7 +93,8 @@ with plist_path.open("rb") as fh:
 
 assert plist["Label"] == "dev.rebuildup.pc-setup.onishi-keymap"
 assert plist["RunAtLoad"] is True
-assert "apply-onishi.sh" in plist["ProgramArguments"][-1]
+assert plist["UserName"] == "root"
+assert plist["ProgramArguments"] == ["/usr/local/libexec/pc-setup/macos-keyboard/apply-onishi.sh"]
 PY
 
 grep -Fq 'bash scripts/apply-platform.sh' mise.toml
