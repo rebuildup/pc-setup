@@ -1,12 +1,10 @@
-# macOS candidate profile
+# macOS remaining candidates
 
-> Status: **Candidate / planning only**
+> Status: **Planning state for capabilities not yet adopted**
 >
-> This is not yet an active `pc-setup` platform. The actual Mac environment has not been observed.
+> The actual Mac now has an active baseline under `platforms/macos/`. Files in this directory are only unresolved application/workflow candidates and are not loaded by the active bootstrap.
 
-The purpose of this directory is to avoid starting from memory when a Mac is configured while still preserving the repository rule that desired state must represent a real environment.
-
-Long-lived policy: [ADR-0005](../../docs/adr/ADR-0005.md).
+Long-lived policy: [ADR-0012](../../docs/adr/ADR-0012.md).
 
 ## High-confidence candidates
 
@@ -113,32 +111,9 @@ The following should be decided from actual use:
 - package-manager ownership for app-specific plugins
 - backup/migration of non-secret app preferences
 
-## Promotion to active platform
+## Promotion of a candidate
 
-After configuring the actual Mac, collect evidence before moving this directory to `platforms/macos`.
-
-At minimum:
-
-```bash
-sw_vers
-uname -m
-mise bootstrap packages status --json
-brew list --formula --versions 2>/dev/null || true
-brew list --cask --versions 2>/dev/null || true
-mas list 2>/dev/null || true
-```
-
-Also inspect `/Applications` and vendor-managed products.
-
-Then:
-
-1. Compare observed state with `mise.candidate.toml`.
-2. Remove rejected candidates.
-3. Add real missing daily tools.
-4. Capture relevant non-secret system settings.
-5. Add real verification.
-6. Promote to `platforms/macos`.
-7. Replace/supersede ADR-0005 as needed.
+A candidate moves into active macOS desired state only after it is actually used and intentionally adopted on the real Mac. Record the executable setup/verification under `platforms/macos/` or the shared root mise configuration as appropriate. Unresolved candidates remain here rather than being installed merely to match this list.
 
 ## Authentication / permissions
 
