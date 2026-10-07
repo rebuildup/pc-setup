@@ -1,24 +1,37 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Applies the Onishi base layout as a global hidutil UserKeyMapping and then
-# verifies that the mapping actually reached every keyboard event service.
+# Applies the Onishi base layout to the physical keyboard event services only.
 #
-# A single unverified apply is not sufficient. On boot the Karabiner DriverKit
-# virtual keyboard registers tens of seconds after launchd starts this job, and a
-# hidutil write that predates the registration leaves that keyboard on the raw US
-# ANSI layout until the next reboot. The failure is silent because the global
-# registry entry still reports the full mapping.
+# Ownership boundary: hidutil owns the base layout at the lowest layer so that a
+# working layout survives Kanata being absent and is available before user
+# login. Kanata owns stateful customization above it. That split only holds if
+# exactly one conversion runs per keystroke, so this script must never let the
+# mapping reach the Karabiner DriverKit virtual keyboard that Kanata injects
+# through. A mapping on that service is a second conversion of Kanata's already
+# converted output, which scrambles every layer it drives.
 #
-# This script therefore re-applies and re-checks until every keyboard event
-# service present on the machine reports the full mapping, and keeps watching for
-# a short window so a keyboard that registers late is still covered.
+# `hidutil property --set` appends a registry entry rather than replacing the
+# existing one, so repeated applies accumulate entries across the whole HID event
+# system. Those leftovers sit on non-keyboard services such as AppleSMCKeysEndpoint
+# and never reach the window server, so verification counts mapping entries per
+# keyboard event service instead of registry entries globally. Counting globally
+# reports a false failure on any machine that has run the helper more than once.
+#
+# The Karabiner DriverKit virtual keyboard registers tens of seconds after
+# launchd starts this job, so a clear issued at boot alone is undone once that
+# service appears. The script keeps clearing it across a settle window.
+#
+# Device-level services such as AppleUserHIDDevice or AppleHIDTransportHIDDevice
+# are parents and never carry UserKeyMapping, so verification only counts
+# keyboard event services.
 
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 mapping_file="${ONISHI_MAPPING_FILE:-$script_dir/onishi.json}"
 retry_interval="${ONISHI_RETRY_INTERVAL:-2}"
 max_attempts="${ONISHI_MAX_ATTEMPTS:-30}"
-settle_seconds="${ONISHI_SETTLE_SECONDS:-8}"
+settle_seconds="${ONISHI_SETTLE_SECONDS:-90}"
+virtual_keyboard_match="${ONISHI_VIRTUAL_KEYBOARD_MATCH:-{\"VendorID\":0x16c0,\"ProductID\":0x27db}}"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
   printf 'Onishi hidutil mapping is only supported on macOS.\n' >&2
@@ -42,12 +55,17 @@ if [[ "$expected_entries" -eq 0 ]]; then
   exit 1
 fi
 
-# Keyboard event services are the services that actually deliver key events to
-# the window server. Device-level services such as AppleUserHIDDevice or
-# AppleHIDTransportHIDDevice are parents and never carry UserKeyMapping.
+# Keyboard event services that must carry the mapping.
+#
+# Two exclusions. AppleUserHIDEventService is the Karabiner DriverKit virtual
+# keyboard, which is verified separately as carrying no mapping at all; counting
+# it here would make the expected total unreachable. AppleUserHIDDevice is a device
+# level parent and never carries UserKeyMapping. AppleHIDTransportHIDDevice is
+# also a parent. The remaining AppleHIDKeyboardEventDriverV2 is the physical
+# keyboard driver.
 keyboard_service_count() {
   /usr/bin/hidutil list |
-    /usr/bin/awk 'NR > 1 && $4 == 1 && $5 == 6 && $8 ~ /Event(Driver|Service)/ { n++ } END { print n+0 }'
+    /usr/bin/awk 'NR > 1 && $4 == 1 && $5 == 6 && $8 ~ /EventDriver/ { n++ } END { print n+0 }'
 }
 
 # `--matching keyboard --get` reports the effective mapping of every matching
@@ -59,49 +77,89 @@ applied_entry_count() {
     /usr/bin/awk '/HIDKeyboardModifierMappingSrc/ { n++ } END { print n+0 }'
 }
 
-verify_coverage() {
-  local keyboard_services applied_entries
-  keyboard_services="$(keyboard_service_count)"
-  applied_entries="$(applied_entry_count)"
+virtual_keyboard_entries() {
+  /usr/bin/hidutil property --matching "$virtual_keyboard_match" --get UserKeyMapping 2>/dev/null |
+    /usr/bin/awk '/HIDKeyboardModifierMappingSrc/ { n++ } END { print n+0 }'
+}
 
-  if [[ "$keyboard_services" -eq 0 ]]; then
+# The virtual keyboard only exists once DriverKit has registered it. Treating an
+# absent service as a failure would report the clear as incomplete during the
+# first seconds of boot, so this reports success while there is nothing to clear.
+clear_virtual_keyboard() {
+  local entries
+  entries="$(virtual_keyboard_entries)"
+  if [[ "$entries" -eq 0 ]]; then
+    return 0
+  fi
+
+  if /usr/bin/hidutil property --matching "$virtual_keyboard_match" \
+    --set '{"UserKeyMapping":[]}' >/dev/null 2>&1; then
+    log "cleared $entries Onishi entries from the Kanata virtual keyboard"
+  else
+    log "failed to clear the Onishi mapping from the Kanata virtual keyboard"
+    return 1
+  fi
+}
+
+# A correct end state is exactly one conversion per keystroke: every keyboard
+# event service reports one copy of the mapping and the Kanata virtual keyboard
+# reports none.
+verify_state() {
+  local services applied
+  services="$(keyboard_service_count)"
+  applied="$(applied_entry_count)"
+
+  if [[ "$services" -eq 0 ]]; then
     log "no keyboard event service is present yet"
     return 1
   fi
-  if [[ "$applied_entries" -ne $((keyboard_services * expected_entries)) ]]; then
-    log "mapping reached $applied_entries of $((keyboard_services * expected_entries)) expected entries across $keyboard_services keyboard event service(s)"
+
+  if [[ "$applied" -ne $((services * expected_entries)) ]]; then
+    log "mapping reached $applied of $((services * expected_entries)) expected entries across $services keyboard event service(s)"
     return 1
   fi
 
-  KEYBOARD_SERVICES="$keyboard_services"
+  if ! clear_virtual_keyboard; then
+    return 1
+  fi
+
+  if [[ "$(virtual_keyboard_entries)" -ne 0 ]]; then
+    log "the Kanata virtual keyboard still carries the Onishi mapping"
+    return 1
+  fi
+
+  KEYBOARD_SERVICES="$services"
   return 0
 }
 
-# Waits until the coverage stops changing, because a keyboard service that
-# registers during the window needs a fresh apply. Polling instead of a single
-# sleep keeps a late service from costing the whole settle window.
+# Keeps clearing the virtual keyboard across the whole window. DriverKit can
+# register, disappear and re-register while the machine settles, and every
+# re-registration restores the mapping that the boot-time apply just cleared.
 watch_settle_window() {
   local elapsed=0
   while [[ "$elapsed" -lt "$settle_seconds" ]]; do
     /bin/sleep "$retry_interval"
     elapsed=$((elapsed + retry_interval))
-    if ! verify_coverage; then
-      return 1
-    fi
+    clear_virtual_keyboard || return 1
   done
   return 0
 }
 
 attempt=1
 while [[ "$attempt" -le "$max_attempts" ]]; do
+  # The Karabiner DriverKit virtual keyboard is absent right after launchd starts
+  # this job and registers later, so it is cleared once here and then repeatedly
+  # across the settle window.
+  clear_virtual_keyboard || true
+
   if /usr/bin/hidutil property --set "$mapping_body" >/dev/null; then
     log "attempt $attempt: set global UserKeyMapping ($expected_entries entries)"
   else
     log "attempt $attempt: hidutil property --set failed"
   fi
 
-  if verify_coverage && watch_settle_window; then
-    log "applied Onishi mapping to $KEYBOARD_SERVICES keyboard event service(s), $expected_entries entries each"
+  if verify_state && watch_settle_window; then
+    log "applied Onishi mapping to $KEYBOARD_SERVICES keyboard event service(s), $expected_entries entries each, Kanata virtual keyboard clear"
     exit 0
   fi
 

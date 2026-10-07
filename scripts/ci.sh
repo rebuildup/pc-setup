@@ -104,16 +104,46 @@ assert int(plist["EnvironmentVariables"]["ONISHI_SETTLE_SECONDS"]) >= 60
 # An apply that is not verified per keyboard event service silently leaves the
 # machine on the raw US ANSI layout after boot, so the verification path is part
 # of the contract rather than an implementation detail.
+#
+# `hidutil property --set` appends a registry entry instead of replacing one, so an
+# apply that does not clear first converts every keystroke once per historical run.
+# A second conversion of Kanata's already converted output arrives through the
+# Karabiner DriverKit virtual keyboard, so the mapping must stay off that service
+# while remaining on the physical keyboards.
 helper_path = Path("platforms/macos/keyboard/apply-onishi.sh")
 helper = helper_path.read_text(encoding="utf-8")
 
 for required in (
     "--matching keyboard",
-    "Event(Driver|Service)",
+    "EventDriver",
     "HIDKeyboardModifierMappingSrc",
-    "verify_coverage",
+    "verify_state",
+    "clear_virtual_keyboard",
+    "virtual_keyboard_entries",
 ):
     assert required in helper, f"apply-onishi.sh lost required verification: {required}"
+
+# The Karabiner DriverKit virtual keyboard must be verified as carrying no
+# mapping, so its event service cannot be part of the expected total. Counting it
+# as a mapped keyboard makes the expected entry count unreachable and the helper
+# then reports failure on every run.
+assert "keyboard_service_count" in helper
+service_count_body = helper.split("keyboard_service_count() {")[1].split("\n}")[0]
+assert "UserHIDEventService" not in service_count_body, (
+    "keyboard_service_count must exclude the Kanata virtual keyboard"
+)
+assert "EventDriver" in service_count_body, (
+    "keyboard_service_count must match the physical keyboard event driver"
+)
+
+# Clearing the virtual keyboard is the only thing keeping Kanata's output from
+# being converted a second time.
+assert "virtual_keyboard_match" in helper, (
+    "apply-onishi.sh must define the Kanata virtual keyboard match"
+)
+assert '{"UserKeyMapping":[]}' in helper, (
+    "apply-onishi.sh must clear the Kanata virtual keyboard mapping"
+)
 PY
 
 grep -Fq 'bash scripts/apply-platform.sh' mise.toml
@@ -143,7 +173,7 @@ PY
 
 grep -Fq 'kanata_version="1.12.0"' platforms/macos/kanata/install-kanata.sh
 grep -Fq 'driver_version="6.2.0"' platforms/macos/kanata/install-kanata.sh
-grep -Fq 'config_ref="583f54d196b30ca00d4c5a8142514409c9757aef"' platforms/macos/kanata/install-kanata.sh
+grep -Fq 'config_ref="0c02df504029d84bdaa145a70b2ac9719f5e9956"' platforms/macos/kanata/install-kanata.sh
 grep -Fq '"brew:kanata" = { os = "macos" }' mise.toml
 grep -Fq 'platforms/macos/kanata/install-kanata.sh' scripts/apply-platform.sh
 

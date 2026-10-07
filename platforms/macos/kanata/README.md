@@ -21,7 +21,7 @@ pc-setupは実機smoke test済みcommitをpinしてsystem-readable locationへ�
 
 ```text
 key-map-kanata ref:
-583f54d196b30ca00d4c5a8142514409c9757aef
+0c02df504029d84bdaa145a70b2ac9719f5e9956
 
 installed config:
 /usr/local/etc/pc-setup/kanata/kanata-us.kbd

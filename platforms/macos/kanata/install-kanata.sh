@@ -11,7 +11,7 @@ source_dir="$repo_root/platforms/macos/kanata"
 
 kanata_version="1.12.0"
 driver_version="6.2.0"
-config_ref="583f54d196b30ca00d4c5a8142514409c9757aef"
+config_ref="0c02df504029d84bdaa145a70b2ac9719f5e9956"
 config_url="https://raw.githubusercontent.com/rebuildup/key-map-kanata/$config_ref/mac/kanata-us.kbd"
 
 driver_manager="/Applications/.Karabiner-VirtualHIDDevice-Manager.app/Contents/MacOS/Karabiner-VirtualHIDDevice-Manager"
