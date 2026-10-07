@@ -95,11 +95,14 @@ assert plist["Label"] == "dev.rebuildup.pc-setup.onishi-keymap"
 assert plist["RunAtLoad"] is True
 assert plist["UserName"] == "root"
 assert plist["ProgramArguments"] == ["/usr/local/libexec/pc-setup/macos-keyboard/apply-onishi.sh"]
+# The helper runs for the life of the job to repair drift, so launchd must not
+# restart it after a successful exit.
 assert plist["KeepAlive"] == {"SuccessfulExit": False}
 assert plist["ThrottleInterval"] == 30
-# The Karabiner DriverKit virtual keyboard registers tens of seconds into boot, so
-# the boot-time apply has to keep watching well past the first successful verify.
-assert int(plist["EnvironmentVariables"]["ONISHI_SETTLE_SECONDS"]) >= 60
+# The Karabiner DriverKit virtual keyboard restores the mapping on every Kanata
+# restart, not only on boot, so the poll interval is the repair latency.
+watch_interval = int(plist["EnvironmentVariables"]["ONISHI_WATCH_INTERVAL"])
+assert 1 <= watch_interval <= 60, "ONISHI_WATCH_INTERVAL must stay responsive"
 
 # An apply that is not verified per keyboard event service silently leaves the
 # machine on the raw US ANSI layout after boot, so the verification path is part
@@ -114,31 +117,69 @@ helper_path = Path("platforms/macos/keyboard/apply-onishi.sh")
 helper = helper_path.read_text(encoding="utf-8")
 
 for required in (
-    "--matching keyboard",
-    "EventDriver",
+    "--matching",
     "HIDKeyboardModifierMappingSrc",
     "verify_state",
     "clear_virtual_keyboard",
     "virtual_keyboard_entries",
+    "physical_keyboard_entries",
 ):
     assert required in helper, f"apply-onishi.sh lost required verification: {required}"
 
-# The Karabiner DriverKit virtual keyboard must be verified as carrying no
-# mapping, so its event service cannot be part of the expected total. Counting it
-# as a mapped keyboard makes the expected entry count unreachable and the helper
-# then reports failure on every run.
-assert "keyboard_service_count" in helper
-service_count_body = helper.split("keyboard_service_count() {")[1].split("\n}")[0]
-assert "UserHIDEventService" not in service_count_body, (
-    "keyboard_service_count must exclude the Kanata virtual keyboard"
+# A global `hidutil property --set` writes the mapping onto every keyboard event
+# service that exists at that moment, including the Karabiner DriverKit virtual
+# keyboard once it registers. Scoping the apply to the physical keyboard is what
+# keeps a later Kanata restart from reintroducing a second conversion, so the
+# apply must never be issued without a match.
+assert "physical_keyboard_matches" in helper, (
+    "apply-onishi.sh must scope the apply to the physical keyboard"
 )
-assert "EventDriver" in service_count_body, (
-    "keyboard_service_count must match the physical keyboard event driver"
+apply_line = next(
+    line for line in helper.splitlines() if '--set "$mapping_body"' in line
+)
+assert "--matching" in apply_line, (
+    "the UserKeyMapping apply must be scoped with --matching"
 )
 
-# Clearing the virtual keyboard is the only thing keeping Kanata's output from
-# being converted a second time.
-assert "virtual_keyboard_match" in helper, (
+# macOS ships bash 3.2, whose glob expansion turns a quoted `[{"` into `[[{`. The
+# resulting match resolves to nothing and the helper reports an empty mapping, which
+# `bash -n` cannot detect. A bracketed array literal in a match would be silently
+# wrong for that reason.
+match_block = helper.split("physical_keyboard_matches=(")[1].split("\n)")[0]
+assert '[{"' not in match_block, (
+    "physical keyboard matches must not use a bracketed array literal: bash 3.2 "
+    "mangles `[{\"` into `[[{` and the match then resolves to nothing"
+)
+
+# A registry write is not visible to a following read, so verifying in the same
+# breath as the set reads an empty mapping and re-applies on every attempt. That
+# accumulation is what produced the historical duplicate mapping entries.
+assert "physical_keyboard_entries" in helper
+set_index = helper.index('--set "$mapping_body"')
+assert "/bin/sleep" in helper[set_index : helper.index("if verify_state", set_index)], (
+    "apply-onishi.sh must wait for the registry write to become visible"
+)
+
+# Re-applying on every attempt is what accumulates mapping entries, so the apply
+# must be conditional on the physical keyboard not already carrying the mapping.
+assert (
+    'if [[ "$(physical_keyboard_entries)" -ne "$expected_entries" ]]' in helper
+), "apply-onishi.sh must skip the apply when the mapping is already present"
+
+# The virtual keyboard restores the mapping on every Kanata restart, so the helper
+# has to keep checking for drift instead of exiting once the layout converges.
+assert "while true" in helper, (
+    "apply-onishi.sh must keep checking for drift after convergence"
+)
+assert "drift detected" in helper, (
+    "apply-onishi.sh must report and repair drift"
+)
+assert "exit 0" not in helper.split("while true")[1], (
+    "apply-onishi.sh must not exit after convergence; it has to survive Kanata "
+    "restarts"
+)
+
+assert "ONISHI_VIRTUAL_KEYBOARD_MATCH" in helper, (
     "apply-onishi.sh must define the Kanata virtual keyboard match"
 )
 assert '{"UserKeyMapping":[]}' in helper, (

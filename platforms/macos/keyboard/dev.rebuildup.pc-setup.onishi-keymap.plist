@@ -12,6 +12,10 @@
   <string>root</string>
   <key>RunAtLoad</key>
   <true/>
+  <!-- The helper runs for the life of the job because the Karabiner DriverKit
+       virtual keyboard restores the Onishi mapping every time Kanata restarts.
+       KeepAlive restarts it only after a failure so a successful exit does not
+       create a restart loop. -->
   <key>KeepAlive</key>
   <dict>
     <key>SuccessfulExit</key>
@@ -21,8 +25,8 @@
   <integer>30</integer>
   <key>EnvironmentVariables</key>
   <dict>
-    <key>ONISHI_SETTLE_SECONDS</key>
-    <string>90</string>
+    <key>ONISHI_WATCH_INTERVAL</key>
+    <string>5</string>
   </dict>
   <key>ProcessType</key>
   <string>Background</string>
