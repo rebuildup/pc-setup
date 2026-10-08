@@ -343,7 +343,10 @@ jobs:
           mkdir -p "$fake_bin" "$root/home"
           log="$root/mise.log"
           source_lock="$root/adopted.lock"
-          target_lock="$root/config.lock"
+          # mise reads `mise.lock` for a config named `config.toml`, so this is
+          # the path the script has to derive on its own. Pinning it through
+          # MISE_GLOBAL_LOCK_FILE would hide a wrong derivation from this test.
+          target_lock="$root/mise.lock"
 
           cat > "$fake_bin/mise" <<'SH'
           #!/usr/bin/env bash
@@ -357,7 +360,6 @@ jobs:
           export HOME="$root/home"
           export FAKE_MISE_LOG="$log"
           export MISE_GLOBAL_CONFIG_FILE="$root/config.toml"
-          export MISE_GLOBAL_LOCK_FILE="$target_lock"
           export PC_SETUP_MISE_SOURCE_LOCK_FILE="$source_lock"
           export MISE_GITHUB_TOKEN="ci-token"
 
