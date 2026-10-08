@@ -384,6 +384,16 @@ grep -Fq -- '--locked' scripts/apply-global-mise.sh
 grep -Fq 'PC_SETUP_MISE_SOURCE_LOCK_FILE' scripts/apply-global-mise.ps1
 grep -Fq -- "'--locked'" scripts/apply-global-mise.ps1
 
+# Both CI steps that run apply-global-mise.sh under a strict fake mise have to
+# pin the lock source. A checkout carrying mise.global.lock would otherwise
+# switch them to `install --locked`, which the fake mise rejects, so every train
+# PR would fail CI for containing the very file it exists to publish.
+locked_source_exports="$(grep -cF 'export PC_SETUP_MISE_SOURCE_LOCK_FILE' .github/workflows/ci.yml || true)"
+if [[ "$locked_source_exports" -lt 2 ]]; then
+  printf 'both apply-global-mise CI steps must pin PC_SETUP_MISE_SOURCE_LOCK_FILE\n' >&2
+  exit 1
+fi
+
 printf 'Checking executable bits...\n'
 for script in "${shell_scripts[@]}"; do
   if [[ ! -x "$script" ]]; then

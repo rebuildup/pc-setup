@@ -5,7 +5,19 @@ repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 source_config="$repo_root/mise.global.toml"
 source_lock="${PC_SETUP_MISE_SOURCE_LOCK_FILE:-$repo_root/mise.global.lock}"
 target_config="${MISE_GLOBAL_CONFIG_FILE:-$HOME/.config/mise/config.toml}"
-target_lock="${MISE_GLOBAL_LOCK_FILE:-${target_config%.toml}.lock}"
+
+# mise names a lockfile after the config file it belongs to: `mise.<env>.toml`
+# becomes `mise.<env>.lock`, and everything else, including the default
+# `config.toml`, becomes `mise.lock`. Deriving `<config>.lock` would link a file
+# mise never reads, so `--locked` would fail as soon as the update train
+# publishes mise.global.lock.
+target_config_name="$(basename "$target_config")"
+case "$target_config_name" in
+  mise.*.toml) target_lock_name="${target_config_name%.toml}.lock" ;;
+  *.local.toml) target_lock_name="mise.local.lock" ;;
+  *) target_lock_name="mise.lock" ;;
+esac
+target_lock="${MISE_GLOBAL_LOCK_FILE:-$(dirname "$target_config")/$target_lock_name}"
 managed_marker="# Managed by rebuildup/pc-setup."
 
 if [[ ! -f "$source_config" ]]; then

@@ -289,6 +289,11 @@ jobs:
           export PATH="$fake_bin:$PATH"
           export HOME="$root/home"
           export MISE_GLOBAL_CONFIG_FILE="$root/config.toml"
+          # A checkout that carries mise.global.lock would switch this script to
+          # `install --locked`, which the strict fake mise above rejects. Locked
+          # installs are asserted by the global-lock-adoption step; this one stays
+          # on the plain invocation whichever branch the checkout comes from.
+          export PC_SETUP_MISE_SOURCE_LOCK_FILE="$root/absent.lock"
           export FAKE_MISE_STATE="$state"
           export FAKE_GH_AUTH_STATE="$auth_state"
           export FAKE_MISE_LOG="$log"
@@ -343,7 +348,10 @@ jobs:
           mkdir -p "$fake_bin" "$root/home"
           log="$root/mise.log"
           source_lock="$root/adopted.lock"
-          target_lock="$root/config.lock"
+          # mise reads `mise.lock` for a config named `config.toml`, so this is
+          # the path the script has to derive on its own. Pinning it through
+          # MISE_GLOBAL_LOCK_FILE would hide a wrong derivation from this test.
+          target_lock="$root/mise.lock"
 
           cat > "$fake_bin/mise" <<'SH'
           #!/usr/bin/env bash
@@ -357,7 +365,6 @@ jobs:
           export HOME="$root/home"
           export FAKE_MISE_LOG="$log"
           export MISE_GLOBAL_CONFIG_FILE="$root/config.toml"
-          export MISE_GLOBAL_LOCK_FILE="$target_lock"
           export PC_SETUP_MISE_SOURCE_LOCK_FILE="$source_lock"
           export MISE_GITHUB_TOKEN="ci-token"
 
