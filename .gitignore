@@ -9,6 +9,9 @@
 .tmp/
 .reference/
 
+# Backups taken while editing a managed config; never part of the repository
+*.backup-*
+
 # Editor / OS
 .DS_Store
 Thumbs.db
