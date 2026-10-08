@@ -340,6 +340,16 @@ grep -Fq 'lock --global --bump' .github/workflows/update-train.yml
 grep -Fq 'mise.global.lock' .github/workflows/update-train.yml
 grep -Fq 'git diff --quiet -- mise.global.toml' .github/workflows/update-train.yml
 grep -Fq 'headRefOid,baseRefOid' .github/workflows/update-train.yml
+
+# `mise lock` also writes derived per-tool state into .mise/ next to the working
+# tree it resolves from. The train allows exactly one changed path,
+# mise.global.lock, so anything else it leaves behind fails every run before
+# anything is published.
+git check-ignore -q .mise/ || {
+  printf '.mise/ must be ignored, otherwise the mise lock run trips the update train guard\n' >&2
+  exit 1
+}
+
 grep -Fq 'workflow_dispatch:' .github/workflows/ci.yml
 grep -Fq 'PC_SETUP_MISE_SOURCE_LOCK_FILE' scripts/apply-global-mise.sh
 grep -Fq -- '--locked' scripts/apply-global-mise.sh
