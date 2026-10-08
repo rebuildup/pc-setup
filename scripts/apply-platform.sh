@@ -7,6 +7,7 @@ case "$(uname -s)" in
   Darwin)
     bash "$repo_root/platforms/macos/install-keyboard.sh"
     bash "$repo_root/platforms/macos/kanata/install-kanata.sh"
+    bash "$repo_root/platforms/macos/containers/install.sh"
     ;;
   Linux)
     ;;

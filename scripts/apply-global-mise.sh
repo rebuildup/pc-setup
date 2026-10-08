@@ -88,6 +88,16 @@ prepare_github_auth_for_mise() {
 
 prepare_github_auth_for_mise
 
+# `mise bootstrap` snapshots configuration before it applies [bootstrap.packages],
+# and on a fresh machine this script is what links the global config for the
+# first time. Packages declared only in mise.global.toml would otherwise wait for
+# a second bootstrap run, so apply them here: one bootstrap run converges.
+# Packages scoped to another OS are filtered out by mise itself.
+if ! mise -C "$HOME" bootstrap packages apply --yes; then
+  printf 'mise bootstrap packages apply failed\n' >&2
+  exit 1
+fi
+
 install_attempts="${PC_SETUP_MISE_INSTALL_ATTEMPTS:-2}"
 retry_delay_seconds="${PC_SETUP_MISE_RETRY_DELAY_SECONDS:-5}"
 

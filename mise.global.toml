@@ -32,6 +32,10 @@ bat = "latest"
 gdu = "latest"
 shellcheck = "latest"
 neovim = "latest"
+powershell = "7.6.6"
+"npm:@mariozechner/pi-coding-agent" = "latest"
+"npm:playwright" = "latest"
+ruby = "3"
 
 [tools."github:alibaba/open-code-review"]
 version = "latest"
@@ -44,3 +48,27 @@ macos-x64 = { asset_pattern = "opencodereview-darwin-amd64" }
 macos-arm64 = { asset_pattern = "opencodereview-darwin-arm64" }
 windows-x64 = { asset_pattern = "opencodereview-windows-amd64.exe" }
 windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
+
+# macOS-only host packages. This file is the machine-wide config on every OS, so
+# each entry carries an explicit `os` condition instead of living in a separate
+# file; without it mise would try to apply Homebrew casks/formulae on Windows and
+# Linux. Container tooling is Colima plus the Homebrew Docker CLI, Compose and
+# Buildx. Docker Desktop is deliberately absent (see ADR-0013).
+[bootstrap.packages]
+"brew-cask:android-studio" = { version = "latest", os = "macos" }
+"brew-cask:figma" = { version = "latest", os = "macos" }
+"brew-cask:nani" = { version = "latest", os = "macos" }
+"brew-cask:blender" = { version = "latest", os = "macos" }
+"brew-cask:google-chrome" = { version = "latest", os = "macos" }
+"brew-cask:firefox" = { version = "latest", os = "macos" }
+"brew-cask:stablyai/orca/orca" = { version = "latest", os = "macos" }
+"brew:ffmpeg" = { version = "latest", os = "macos" }
+"brew:colima" = { version = "latest", os = "macos" }
+"brew:docker" = { version = "latest", os = "macos" }
+"brew:docker-compose" = { version = "latest", os = "macos" }
+"brew:docker-buildx" = { version = "latest", os = "macos" }
+# Docker Desktop ships docker-credential-osxkeychain and removes it on
+# uninstall, which leaves `credsStore` pointing at a helper that no longer
+# exists and makes every `docker pull` fail. This formula provides the same
+# Keychain-backed helper without Docker Desktop.
+"brew:docker-credential-helper" = { version = "latest", os = "macos" }
