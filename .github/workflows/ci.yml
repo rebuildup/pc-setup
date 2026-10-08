@@ -258,6 +258,13 @@ jobs:
             exit 0
           fi
 
+          # Global packages are applied once GitHub authentication has been
+          # prepared, so a fresh tap or cask download can use it.
+          if [[ "$args" == "-C $HOME bootstrap packages apply --yes" ]]; then
+            test "${MISE_GITHUB_TOKEN:-}" = 'gho_ci_test_token'
+            exit 0
+          fi
+
           if [[ "$args" == "-C $HOME install" ]]; then
             test "${MISE_GITHUB_TOKEN:-}" = 'gho_ci_test_token'
 
@@ -298,13 +305,16 @@ jobs:
           test "$(cat "$state")" = 2
           grep -Fxq "120s|5|-C $HOME install gh|token=none" "$log"
           grep -Fxq "120s|5|-C $HOME exec gh -- gh auth login --hostname github.com --git-protocol https --web|token=none" "$log"
+          grep -Fxq "120s|5|-C $HOME bootstrap packages apply --yes|token=set" "$log"
           grep -Fxq "120s|5|-C $HOME install|token=set" "$log"
 
           gh_install_line="$(grep -nF "|-C $HOME install gh|" "$log" | head -n1 | cut -d: -f1)"
           auth_line="$(grep -nF "|-C $HOME exec gh -- gh auth login " "$log" | head -n1 | cut -d: -f1)"
+          packages_line="$(grep -nF "|-C $HOME bootstrap packages apply --yes|" "$log" | head -n1 | cut -d: -f1)"
           full_install_line="$(grep -nF "|-C $HOME install|token=set" "$log" | head -n1 | cut -d: -f1)"
           test "$gh_install_line" -lt "$auth_line"
-          test "$auth_line" -lt "$full_install_line"
+          test "$auth_line" -lt "$packages_line"
+          test "$packages_line" -lt "$full_install_line"
 
           rm -f "$state" "$log"
           export FAKE_MISE_ALWAYS_FAIL=1
