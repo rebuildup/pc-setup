@@ -52,12 +52,19 @@ jobs:
             exit 1
           fi
 
+          # `mise lock` writes the lockfile plus native dependency sidecars under
+          # .mise/locks/, and `mise install --locked` rejects a lock whose
+          # sidecars are missing. Both are generated adopted state; anything else
+          # the run touched is unexpected.
           mapfile -t changed_paths < <(git status --porcelain=v1 | sed -E 's/^.. //')
           for path in "${changed_paths[@]}"; do
-            if [[ "$path" != "mise.global.lock" ]]; then
-              echo "update train changed non-generated path: $path" >&2
-              exit 1
-            fi
+            case "$path" in
+              mise.global.lock | .mise | .mise/ | .mise/*) ;;
+              *)
+                echo "update train changed non-generated path: $path" >&2
+                exit 1
+                ;;
+            esac
           done
 
           if [[ "${#changed_paths[@]}" -eq 0 ]]; then
@@ -80,7 +87,7 @@ jobs:
 
           base_sha="$(git rev-parse HEAD)"
           git switch -C "$TRAIN_BRANCH"
-          git add -- mise.global.lock
+          git add -- mise.global.lock .mise
           git commit -m "chore: reconcile machine-global tool versions"
           head_sha="$(git rev-parse HEAD)"
           git push --force origin "HEAD:$TRAIN_BRANCH"
@@ -99,7 +106,7 @@ jobs:
           {
             echo "## Continuous update train"
             echo
-            echo "Generated adopted state only: mise.global.lock"
+            echo "Generated adopted state only: mise.global.lock and .mise/locks/"
             echo
             echo "- desired policy: mise.global.toml"
             echo "- resolved platforms: $LOCK_PLATFORMS"
@@ -206,10 +213,19 @@ jobs:
           fi
 
           mapfile -t pr_paths < <(gh pr diff "$pr_number" --repo "$GITHUB_REPOSITORY" --name-only)
-          if [[ "${#pr_paths[@]}" -ne 1 || "${pr_paths[0]}" != "mise.global.lock" ]]; then
-            echo "maintenance PR contains paths other than mise.global.lock" >&2
-            printf '%s\n' "${pr_paths[@]}" >&2
+          if [[ "${#pr_paths[@]}" -eq 0 ]]; then
+            echo "maintenance PR contains no changes" >&2
             exit 1
           fi
+          for path in "${pr_paths[@]}"; do
+            case "$path" in
+              mise.global.lock | .mise/*) ;;
+              *)
+                echo "maintenance PR contains paths other than generated lock state: $path" >&2
+                printf '%s\n' "${pr_paths[@]}" >&2
+                exit 1
+                ;;
+            esac
+          done
 
           gh pr merge "$pr_number" --repo "$GITHUB_REPOSITORY" --merge --delete-branch
