@@ -95,6 +95,25 @@ assert plist["Label"] == "dev.rebuildup.pc-setup.onishi-keymap"
 assert plist["RunAtLoad"] is True
 assert plist["UserName"] == "root"
 assert plist["ProgramArguments"] == ["/usr/local/libexec/pc-setup/macos-keyboard/apply-onishi.sh"]
+assert plist["KeepAlive"] == {"SuccessfulExit": False}
+assert plist["ThrottleInterval"] == 30
+# The Karabiner DriverKit virtual keyboard registers tens of seconds into boot, so
+# the boot-time apply has to keep watching well past the first successful verify.
+assert int(plist["EnvironmentVariables"]["ONISHI_SETTLE_SECONDS"]) >= 60
+
+# An apply that is not verified per keyboard event service silently leaves the
+# machine on the raw US ANSI layout after boot, so the verification path is part
+# of the contract rather than an implementation detail.
+helper_path = Path("platforms/macos/keyboard/apply-onishi.sh")
+helper = helper_path.read_text(encoding="utf-8")
+
+for required in (
+    "--matching keyboard",
+    "Event(Driver|Service)",
+    "HIDKeyboardModifierMappingSrc",
+    "verify_coverage",
+):
+    assert required in helper, f"apply-onishi.sh lost required verification: {required}"
 PY
 
 grep -Fq 'bash scripts/apply-platform.sh' mise.toml

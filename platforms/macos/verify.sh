@@ -38,6 +38,28 @@ for critical_value in 30064771082 30064771117 30064771128 30064771077; do
   fi
 done
 
+# The global registry entry above only proves that the mapping was written once.
+# A keyboard service that registered after that write is never remapped, so the
+# effective per-service mapping has to be checked.
+expected_entries="$(/usr/bin/awk '/HIDKeyboardModifierMappingSrc/ { n++ } END { print n+0 }' "$install_dir/onishi.json")"
+keyboard_services="$(/usr/bin/hidutil list |
+  /usr/bin/awk 'NR > 1 && $4 == 1 && $5 == 6 && $8 ~ /Event(Driver|Service)/ { n++ } END { print n+0 }')"
+applied_entries="$(/usr/bin/hidutil property --matching keyboard --get UserKeyMapping |
+  /usr/bin/awk '/HIDKeyboardModifierMappingSrc/ { n++ } END { print n+0 }')"
+
+if [[ "$keyboard_services" -eq 0 ]]; then
+  printf 'no keyboard event service was detected.\n' >&2
+  exit 1
+fi
+if [[ "$applied_entries" -ne $((keyboard_services * expected_entries)) ]]; then
+  printf 'Onishi mapping reached %s of %s expected entries across %s keyboard event service(s).\n' \
+    "$applied_entries" "$((keyboard_services * expected_entries))" "$keyboard_services" >&2
+  printf 'run: sudo %s\n' "$install_dir/apply-onishi.sh" >&2
+  exit 1
+fi
+
+printf 'Onishi mapping is active on %s keyboard event service(s).\n' "$keyboard_services"
+
 if [[ -e "$HOME/Library/LaunchAgents/$label.plist" ]]; then
   printf 'legacy per-user LaunchAgent still exists.\n' >&2
   exit 1
