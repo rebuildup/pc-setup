@@ -346,7 +346,7 @@ grep -Fq 'headRefOid,baseRefOid' .github/workflows/update-train.yml
 # mise.global.lock, so anything else it leaves behind fails every run before
 # anything is published.
 git check-ignore -q .mise/ || {
-  printf '.mise/ must be ignored, otherwise `mise lock` trips the update train guard\n' >&2
+  printf '.mise/ must be ignored, otherwise the mise lock run trips the update train guard\n' >&2
   exit 1
 }
 
