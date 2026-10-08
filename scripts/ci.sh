@@ -39,6 +39,122 @@ for path in (Path("mise.toml"), Path("mise.global.toml")):
         tomllib.load(fh)
 PY
 
+printf 'Checking machine-wide mise package scope...\n'
+python3 - <<'PY'
+import tomllib
+from pathlib import Path
+
+with Path("mise.global.toml").open("rb") as fh:
+    global_config = tomllib.load(fh)
+
+packages = global_config.get("bootstrap", {}).get("packages", {})
+
+# mise.global.toml is the machine-wide config on every OS. A package without an
+# `os` condition would be applied by Windows and Linux bootstraps too, so the
+# macOS-only scope is part of the contract rather than a local preference.
+if not packages:
+    raise SystemExit("mise.global.toml declares no [bootstrap.packages]")
+
+for name, spec in packages.items():
+    manager = name.split(":", 1)[0]
+    if manager not in {"brew", "brew-cask"}:
+        raise SystemExit(f"unexpected manager for {name}: {manager}")
+    if not isinstance(spec, dict) or "os" not in spec:
+        raise SystemExit(f"{name} must declare an explicit os condition")
+    os_value = spec["os"]
+    declared = {os_value} if isinstance(os_value, str) else set(os_value)
+    if declared != {"macos"}:
+        raise SystemExit(f"{name} must apply to macOS only, got {sorted(declared)}")
+
+if any("docker-desktop" in name for name in packages):
+    raise SystemExit(
+        "Docker Desktop must stay out of the package set; containers use Colima"
+    )
+
+# Colima, Docker, Compose, Buildx and FFmpeg are system packages. As portable
+# tools they would lose their os condition and land on every OS.
+for name in global_config.get("tools", {}):
+    if name in {"colima", "docker", "docker-compose", "docker-buildx", "ffmpeg"}:
+        raise SystemExit(
+            f"{name} belongs to [bootstrap.packages] with an os condition, not [tools]"
+        )
+PY
+
+printf 'Checking macOS container runtime contract...\n'
+grep -Fq "bash \"\$repo_root/platforms/macos/containers/install.sh\"" scripts/apply-platform.sh
+grep -Fq "mise -C \"\$HOME\" bootstrap packages apply" scripts/apply-global-mise.sh
+grep -Fq 'provisioned but stopped' platforms/macos/containers/verify.sh
+
+# Homebrew lives under different prefixes on Apple Silicon and Intel, so the
+# scripts resolve formulae through mise instead of assuming one of them.
+if grep -Eq '/opt/homebrew' platforms/macos/containers/*.sh; then
+  printf 'container scripts must not hard-code a Homebrew prefix\n' >&2
+  exit 1
+fi
+
+# The VM holds every image and volume, and a pinned DOCKER_HOST would leak the
+# container daemon into unrelated sessions. Neither is acceptable here.
+if grep -Eq 'colima (delete|reset)|export DOCKER_HOST|docker context use' platforms/macos/containers/*.sh; then
+  printf 'container scripts must not destroy VM data, pin DOCKER_HOST or switch contexts\n' >&2
+  exit 1
+fi
+
+# Verification reports a stopped VM as provisioned; starting it is the operator's
+# decision, not a side effect of running a check.
+if grep -Eq '^[[:space:]]*colima start' platforms/macos/containers/verify.sh; then
+  printf 'verify must not start the Colima VM\n' >&2
+  exit 1
+fi
+
+# mise resolves [bootstrap.packages] itself. Prove on this host that the resolved
+# set equals the set declared for this OS, which is what keeps a macOS-only entry
+# from reaching Windows and Linux.
+if command -v mise >/dev/null 2>&1; then
+  printf 'Checking bootstrap package OS filtering through mise...\n'
+  mise_scope_dir="$(mktemp -d)"
+  trap 'rm -rf "$mise_scope_dir"' EXIT
+  mkdir -p "$mise_scope_dir/config" "$mise_scope_dir/work"
+  cp mise.global.toml "$mise_scope_dir/config/config.toml"
+  MISE_CONFIG_DIR="$mise_scope_dir/config" \
+    mise -C "$mise_scope_dir/work" bootstrap status --json >"$mise_scope_dir/status.json"
+
+  python3 - "$mise_scope_dir/status.json" <<'PY'
+import json
+import sys
+import tomllib
+from pathlib import Path
+
+host = {"darwin": "macos", "linux": "linux", "win32": "windows"}[sys.platform]
+
+with Path("mise.global.toml").open("rb") as fh:
+    packages = tomllib.load(fh).get("bootstrap", {}).get("packages", {})
+
+expected = set()
+for name, spec in packages.items():
+    os_value = spec.get("os") if isinstance(spec, dict) else None
+    declared = (
+        set()
+        if os_value is None
+        else ({os_value} if isinstance(os_value, str) else set(os_value))
+    )
+    if not declared or host in declared:
+        expected.add(name)
+
+status = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+actual = {
+    f"{manager}:{entry['package']}"
+    for manager, group in status.get("packages", {}).items()
+    for entry in group.get("packages", [])
+}
+
+if actual != expected:
+    raise SystemExit(
+        f"on {host} expected {sorted(expected)} but mise resolved {sorted(actual)}"
+    )
+print(f"ok      mise resolved {len(expected)} bootstrap package(s) on {host}")
+PY
+fi
+
 printf 'Checking macOS keyboard contract...\n'
 python3 - <<'PY'
 import json

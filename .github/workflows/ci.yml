@@ -33,6 +33,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
 
+      # scripts/ci.sh asks mise which [bootstrap.packages] apply on this host, so
+      # the OS scoping of the machine-wide config is checked by mise itself.
+      - name: Install mise
+        run: |
+          curl -fsSL https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
       - name: Validate repository
         run: ./scripts/ci.sh
 
