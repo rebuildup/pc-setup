@@ -1,0 +1,12 @@
+{
+  "name": "mise-npm-install",
+  "private": true,
+  "aube": {
+    "allowBuilds": {
+      "esbuild": true
+    }
+  },
+  "dependencies": {
+    "vercel": "62.0.0"
+  }
+}
