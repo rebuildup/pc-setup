@@ -4,7 +4,13 @@ set -euo pipefail
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-mapfile -t shell_scripts < <(
+# macOS ships bash 3.2, which has no mapfile/readarray. This script is the
+# documented validation entrypoint on every platform, so it stays runnable with
+# the system shell instead of requiring a separately installed bash.
+shell_scripts=()
+while IFS= read -r script; do
+  shell_scripts+=("$script")
+done < <(
   {
     find platforms scripts -type f -name '*.sh' -print
     printf '%s\n' bootstrap.sh
@@ -78,6 +84,28 @@ for name in global_config.get("tools", {}):
         raise SystemExit(
             f"{name} belongs to [bootstrap.packages] with an os condition, not [tools]"
         )
+PY
+
+printf 'Checking ADR index...\n'
+python3 - <<'PY'
+import re
+from pathlib import Path
+
+adr_dir = Path("docs/adr")
+index = (adr_dir / "README.md").read_text(encoding="utf-8")
+
+indexed = set(re.findall(r"\((?:\./)?(ADR-\d{4})\.md\)", index))
+present = {path.stem for path in adr_dir.glob("ADR-*.md")}
+
+# An ADR nobody can find from the index is an undocumented decision, and an
+# index entry without a file is a broken link. Both directions have to hold.
+missing = sorted(present - indexed)
+if missing:
+    raise SystemExit(f"ADR index is missing: {', '.join(missing)}")
+
+stale = sorted(indexed - present)
+if stale:
+    raise SystemExit(f"ADR index references absent files: {', '.join(stale)}")
 PY
 
 printf 'Checking macOS container runtime contract...\n'
@@ -340,6 +368,16 @@ grep -Fq 'lock --global --bump' .github/workflows/update-train.yml
 grep -Fq 'mise.global.lock' .github/workflows/update-train.yml
 grep -Fq 'git diff --quiet -- mise.global.toml' .github/workflows/update-train.yml
 grep -Fq 'headRefOid,baseRefOid' .github/workflows/update-train.yml
+
+# `mise lock` also writes derived per-tool state into .mise/ next to the working
+# tree it resolves from. The train allows exactly one changed path,
+# mise.global.lock, so anything else it leaves behind fails every run before
+# anything is published.
+git check-ignore -q .mise/ || {
+  printf '.mise/ must be ignored, otherwise the mise lock run trips the update train guard\n' >&2
+  exit 1
+}
+
 grep -Fq 'workflow_dispatch:' .github/workflows/ci.yml
 grep -Fq 'PC_SETUP_MISE_SOURCE_LOCK_FILE' scripts/apply-global-mise.sh
 grep -Fq -- '--locked' scripts/apply-global-mise.sh
