@@ -369,14 +369,20 @@ grep -Fq 'mise.global.lock' .github/workflows/update-train.yml
 grep -Fq 'git diff --quiet -- mise.global.toml' .github/workflows/update-train.yml
 grep -Fq 'headRefOid,baseRefOid' .github/workflows/update-train.yml
 
-# `mise lock` also writes derived per-tool state into .mise/ next to the working
-# tree it resolves from. The train allows exactly one changed path,
-# mise.global.lock, so anything else it leaves behind fails every run before
-# anything is published.
-git check-ignore -q .mise/ || {
-  printf '.mise/ must be ignored, otherwise the mise lock run trips the update train guard\n' >&2
+# `mise lock` writes native dependency sidecars under .mise/locks/, and mise
+# requires them beside the lockfile: `mise install --locked` refuses a lock whose
+# sidecar is missing. Ignoring that directory would leave every lock-carrying
+# checkout unable to install while the train happily published a lock nobody can
+# consume, so the directory has to stay tracked.
+if git check-ignore -q .mise/; then
+  printf '.mise/ must stay tracked; mise install --locked needs its dependency sidecars\n' >&2
   exit 1
-}
+fi
+
+# The train therefore accepts and publishes both pieces of generated state, and
+# nothing else.
+grep -Fq 'mise.global.lock | .mise | .mise/ | .mise/*' .github/workflows/update-train.yml
+grep -Fq 'git add -- mise.global.lock .mise' .github/workflows/update-train.yml
 
 grep -Fq 'workflow_dispatch:' .github/workflows/ci.yml
 grep -Fq 'PC_SETUP_MISE_SOURCE_LOCK_FILE' scripts/apply-global-mise.sh
