@@ -22,7 +22,22 @@ $TargetLock = if ($env:MISE_GLOBAL_LOCK_FILE) {
     $env:MISE_GLOBAL_LOCK_FILE
 }
 else {
-    [System.IO.Path]::ChangeExtension($TargetConfig, '.lock')
+    # mise names a lockfile after the config file it belongs to:
+    # `mise.<env>.toml` becomes `mise.<env>.lock`, and everything else,
+    # including the default `config.toml`, becomes `mise.lock`.
+    # `<config>.lock` is never read, so linking there would leave `--locked`
+    # without a lockfile once the update train publishes mise.global.lock.
+    $targetConfigName = Split-Path -Leaf $TargetConfig
+    $lockName = if ($targetConfigName -like 'mise.*.toml') {
+        [System.IO.Path]::ChangeExtension($targetConfigName, '.lock')
+    }
+    elseif ($targetConfigName -like '*.local.toml') {
+        'mise.local.lock'
+    }
+    else {
+        'mise.lock'
+    }
+    Join-Path (Split-Path -Parent $TargetConfig) $lockName
 }
 $ManagedMarker = '# Managed by rebuildup/pc-setup.'
 
