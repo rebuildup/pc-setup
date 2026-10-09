@@ -3,18 +3,18 @@
 lockfile_version = 3
 
 [[tools.aws-cli]]
-version = "2.37.10"
+version = "2.37.11"
 backend = "aqua:aws/aws-cli"
 specifiers = ["latest"]
 
 [tools.aws-cli."platforms.linux-x64"]
-url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.37.10.zip"
+url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.37.11.zip"
 
 [tools.aws-cli."platforms.macos-arm64"]
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.10.pkg"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.11.pkg"
 
 [tools.aws-cli."platforms.macos-x64"]
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.10.pkg"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.11.pkg"
 
 [[tools.bat]]
 version = "0.26.1"
@@ -88,29 +88,29 @@ backend = "cargo:cargo-clean-all"
 specifiers = ["latest"]
 
 [[tools.claude]]
-version = "2.1.292"
+version = "2.1.294"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools.claude."platforms.linux-x64"]
-checksum = "sha256:7045cd790b2c7b8cc6169d061aec7274d37a6a0d8ed318a6ff8868262433b1f9"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.292/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/616117246"
+checksum = "sha256:c152a9520cbe30adfaa7dbff26016d74c668c7dfb093fca2a06fa72cb6e98369"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.294/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/620618749"
 
 [tools.claude."platforms.macos-arm64"]
-checksum = "sha256:7a7dcc508696a2093dfc690398b86217f12b07809b7bd534c2fde4f417881556"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.292/claude-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/616117003"
+checksum = "sha256:2adac5f74f236d434d42e1e24a7d68591269f229c987aff19d9ef7e61eee405b"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.294/claude-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/620618630"
 
 [tools.claude."platforms.macos-x64"]
-checksum = "sha256:09cae50768d6cfdc2c8b110e8417627c0b0c6950adfae0c5b000ebef18ecf6d5"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.292/claude-darwin-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/616116999"
+checksum = "sha256:967358670cad3b8d164cd681ac704e1141ece51e8a44781f6992f79a93f25e73"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.294/claude-darwin-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/620618631"
 
 [tools.claude."platforms.windows-x64"]
-checksum = "sha256:5d291bd9fa05345fb1baf6834a5609b996ab8c518e18b86dd3869907166e9e88"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.292/claude-win32-x64.zip"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/616117256"
+checksum = "sha256:d952da509cf9cd434e4a4ab0bd901d8bf98f7c11823d06ca68dc583ce95f6570"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.294/claude-win32-x64.zip"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/620618775"
 
 [[tools.codex]]
 version = "0.160.1"
@@ -340,7 +340,7 @@ url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-windows-
 url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036387"
 
 [[tools.infisical]]
-version = "0.43.139"
+version = "0.43.140"
 backend = "github:Infisical/cli"
 specifiers = ["latest"]
 
@@ -348,24 +348,24 @@ specifiers = ["latest"]
 asset_pattern = "cli_{{ version }}_{{ os(macos='darwin') }}_{{ arch(x64='amd64') }}.tar.gz"
 
 [tools.infisical."platforms.linux-x64"]
-checksum = "sha256:817830de7cb845c639862accd8fddc5d185449bccd358c91a941a24b070d0899"
-url = "https://github.com/Infisical/cli/releases/download/v0.43.139/cli_0.43.139_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/613049189"
+checksum = "sha256:c9f014c78cb1b4ba57f758f921843dbe541a3c8d2b83e622b0dc67d77ead4178"
+url = "https://github.com/Infisical/cli/releases/download/v0.43.140/cli_0.43.140_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/620267131"
 
 [tools.infisical."platforms.macos-arm64"]
-checksum = "sha256:bf5d311b1cac5f3969c44949a32d026df9be42b5b1a454fd0e4061a3b23fa219"
-url = "https://github.com/Infisical/cli/releases/download/v0.43.139/cli_0.43.139_darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/613033917"
+checksum = "sha256:1c82aedd627d1c73972cc92ad58412a44fab94d108c5bd052e3225323cf62313"
+url = "https://github.com/Infisical/cli/releases/download/v0.43.140/cli_0.43.140_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/620261757"
 
 [tools.infisical."platforms.macos-x64"]
-checksum = "sha256:2793368fb8759b47ef55f17145d22ebaa53fbd751beb4fdb5a6b51dfcf261e64"
-url = "https://github.com/Infisical/cli/releases/download/v0.43.139/cli_0.43.139_darwin_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/613033920"
+checksum = "sha256:1d65801c336e9e6ab441f6e57f3b3d209fffeaf2d26ac8d04dd8510602f5dcaa"
+url = "https://github.com/Infisical/cli/releases/download/v0.43.140/cli_0.43.140_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/620261753"
 
 [tools.infisical."platforms.windows-x64"]
-checksum = "sha256:e24e6fb3732d951f07ea998f31423c696fe65b10f0f689996a4c870719bb1459"
-url = "https://github.com/Infisical/cli/releases/download/v0.43.139/cli_0.43.139_windows_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/613045386"
+checksum = "sha256:6cee68d40669860cc989b3de536f076508a347a1ae88d0f5ebc0753e20588364"
+url = "https://github.com/Infisical/cli/releases/download/v0.43.140/cli_0.43.140_windows_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/620268778"
 
 [[tools.jq]]
 version = "1.8.2"
@@ -447,8 +447,8 @@ backend = "npm:npkill"
 specifiers = ["latest"]
 
 [[tools."npm:playwright"]]
-version = "1.63.0"
-aube = { path = ".mise/locks/mise.global/npm-playwright/1.63.0", digest = "sha256:923502d4bfc680e227e6fcd3869f0c080d099393de9bd820854e11e964c4fe1e" }
+version = "1.64.0"
+aube = { path = ".mise/locks/mise.global/npm-playwright/1.64.0", digest = "sha256:f59d688014768e57fe2563af80ef926b096a2e059ae642f8e3b826be989be08f" }
 backend = "npm:playwright"
 specifiers = ["latest"]
 
@@ -671,8 +671,8 @@ url = "https://github.com/supabase/cli/releases/download/v2.120.0/supabase_windo
 url_api = "https://api.github.com/repos/supabase/cli/releases/assets/616067549"
 
 [[tools.vercel]]
-version = "62.0.0"
-aube = { path = ".mise/locks/mise.global/vercel/62.0.0~a6545071", digest = "sha256:26c8cbcf414a8ba677583a4b78aa98fb9f221902cc20103736c72ca07e3c6176" }
+version = "63.0.1"
+aube = { path = ".mise/locks/mise.global/vercel/63.0.1~a6545071", digest = "sha256:2ff20594571d1a96761289a36c7b0bf5e988fe4b3123f49ae0633dd32f6cf34d" }
 backend = "npm:vercel"
 specifiers = ["latest"]
 
