@@ -3,18 +3,18 @@
 lockfile_version = 3
 
 [[tools.aws-cli]]
-version = "2.37.11"
+version = "2.37.12"
 backend = "aqua:aws/aws-cli"
 specifiers = ["latest"]
 
 [tools.aws-cli."platforms.linux-x64"]
-url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.37.11.zip"
+url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.37.12.zip"
 
 [tools.aws-cli."platforms.macos-arm64"]
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.11.pkg"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.12.pkg"
 
 [tools.aws-cli."platforms.macos-x64"]
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.11.pkg"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.12.pkg"
 
 [[tools.bat]]
 version = "0.26.1"
@@ -88,29 +88,29 @@ backend = "cargo:cargo-clean-all"
 specifiers = ["latest"]
 
 [[tools.claude]]
-version = "2.1.294"
+version = "2.1.295"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools.claude."platforms.linux-x64"]
-checksum = "sha256:c152a9520cbe30adfaa7dbff26016d74c668c7dfb093fca2a06fa72cb6e98369"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.294/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/620618749"
+checksum = "sha256:cf9cfb714ded1f27c1d3b7fb274faef50d72312c4b14525a74659188f59bd8b1"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.295/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/622631007"
 
 [tools.claude."platforms.macos-arm64"]
-checksum = "sha256:2adac5f74f236d434d42e1e24a7d68591269f229c987aff19d9ef7e61eee405b"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.294/claude-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/620618630"
+checksum = "sha256:dfbbe96007c69d7bc8631c5f4d7596e960cb0962f8d13efea7d4239f4caa3917"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.295/claude-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/622630668"
 
 [tools.claude."platforms.macos-x64"]
-checksum = "sha256:967358670cad3b8d164cd681ac704e1141ece51e8a44781f6992f79a93f25e73"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.294/claude-darwin-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/620618631"
+checksum = "sha256:7b0ae32560b75062ea3a93b157d08defc406dbd1fb8a5ea59acdff5d169e8f31"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.295/claude-darwin-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/622630675"
 
 [tools.claude."platforms.windows-x64"]
-checksum = "sha256:d952da509cf9cd434e4a4ab0bd901d8bf98f7c11823d06ca68dc583ce95f6570"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.294/claude-win32-x64.zip"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/620618775"
+checksum = "sha256:3f8ce0f5dcf243d652f57c0ba3aa2da3bceda5c1cab819357c259954dc2fbf18"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.295/claude-win32-x64.zip"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/622631050"
 
 [[tools.codex]]
 version = "0.160.1"
@@ -259,49 +259,7 @@ url_api = "https://api.github.com/repos/cli/cli/releases/assets/599854760"
 provenance = "github-attestations"
 
 [[tools."github:alibaba/open-code-review"]]
-version = "1.12.12"
-backend = "github:alibaba/open-code-review"
-specifiers = ["latest"]
-
-[tools."github:alibaba/open-code-review".options]
-asset_pattern = "opencodereview-linux-amd64"
-
-[tools."github:alibaba/open-code-review"."platforms.linux-x64"]
-checksum = "sha256:3e34d6250d27d3a75b3979752d2816a8723f0070e89662b5b953ce2c9473b233"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.12.12/opencodereview-linux-amd64"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/611760109"
-provenance = "github-attestations"
-
-[[tools."github:alibaba/open-code-review"]]
-version = "1.12.12"
-backend = "github:alibaba/open-code-review"
-specifiers = ["latest"]
-
-[tools."github:alibaba/open-code-review".options]
-asset_pattern = "opencodereview-darwin-arm64"
-
-[tools."github:alibaba/open-code-review"."platforms.macos-arm64"]
-checksum = "sha256:4448bb750e2d818b9b6d68c997df64191ad22bbdfc1617afb00d0f4c38f95296"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.12.12/opencodereview-darwin-arm64"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/611760113"
-provenance = "github-attestations"
-
-[[tools."github:alibaba/open-code-review"]]
-version = "1.12.12"
-backend = "github:alibaba/open-code-review"
-specifiers = ["latest"]
-
-[tools."github:alibaba/open-code-review".options]
-asset_pattern = "opencodereview-darwin-amd64"
-
-[tools."github:alibaba/open-code-review"."platforms.macos-x64"]
-checksum = "sha256:a9023c8286fd00c032919d9b675aa09d2600be948bfc0d9ae8b37fc75c183cc5"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.12.12/opencodereview-darwin-amd64"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/611760112"
-provenance = "github-attestations"
-
-[[tools."github:alibaba/open-code-review"]]
-version = "1.12.12"
+version = "1.12.13"
 backend = "github:alibaba/open-code-review"
 specifiers = ["latest"]
 
@@ -309,9 +267,51 @@ specifiers = ["latest"]
 asset_pattern = "opencodereview-windows-amd64.exe"
 
 [tools."github:alibaba/open-code-review"."platforms.windows-x64"]
-checksum = "sha256:c34033f9da77e65aebddd64e37e671b4dd773ad4868e4f73922d13766ee6bb82"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.12.12/opencodereview-windows-amd64.exe"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/611760107"
+checksum = "sha256:520b135f1e15e129643678c2f6ce1daff9e5299250b59aa849a19ad723e716a4"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.12.13/opencodereview-windows-amd64.exe"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/621701108"
+provenance = "github-attestations"
+
+[[tools."github:alibaba/open-code-review"]]
+version = "1.12.13"
+backend = "github:alibaba/open-code-review"
+specifiers = ["latest"]
+
+[tools."github:alibaba/open-code-review".options]
+asset_pattern = "opencodereview-linux-amd64"
+
+[tools."github:alibaba/open-code-review"."platforms.linux-x64"]
+checksum = "sha256:d3d69e374bd1b8c02c1269d5b9c02437632812932f92423d4468bba717c8c328"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.12.13/opencodereview-linux-amd64"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/621701114"
+provenance = "github-attestations"
+
+[[tools."github:alibaba/open-code-review"]]
+version = "1.12.13"
+backend = "github:alibaba/open-code-review"
+specifiers = ["latest"]
+
+[tools."github:alibaba/open-code-review".options]
+asset_pattern = "opencodereview-darwin-arm64"
+
+[tools."github:alibaba/open-code-review"."platforms.macos-arm64"]
+checksum = "sha256:d973dd5926f1ac5e22e91e56780873a86a8d79cae504ae488ee03e6f7a1e80ee"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.12.13/opencodereview-darwin-arm64"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/621701113"
+provenance = "github-attestations"
+
+[[tools."github:alibaba/open-code-review"]]
+version = "1.12.13"
+backend = "github:alibaba/open-code-review"
+specifiers = ["latest"]
+
+[tools."github:alibaba/open-code-review".options]
+asset_pattern = "opencodereview-darwin-amd64"
+
+[tools."github:alibaba/open-code-review"."platforms.macos-x64"]
+checksum = "sha256:f49f9db4d111ecc9f1fa412001323cd5531f31fc4ce94d499259f077ccf7be98"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.12.13/opencodereview-darwin-amd64"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/621701110"
 provenance = "github-attestations"
 
 [[tools.herdr]]
@@ -397,21 +397,21 @@ url_api = "https://api.github.com/repos/jqlang/jq/releases/assets/453012788"
 provenance = "github-attestations"
 
 [[tools.neovim]]
-version = "0.12.5"
-backend = "vfox:mise-plugins/vfox-neovim"
+version = "0.12.6"
+backend = "vfox:jdx/vfox-neovim"
 specifiers = ["latest"]
 
 [tools.neovim."platforms.linux-x64"]
-url = "https://github.com/neovim/neovim/releases/download/v0.12.5/nvim-linux-x86_64.tar.gz"
+url = "https://github.com/neovim/neovim/releases/download/v0.12.6/nvim-linux-x86_64.tar.gz"
 
 [tools.neovim."platforms.macos-arm64"]
-url = "https://github.com/neovim/neovim/releases/download/v0.12.5/nvim-macos-arm64.tar.gz"
+url = "https://github.com/neovim/neovim/releases/download/v0.12.6/nvim-macos-arm64.tar.gz"
 
 [tools.neovim."platforms.macos-x64"]
-url = "https://github.com/neovim/neovim/releases/download/v0.12.5/nvim-macos-x86_64.tar.gz"
+url = "https://github.com/neovim/neovim/releases/download/v0.12.6/nvim-macos-x86_64.tar.gz"
 
 [tools.neovim."platforms.windows-x64"]
-url = "https://github.com/neovim/neovim/releases/download/v0.12.5/nvim-win64.zip"
+url = "https://github.com/neovim/neovim/releases/download/v0.12.6/nvim-win64.zip"
 
 [[tools.node]]
 version = "24.21.0"
@@ -436,7 +436,7 @@ url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-win-x64.zip"
 
 [[tools."npm:@mariozechner/pi-coding-agent"]]
 version = "0.73.1"
-aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:40ddc323d1c10c574638ed23fd42b64a2e4fabce020c7f1c311e659901a29265" }
+aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:3a1d4ce35b786a961552c0ba5e09716ba0c95c60a81682f6e2f3980c7d1e1421" }
 backend = "npm:@mariozechner/pi-coding-agent"
 specifiers = ["latest"]
 
@@ -537,23 +537,23 @@ backend = "core:python"
 specifiers = ["3.14"]
 
 [tools.python."platforms.linux-x64"]
-checksum = "sha256:d9ec7a6935ade8b671a57ebaf111083d7314eab8dae5071d167054dadd2b97d6"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.14.8+20261003-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+checksum = "sha256:ddc902fd26460f728758c67d80417c1031edf97589f1f162c4ba3aa158a35998"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.14.8+20261009-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [tools.python."platforms.macos-arm64"]
-checksum = "sha256:ed14e9042f36c0aa18383f5d9729bcbf17847e842666a793b5a5a5d8505c0ca1"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.14.8+20261003-aarch64-apple-darwin-install_only_stripped.tar.gz"
+checksum = "sha256:936217c0e6893f51af939474bee18ecf5e6fe47b986d2c163f19b57c682e4a83"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.14.8+20261009-aarch64-apple-darwin-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [tools.python."platforms.macos-x64"]
-checksum = "sha256:08310045a2611bad730d7c1a01e847a1ea729d9dcfe29110ca67cbdf3998bb54"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.14.8+20261003-x86_64-apple-darwin-install_only_stripped.tar.gz"
+checksum = "sha256:0fe0c68a7f90458abd13b50a3d8f5f0cb5b2f0a1f33b6ef1445751cf2dc8b36e"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.14.8+20261009-x86_64-apple-darwin-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [tools.python."platforms.windows-x64"]
-checksum = "sha256:10e5705e44938ee78de35c62b30fdfe2945b53438343d04c0f53548cdd8e91b6"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.14.8+20261003-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
+checksum = "sha256:5b6fa7ddeabe23ae83d7b54e5043eb4fa1ccb10a73fa4c6b0f541dea8160d505"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261009/cpython-3.14.8+20261009-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [[tools.ripgrep]]
@@ -671,8 +671,8 @@ url = "https://github.com/supabase/cli/releases/download/v2.120.0/supabase_windo
 url_api = "https://api.github.com/repos/supabase/cli/releases/assets/616067549"
 
 [[tools.vercel]]
-version = "63.0.1"
-aube = { path = ".mise/locks/mise.global/vercel/63.0.1~a6545071", digest = "sha256:2ff20594571d1a96761289a36c7b0bf5e988fe4b3123f49ae0633dd32f6cf34d" }
+version = "63.1.0"
+aube = { path = ".mise/locks/mise.global/vercel/63.1.0~a6545071", digest = "sha256:69317fe48bc1fd8ecc71c27d906e8c5ea7e7fd5f8cff2d7231e9d5abe639ce8b" }
 backend = "npm:vercel"
 specifiers = ["latest"]
 
@@ -689,22 +689,18 @@ specifiers = ["latest"]
 checksum = "sha256:532ce3ed5eecb1be274c925b5887f61671e2434a4ca2561b9a8ac9379dbba199"
 url = "https://github.com/max-sixty/worktrunk/releases/download/v0.80.0/worktrunk-x86_64-unknown-linux-musl.tar.xz"
 signer = "sigstore-oidc:https://github.com/max-sixty/worktrunk/.github/workflows/release.yaml"
-repository_ids = { repository = "1078528927" }
 
 [tools.worktrunk."platforms.macos-arm64"]
 checksum = "sha256:8a2bb053c4bc80dea7d9ce6c221ff038d10a3d2dca2dc8f60d1b1a094fa783a9"
 url = "https://github.com/max-sixty/worktrunk/releases/download/v0.80.0/worktrunk-aarch64-apple-darwin.tar.xz"
 signer = "sigstore-oidc:https://github.com/max-sixty/worktrunk/.github/workflows/release.yaml"
-repository_ids = { repository = "1078528927" }
 
 [tools.worktrunk."platforms.macos-x64"]
 checksum = "sha256:aa898aa301617abaf91cb3078de4c8c11444a061016dc8f6dd80aa17cc1c46be"
 url = "https://github.com/max-sixty/worktrunk/releases/download/v0.80.0/worktrunk-x86_64-apple-darwin.tar.xz"
 signer = "sigstore-oidc:https://github.com/max-sixty/worktrunk/.github/workflows/release.yaml"
-repository_ids = { repository = "1078528927" }
 
 [tools.worktrunk."platforms.windows-x64"]
 checksum = "sha256:8cf52cbef86431403f558c483eaf23872dd1f8359356d8356bbc19d28cbbbb6e"
 url = "https://github.com/max-sixty/worktrunk/releases/download/v0.80.0/worktrunk-x86_64-pc-windows-msvc.zip"
 signer = "sigstore-oidc:https://github.com/max-sixty/worktrunk/.github/workflows/release.yaml"
-repository_ids = { repository = "1078528927" }
