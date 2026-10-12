@@ -300,7 +300,8 @@ assert '[{"' not in match_block, (
 # accumulation is what produced the historical duplicate mapping entries.
 assert "physical_keyboard_entries" in helper
 set_index = helper.index('--set "$mapping_body"')
-assert "/bin/sleep" in helper[set_index : helper.index("if verify_state", set_index)], (
+verify_index = helper.index('-eq "$expected_entries"', set_index)
+assert "/bin/sleep" in helper[set_index:verify_index], (
     "apply-onishi.sh must wait for the registry write to become visible"
 )
 
@@ -322,6 +323,19 @@ assert "exit 0" not in helper.split("while true")[1], (
     "apply-onishi.sh must not exit after convergence; it has to survive Kanata "
     "restarts"
 )
+
+# A hidutil query against the Karabiner DriverKit virtual keyboard blocks until the
+# DriverKit extension activates, which happens long after loginwindow starts
+# accepting input. Convergence therefore has to establish the physical keyboard
+# mapping without consulting the virtual keyboard, otherwise the login screen stays
+# on raw US ANSI.
+converge_body = helper.split("converge() {")[1].split("\n}")[0]
+assert "clear_virtual_keyboard" not in converge_body, (
+    "converge must not wait on the Kanata virtual keyboard; the login screen "
+    "depends on the physical keyboard mapping being applied first"
+)
+assert "physical_keyboard_entries" in converge_body
+assert "return 0" in converge_body
 
 assert "ONISHI_VIRTUAL_KEYBOARD_MATCH" in helper, (
     "apply-onishi.sh must define the Kanata virtual keyboard match"

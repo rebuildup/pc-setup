@@ -28,8 +28,12 @@
     <key>ONISHI_WATCH_INTERVAL</key>
     <string>5</string>
   </dict>
+  <!-- Not Background. A Background job is scheduled at low priority and macOS
+       deferred it until loginwindow came up, which left the login screen and any
+       password typed there on raw US ANSI. The base layout has to be in place
+       before loginwindow accepts input. -->
   <key>ProcessType</key>
-  <string>Background</string>
+  <string>Adaptive</string>
   <key>StandardOutPath</key>
   <string>/var/log/pc-setup-onishi.log</string>
   <key>StandardErrorPath</key>
