@@ -3,18 +3,18 @@
 lockfile_version = 3
 
 [[tools.aws-cli]]
-version = "2.37.12"
+version = "2.37.13"
 backend = "aqua:aws/aws-cli"
 specifiers = ["latest"]
 
 [tools.aws-cli."platforms.linux-x64"]
-url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.37.12.zip"
+url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.37.13.zip"
 
 [tools.aws-cli."platforms.macos-arm64"]
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.12.pkg"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.13.pkg"
 
 [tools.aws-cli."platforms.macos-x64"]
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.12.pkg"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.13.pkg"
 
 [[tools.bat]]
 version = "0.26.1"
@@ -436,7 +436,7 @@ url = "https://nodejs.org/dist/v24.21.0/node-v24.21.0-win-x64.zip"
 
 [[tools."npm:@mariozechner/pi-coding-agent"]]
 version = "0.73.1"
-aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:44fa490dec3f0bdf49bf9eb5c220edd51fd7abed94556712862a438e0a678304" }
+aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:2a6863e6a58fafdefacc3e96ee70baa9f809a72f42a8daba9ae98bf0ba8b1458" }
 backend = "npm:@mariozechner/pi-coding-agent"
 specifiers = ["latest"]
 
