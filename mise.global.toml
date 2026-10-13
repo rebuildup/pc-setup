@@ -12,7 +12,9 @@ gh = "latest"
 infisical = "latest"
 claude = "latest"
 codex = "latest"
-opencode = "latest"
+# OpenCode 2 is distributed as @opencode/cli on npm; the legacy `opencode` tool
+# (aqua:anomalyco/opencode) only tracks the 1.x GitHub releases.
+"npm:@opencode/cli" = { version = "latest", depends = ["node"], allow_builds = ["@opencode/cli"] }
 worktrunk = "latest"
 herdr = "latest"
 
