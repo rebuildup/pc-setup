@@ -2,7 +2,7 @@
 # Machine-wide portable CLI/runtime defaults. Project configs override these values.
 
 [tools]
-node = "24"
+node = "26"
 python = "3.14"
 bun = "latest"
 pnpm = "latest"
@@ -35,7 +35,7 @@ neovim = "latest"
 powershell = "7.6.6"
 "npm:@mariozechner/pi-coding-agent" = "latest"
 "npm:playwright" = "latest"
-ruby = "3"
+ruby = "4"
 
 [tools."github:alibaba/open-code-review"]
 version = "latest"
