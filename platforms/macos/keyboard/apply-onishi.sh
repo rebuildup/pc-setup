@@ -164,28 +164,34 @@ apply_physical_keyboard() {
 converge() {
   local attempt=1
   while [[ "$attempt" -le "$max_attempts" ]]; do
-    clear_virtual_keyboard || true
-
-    # A registry write is not visible to a following read immediately, so verification
-    # must not run in the same breath as the set. Verifying right after the set reads
-    # an empty mapping and re-applies on every attempt, which is how the mapping
-    # accumulated in the first place.
+    # The physical keyboard comes first. A hidutil query against the Karabiner
+    # DriverKit virtual keyboard blocks until the DriverKit extension finishes
+    # activating, which can take tens of seconds after boot, and loginwindow is
+    # accepting input long before that resolves. Clearing the virtual keyboard is
+    # corrective work and can wait; the base layout cannot, because without it the
+    # login screen and any password typed there use raw US ANSI.
     if [[ "$(physical_keyboard_entries)" -ne "$expected_entries" ]]; then
       log "attempt $attempt: physical keyboard reports $(physical_keyboard_entries) entries, applying"
       apply_physical_keyboard "$attempt"
-      /bin/sleep "$retry_interval"
-    fi
 
-    if verify_state; then
-      log "attempt $attempt: applied Onishi mapping to the physical keyboard, $expected_entries entries, Kanata virtual keyboard clear"
+      # A registry write is not visible to a following read immediately, so
+      # verification must not run in the same breath as the set.
+      /bin/sleep "$retry_interval"
+
+      if [[ "$(physical_keyboard_entries)" -eq "$expected_entries" ]]; then
+        log "attempt $attempt: physical keyboard carries $expected_entries entries"
+        return 0
+      fi
+    else
+      log "attempt $attempt: physical keyboard already carries $expected_entries entries"
       return 0
     fi
 
-    log "attempt $attempt: coverage incomplete, retrying"
+    log "attempt $attempt: physical keyboard did not take the mapping, retrying"
     attempt=$((attempt + 1))
   done
 
-  log "gave up after $max_attempts attempts; Onishi mapping is not fully applied"
+  log "gave up after $max_attempts attempts; the physical keyboard has no Onishi mapping"
   return 1
 }
 
@@ -194,6 +200,10 @@ converge() {
 # helper that exits after the layout converges leaves nothing to correct that, so the
 # convergence loop runs for the life of the job instead of exiting.
 #
+# Convergence and drift repair are separate. Convergence concerns the physical
+# keyboard only and must not wait on the virtual keyboard, because that is what the
+# login screen depends on. Drift repair covers both.
+#
 # Keeping the job alive means the LaunchDaemon must not restart it on success.
 converge || exit 1
 
@@ -201,7 +211,8 @@ while true; do
   /bin/sleep "$watch_interval"
 
   if ! verify_state; then
-    log "drift detected, re-converging"
+    log "drift detected, repairing"
     converge || true
+    clear_virtual_keyboard || true
   fi
 done
