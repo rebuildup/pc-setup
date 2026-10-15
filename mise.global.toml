@@ -72,3 +72,10 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 # exists and makes every `docker pull` fail. This formula provides the same
 # Keychain-backed helper without Docker Desktop.
 "brew:docker-credential-helper" = { version = "latest", os = "macos" }
+
+# The `rust` tool exports RUSTUP_TOOLCHAIN on every activation, which overrides
+# per-project rust-toolchain.toml pins in rustup (a mismatch against a CI that
+# honors the pin). rustup treats an empty value as unset, so this keeps the
+# machine default (rustup stable) while letting each project's pin decide.
+[env]
+RUSTUP_TOOLCHAIN = ""
