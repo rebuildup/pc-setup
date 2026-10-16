@@ -112,12 +112,10 @@ else
 fi
 
 shell_init_file="$HOME/.config/pc-setup/shell-init.bash"
-if [[ -r "$shell_init_file" ]] &&
-  grep -Fq '.dotfiles/script/agent' "$shell_init_file" &&
-  grep -Fq 'agent/mimo' "$shell_init_file"; then
-  ok "dotfiles provider entrypoint routing is present in shell init"
+if [[ -r "$shell_init_file" ]] && ! grep -Eq 'claude\(\)|agent/mimo.*claude' "$shell_init_file"; then
+  ok "native claude is not overridden by pc-setup shell init"
 else
-  fail "dotfiles provider entrypoint routing is missing from $shell_init_file; rerun platforms/nixos/configure-shell.sh"
+  fail "pc-setup shell init is missing or overrides native claude; rerun platforms/nixos/configure-shell.sh"
 fi
 
 if [[ -d "$HOME/.local/state/pc-setup/nix-user-baseline/bin" ]]; then
