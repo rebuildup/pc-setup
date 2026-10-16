@@ -191,7 +191,8 @@ jobs:
           grep -Fq 'nix-user-baseline/bin' "$HOME/.config/pc-setup/shell-init.bash"
           grep -Fq 'wt config shell init bash' "$HOME/.config/pc-setup/shell-init.bash"
           grep -Fq '.dotfiles/script/agent' "$HOME/.config/pc-setup/shell-init.bash"
-          grep -Fq 'agent/mimo' "$HOME/.config/pc-setup/shell-init.bash"
+          ! grep -Fq 'agent/mimo' "$HOME/.config/pc-setup/shell-init.bash"
+          ! grep -Fq 'claude()' "$HOME/.config/pc-setup/shell-init.bash"
 
           # Once Home Manager owns the rc files they are declarative symlinks.
           # Re-running bootstrap must preserve those links instead of replacing
