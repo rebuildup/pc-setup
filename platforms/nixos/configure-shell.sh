@@ -26,11 +26,8 @@ if [[ -d "$pc_setup_agent_entry" ]]; then
     *) export PATH="$pc_setup_agent_entry:$PATH" ;;
   esac
 fi
-if [[ -x "$pc_setup_agent_entry/mimo" ]]; then
-  claude() {
-    "$HOME/.dotfiles/script/agent/mimo" claude "$@"
-  }
-fi
+# Native 'claude' stays untouched. Opt-in API accounts use global mise tasks
+# installed by dotfiles under ~/.config/mise/conf.d/agent-routes.toml.
 
 if command -v wt >/dev/null 2>&1; then
   eval "$(wt config shell init bash)"
