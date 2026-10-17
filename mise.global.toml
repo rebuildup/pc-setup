@@ -20,7 +20,9 @@ gh = "latest"
 infisical = "latest"
 claude = "latest"
 codex = "latest"
-opencode = "latest"
+# OpenCode 2 is distributed as @opencode/cli on npm; the legacy `opencode` tool
+# (aqua:anomalyco/opencode) only tracks the 1.x GitHub releases.
+"npm:@opencode/cli" = { version = "latest", depends = ["node"], allow_builds = ["@opencode/cli"] }
 worktrunk = "latest"
 herdr = "latest"
 
@@ -71,6 +73,7 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 "brew-cask:firefox" = { version = "latest", os = "macos" }
 "brew-cask:stablyai/orca/orca" = { version = "latest", os = "macos" }
 "brew:ffmpeg" = { version = "latest", os = "macos" }
+"brew:zsh-autosuggestions" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
 "brew:docker" = { version = "latest", os = "macos" }
 "brew:docker-compose" = { version = "latest", os = "macos" }
