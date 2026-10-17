@@ -1,6 +1,14 @@
 # Managed by rebuildup/pc-setup.
 # Machine-wide portable CLI/runtime defaults. Project configs override these values.
 
+# The `rust` tool exports RUSTUP_TOOLCHAIN, which rustup ranks above a
+# project's rust-toolchain.toml. Letting mise read rust-toolchain.toml makes
+# the project's pin the selected mise version, so RUSTUP_TOOLCHAIN carries the
+# project pin; a project mise.toml `rust` entry still wins as usual, and the
+# global `rust = "stable"` applies only where a project declares neither.
+[settings]
+idiomatic_version_file_enable_tools = ["rust"]
+
 [tools]
 node = "24"
 python = "3.14"
