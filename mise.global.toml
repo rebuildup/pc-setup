@@ -14,7 +14,10 @@ node = "26"
 python = "3.14"
 bun = "latest"
 pnpm = "latest"
-rust = "stable"
+# Linux/macOS: mise manages Rust. Windows: the existing rustup installation is
+# canonical (see platforms/windows-11/README.md); apply-global-mise.ps1 also
+# adds `disable_tools = ["rust"]` there so no config can make mise touch it.
+rust = { version = "stable", os = ["linux", "macos"] }
 
 gh = "latest"
 infisical = "latest"
@@ -42,7 +45,9 @@ bat = "latest"
 gdu = "latest"
 shellcheck = "latest"
 neovim = "latest"
-powershell = "7.6.6"
+# Windows PowerShell is WinGet-managed (Microsoft.PowerShell); a second mise copy
+# would shadow it with an older shim.
+powershell = { version = "7.6.6", os = ["linux", "macos"] }
 "npm:@mariozechner/pi-coding-agent" = "latest"
 "npm:playwright" = "latest"
 ruby = "4"
