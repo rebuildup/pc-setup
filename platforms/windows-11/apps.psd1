@@ -20,17 +20,8 @@
         @{ Id = 'Google.JapaneseIME'; Name = 'Google Japanese Input' }
         @{ Id = 'Logitech.GHUB'; Name = 'Logitech G HUB'; DisplayName = '^Log(itech|icool) G HUB' }
         @{ Id = 'LinearOrbit.Linear'; Name = 'Linear' }
-        @{ Id = 'SlackTechnologies.Slack'; Name = 'Slack'; AppxName = '^91750D7E\.Slack
-        @{ Id = 'Microsoft.Teams'; Name = 'Microsoft Teams'; AppxName = '^MSTeams$'; Optional = $true }
-        @{ Id = 'Anysphere.Cursor'; Name = 'Cursor'; DisplayName = '^Cursor' }
-        @{ Id = 'Microsoft.VisualStudioCode'; Name = 'Visual Studio Code' }
-        @{ Id = 'Warp.Warp'; Name = 'Warp'; DisplayName = '^Warp'; Optional = $true }
-        @{ Id = 'Adobe.CreativeCloud'; Name = 'Adobe Creative Cloud' }
-        @{ Id = 'jtroo.kanata_gui'; Name = 'kanata GUI' }
-    )
-}
-; DisplayName = '^Slack' }
         @{ Id = 'UniClipboard.UniClipboard'; Name = 'UniClipboard'; DisplayName = '^UniClipboard' }
+        @{ Id = 'SlackTechnologies.Slack'; Name = 'Slack'; AppxName = '^91750D7E\.Slack$'; DisplayName = '^Slack' }
         @{ Id = 'Microsoft.Teams'; Name = 'Microsoft Teams'; AppxName = '^MSTeams$'; Optional = $true }
         @{ Id = 'Anysphere.Cursor'; Name = 'Cursor'; DisplayName = '^Cursor' }
         @{ Id = 'Microsoft.VisualStudioCode'; Name = 'Visual Studio Code' }
