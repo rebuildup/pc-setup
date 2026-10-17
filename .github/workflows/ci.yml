@@ -725,6 +725,96 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      # Regression for the 2026-10-17 incident: a plain mise command on Windows
+      # auto-installed rust@stable against the user's rustup toolchain and left
+      # rustc.exe/cargo.exe deleted. Everything runs in throwaway MISE_*/RUSTUP_HOME/
+      # CARGO_HOME directories and uses `install --dry-run`, so no real toolchain
+      # is ever touched.
+      - name: Validate mise never manages Rust or PowerShell on Windows
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-rust-$([guid]::NewGuid())"
+          New-Item -ItemType Directory -Path $root | Out-Null
+          $oldPath = $env:PATH
+          $repo = (Get-Location).Path
+
+          try {
+            # 1. Generate the Windows copy of the global config (fake mise: the
+            #    apply script's `mise install` must not run for real here).
+            $fakeBin = Join-Path $root 'fakebin'
+            New-Item -ItemType Directory -Path $fakeBin | Out-Null
+            "@echo off`r`nexit /b 0" | Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd')
+            $generated = Join-Path $root 'generated.toml'
+            $env:PATH = "$fakeBin;$oldPath"
+            $env:MISE_GLOBAL_CONFIG_FILE = $generated
+            $env:MISE_GITHUB_TOKEN = 'ci-placeholder'
+            & ./scripts/apply-global-mise.ps1 | Out-Null
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN
+            $env:PATH = $oldPath
+            $text = Get-Content -LiteralPath $generated -Raw
+            if ($text -notmatch '(?m)^disable_tools\s*=\s*\["rust"\]') { throw 'Windows config must set disable_tools = ["rust"].' }
+            if ($text -match '(?m)^rust\s*=\s*"') { throw 'rust must not be declared without an os condition.' }
+
+            # 2. Real mise, fully isolated.
+            $zip = Join-Path $root 'mise.zip'
+            Invoke-WebRequest -Uri 'https://github.com/jdx/mise/releases/download/v2026.9.11/mise-v2026.9.11-windows-x64.zip' -OutFile $zip
+            Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $root 'mise-dist')
+            $mise = (Get-ChildItem -Path (Join-Path $root 'mise-dist') -Recurse -Filter mise.exe | Select-Object -First 1).FullName
+
+            $env:MISE_DATA_DIR = Join-Path $root 'data'
+            $env:MISE_CACHE_DIR = Join-Path $root 'cache'
+            $env:MISE_STATE_DIR = Join-Path $root 'state'
+            $env:MISE_CONFIG_DIR = Join-Path $root 'cfgdir'
+            $env:MISE_TRUSTED_CONFIG_PATHS = $root
+            $env:RUSTUP_HOME = Join-Path $root 'rustup'
+            $env:CARGO_HOME = Join-Path $root 'cargo'
+
+            $project = Join-Path $root 'project'
+            New-Item -ItemType Directory -Path $project | Out-Null
+            "[tools]`nrust = `"1.85.0`"" | Set-Content -LiteralPath (Join-Path $project 'mise.toml')
+            "[toolchain]`nchannel = `"1.85.0`"" | Set-Content -LiteralPath (Join-Path $project 'rust-toolchain.toml')
+
+            # Trimmed config: the generated [settings] plus only the entries
+            # under test (Rust, PowerShell, and a Rust-dependent cargo tool).
+            $settings = ($text -split '(?m)^\[tools\]')[0]
+            $entries = $text -split "`r?`n" | Where-Object { $_ -match '^(rust|powershell|"cargo:cargo-clean-all")\s*=' }
+            if (@($entries).Count -lt 3) { throw "Expected rust, powershell and cargo-clean-all entries, got: $($entries -join ' | ')" }
+            $trimmed = Join-Path $root 'trimmed.toml'
+            ($settings + "[tools]`n" + ($entries -join "`n") + "`n") | Set-Content -LiteralPath $trimmed
+
+            function Get-DryRun([string]$Config) {
+              $env:MISE_GLOBAL_CONFIG_FILE = $Config
+              Push-Location $project
+              try { return (& $mise install --dry-run 2>&1 | Out-String) } finally { Pop-Location }
+            }
+
+            $guarded = Get-DryRun $trimmed
+            if ($guarded -match 'rust@') { throw "mise would install Rust on Windows:`n$guarded" }
+            if ($guarded -match 'powershell@') { throw "mise would install PowerShell on Windows:`n$guarded" }
+
+            # Control: the pre-fix shape must trigger the install, otherwise this
+            # test could not have caught the incident.
+            $unguarded = Join-Path $root 'unguarded.toml'
+            "[tools]`nrust = `"stable`"`n`"cargo:cargo-clean-all`" = { version = `"latest`", depends = [`"rust`"] }`n" | Set-Content -LiteralPath $unguarded
+            $control = Get-DryRun $unguarded
+            if ($control -notmatch 'rust@') { throw "Control config did not report a Rust install; the test is not sensitive:`n$control" }
+
+            foreach ($dir in $env:RUSTUP_HOME, $env:CARGO_HOME) {
+              if (Test-Path -LiteralPath $dir) { throw "$dir was created; mise touched rustup." }
+            }
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN -ErrorAction SilentlyContinue
+            Set-Location $repo
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Validate Infisical-backed Tailscale provisioning
         shell: pwsh
         run: |

@@ -111,6 +111,22 @@ else {
     Write-Fail 'Notion missing'
 }
 
+Write-Host "`nRust (rustup is canonical on Windows)"
+$rustup = Get-Command rustup -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $rustup) {
+    Write-WarnLocal 'rustup not found; install it from https://rustup.rs (mise does not manage Rust on Windows)'
+}
+else {
+    # `rustup run` executes the real toolchain binaries, so a toolchain whose
+    # rustc.exe/cargo.exe were removed fails here instead of passing on proxies.
+    foreach ($tool in 'rustc', 'cargo') {
+        $versionOutput = & $rustup.Source run stable $tool --version 2>&1
+        if ($LASTEXITCODE -eq 0) { Write-Ok "rustup stable $tool -> $($versionOutput | Select-Object -First 1)" } else { Write-Fail "rustup stable $tool is broken: $($versionOutput | Select-Object -First 1)" }
+    }
+    $disabled = (& mise settings get disable_tools 2>$null) -join ' '
+    if ($disabled -match 'rust') { Write-Ok 'mise disable_tools includes rust' } else { Write-WarnLocal 'mise disable_tools does not include rust; re-run scripts/apply-global-mise.ps1' }
+}
+
 Write-Host "`nTailscale / WSL SSH"
 $tailscaleConfig = Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptDir 'tailscale.psd1')
 $tailscale = Resolve-TailscaleCommand
