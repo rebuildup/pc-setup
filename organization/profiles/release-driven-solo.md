@@ -149,7 +149,7 @@ explicit user/project decisionとして固定されたrelease scope/version/publ
 - canonical install layout は `.agents/skills/` と `.claude/skills/`。Codex / OpenCode / Cursor は universal `.agents/skills/` を共有し、Claude Code は `.claude/skills/` を使用する。
 - 初回導入 / scope変更は `bunx skills add rebuildup/project-init --list` で候補を確認し、標準bootstrapは `bunx skills add rebuildup/project-init --skill '*' --agent claude-code --agent codex -y` とする。repositoryに `mise.toml` taskがある場合は `mise run skills-bootstrap` を同じ入口とする。
 - project-local `skills-lock.json` は source / skill path / content hash の durable metadata として commit する。通常の追従更新は `bunx skills update -p -y`（または `mise run skills-update`）を使う。
-- current Skills CLI の `skills install` は lock から universal `.agents/skills/` のみを復元するため、Claude Codeを含むfresh clone bootstrapの唯一の入口にはしない。
+- current Skills CLI の `skills install` は `add` の別名であり、lock からの復元にはならない。lock からの復元は `skills experimental_install` だが、lock の hash と照合せず配布元の最新を取得し、復元先も universal `.agents/skills/` に限られる。そのため fresh clone では commit 済みの Skill file をそのまま使い、いずれのコマンドも復元の根拠にしない。
 - `--global` は通常運用で使用しない。user-global Skills を repository policy / freshness evidence にしない。
 - project固有 Skill や intentional customization は upstream update で無条件上書きせず、source ownershipを分けてreconcileする。
 
