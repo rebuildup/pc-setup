@@ -55,30 +55,11 @@ if (Test-Path -LiteralPath $TargetConfig) {
     }
 }
 
-# On Windows the existing rustup installation is canonical. `os` conditions keep
-# the shared config from declaring Rust there, but a project mise.toml or a
-# rust-toolchain.toml can still make mise run rustup against the user's
-# toolchains (observed: a plain shim call auto-installed rust@stable and left
-# rustc.exe/cargo.exe deleted). `disable_tools` is a settings key, so it cannot
-# be conditioned on the OS inside the shared file; add it to the Windows copy.
-function Get-WindowsConfigContent {
-    param([Parameter(Mandatory)][string]$Path)
-    $text = [System.IO.File]::ReadAllText($Path)
-    if ($text -match '(?m)^\s*disable_tools\s*=') { return $text }
+# Windows-only rewrites of the shared machine-global config live in
+# scripts/windows-mise-config.ps1 so CI can exercise them directly.
+. (Join-Path $PSScriptRoot 'windows-mise-config.ps1')
 
-    $guard = "# Windows: rustup is canonical; mise must never install or upgrade Rust.`ndisable_tools = [`"rust`"]`n"
-    $anchor = [regex]::Match($text, '(?m)^idiomatic_version_file_enable_tools\s*=.*\r?\n')
-    if ($anchor.Success) {
-        return $text.Insert($anchor.Index + $anchor.Length, $guard)
-    }
-    $settings = [regex]::Match($text, '(?m)^\[settings\].*\r?\n')
-    if ($settings.Success) {
-        return $text.Insert($settings.Index + $settings.Length, $guard)
-    }
-    return $text.TrimEnd() + "`n`n[settings]`n" + $guard
-}
-
-$targetContent = Get-WindowsConfigContent -Path $SourceConfig
+$targetContent = ConvertTo-WindowsMiseConfig -Text ([System.IO.File]::ReadAllText($SourceConfig))
 
 # The managed marker only proves who wrote the file first. Local edits made
 # after that (a tool pinned to another backend, an extra package) would be lost

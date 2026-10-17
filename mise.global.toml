@@ -104,3 +104,14 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 # exists and makes every `docker pull` fail. This formula provides the same
 # Keychain-backed helper without Docker Desktop.
 "brew:docker-credential-helper" = { version = "latest", os = "macos" }
+
+[settings.github]
+# mise resolves a GitHub token from this command when no MISE_GITHUB_TOKEN /
+# GITHUB_API_TOKEN / GITHUB_TOKEN is set. mise passes the string through
+# unchanged and runs it with its default inline shell: `sh -o errexit -c` on
+# Unix, `cmd /c` on Windows. Expansion is therefore the shell's job, and
+# cmd.exe expands %VAR% rather than $VAR, so this `$MISE_CREDENTIAL_HOST` form
+# only resolves on Unix. scripts/windows-mise-config.ps1 rewrites the line to
+# the `%MISE_CREDENTIAL_HOST%` form when it renders the Windows copy, so the
+# shared file keeps one portable command instead of a Windows-only string.
+credential_command = 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'
