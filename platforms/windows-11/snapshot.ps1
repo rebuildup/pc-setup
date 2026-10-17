@@ -31,9 +31,18 @@ $uninstallPaths = @(
 )
 
 $registryApps = foreach ($path in $uninstallPaths) {
+    # Some uninstall keys have no DisplayName; a property-name filter
+    # throws under Set-StrictMode, so test the property explicitly.
     Get-ItemProperty -Path $path -ErrorAction SilentlyContinue |
-        Where-Object DisplayName |
-        Select-Object DisplayName, DisplayVersion, Publisher, InstallLocation
+        Where-Object { $_.PSObject.Properties['DisplayName'] -and $_.DisplayName } |
+        ForEach-Object {
+            [pscustomobject]@{
+                DisplayName    = $_.DisplayName
+                DisplayVersion = if ($_.PSObject.Properties['DisplayVersion']) { $_.DisplayVersion } else { $null }
+                Publisher      = if ($_.PSObject.Properties['Publisher']) { $_.Publisher } else { $null }
+                InstallLocation = if ($_.PSObject.Properties['InstallLocation']) { $_.InstallLocation } else { $null }
+            }
+        }
 }
 
 $registryApps |
@@ -74,6 +83,20 @@ $versionOutput = foreach ($entry in $commands) {
 }
 
 $versionOutput | Out-File -Encoding utf8 (Join-Path $target 'command-versions.txt')
+
+# Every PATH hit per command, in resolution order. The first hit wins, so a
+# second entry is a shadowed duplicate (another package manager, a stale .cmd
+# shim, ...). This is evidence for reconciling, not a list of things to remove.
+$shadowTargets = 'claude','opencode','bun','infisical','gh','node','npm','mise','pwsh','codex','herdr','git','python','rustc','cargo','tailscale'
+$shadowReport = foreach ($name in $shadowTargets) {
+    $hits = @(Get-Command $name -All -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandType -in 'Application', 'ExternalScript' })
+    if ($hits.Count -gt 0) {
+        "[$name]"
+        $hits | ForEach-Object { "  $($_.Source)" }
+    }
+}
+$shadowReport | Out-File -Encoding utf8 (Join-Path $target 'command-sources.txt')
 
 Get-ComputerInfo |
     Select-Object WindowsProductName, WindowsVersion, OsBuildNumber, OsArchitecture, CsSystemType |

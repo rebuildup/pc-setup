@@ -12,10 +12,15 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 
 $inventory = Import-PowerShellDataFile -LiteralPath $InventoryPath
 
+. (Join-Path $PSScriptRoot 'app-detection.ps1')
+
+$displayNames = @(Get-InstalledDisplayNames)
+$appxPackages = @(Get-AppxPackage -ErrorAction SilentlyContinue)
+
 foreach ($app in $inventory.WingetApps) {
-    & winget list --id $app.Id --exact --source winget --accept-source-agreements --disable-interactivity *> $null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "ok      $($app.Name) already installed"
+    $channel = Get-AppInstallChannel -App $app -DisplayNames $displayNames -AppxPackages $appxPackages
+    if ($channel) {
+        Write-Host "ok      $($app.Name) already installed ($channel)"
         continue
     }
 

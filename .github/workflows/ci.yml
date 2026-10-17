@@ -602,6 +602,129 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Validate adoption of existing installs
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          . ./platforms/windows-11/app-detection.ps1
+
+          # Uninstall keys without DisplayName must not break enumeration under
+          # StrictMode (regression: snapshot.ps1 aborted on a real machine).
+          $null = @(Get-InstalledDisplayNames)
+
+          foreach ($file in 'snapshot.ps1', 'verify.ps1') {
+            $text = Get-Content -LiteralPath "./platforms/windows-11/$file" -Raw
+            if ($text -match 'Where-Object\s+DisplayName\b') {
+              throw "$file must not use a bare 'Where-Object DisplayName' under StrictMode."
+            }
+          }
+
+          $inventory = Import-PowerShellDataFile -LiteralPath ./platforms/windows-11/apps.psd1
+          $slack = $inventory.WingetApps | Where-Object Id -eq 'SlackTechnologies.Slack'
+          if (-not $slack.AppxName) { throw 'Slack must declare AppxName so a Store/MSIX install is adopted.' }
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-adopt-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $inventoryPath = Join-Path $root 'apps.psd1'
+          $logPath = Join-Path $root 'winget.log'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+
+          try {
+            # Pure detection: winget does not know the app, other channels do.
+            $oldPath = $env:PATH
+            @'
+          @echo off
+          exit /b 1
+          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'winget.cmd')
+            $env:PATH = "$fakeBin;$oldPath"
+
+            $app = @{ Id = 'Contoso.App'; Name = 'Contoso'; AppxName = '^Contoso\.App$'; DisplayName = '^Contoso Vendor' }
+            if ((Get-AppInstallChannel -App $app -DisplayNames @() -AppxPackages @()) -ne $null) { throw 'App must be absent when no channel has it.' }
+            if ((Get-AppInstallChannel -App $app -DisplayNames @() -AppxPackages @([pscustomobject]@{ Name = 'Contoso.App' })) -ne 'appx') { throw 'MSIX install must be adopted.' }
+            if ((Get-AppInstallChannel -App $app -DisplayNames @('Contoso Vendor 1.0') -AppxPackages @()) -ne 'registry') { throw 'Vendor installer must be adopted.' }
+
+            # install-apps.ps1 must not call `winget install` for an adopted app.
+            @'
+          @{
+              WingetApps = @(
+                  @{ Id = 'Contoso.Adopted'; Name = 'Adopted'; AppxName = '^Contoso\.Adopted$' }
+                  @{ Id = 'Contoso.Missing'; Name = 'Missing' }
+              )
+          }
+          '@ | Set-Content -LiteralPath $inventoryPath
+
+            @'
+          @echo off
+          if "%1"=="list" exit /b 1
+          if "%1"=="install" (
+            echo %3>>"%FAKE_WINGET_LOG%"
+            exit /b 0
+          )
+          exit /b 0
+          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'winget.cmd')
+
+            function Get-AppxPackage { [pscustomobject]@{ Name = 'Contoso.Adopted' } }
+            $env:FAKE_WINGET_LOG = $logPath
+            & ./platforms/windows-11/install-apps.ps1 -InventoryPath $inventoryPath
+
+            $attempted = @(Get-Content -LiteralPath $logPath)
+            if ($attempted.Count -ne 1 -or $attempted[0] -ne 'Contoso.Missing') {
+              throw "Only the missing app may be installed, got: $($attempted -join ', ')"
+            }
+          }
+          finally {
+            if ($oldPath) { $env:PATH = $oldPath }
+            Remove-Item Env:FAKE_WINGET_LOG -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Validate global mise config backup before overwrite
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-mise-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $target = Join-Path $root 'config.toml'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+          $oldPath = $env:PATH
+
+          try {
+            "@echo off`r`nexit /b 0" | Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd')
+            $env:PATH = "$fakeBin;$oldPath"
+            $env:MISE_GLOBAL_CONFIG_FILE = $target
+            $env:MISE_GITHUB_TOKEN = 'ci-placeholder'
+
+            # Managed file with a local edit that the repository does not have.
+            "# Managed by rebuildup/pc-setup.`n[tools]`nlocal-only = `"1`"" | Set-Content -LiteralPath $target
+            & ./scripts/apply-global-mise.ps1
+
+            $backups = @(Get-ChildItem -LiteralPath $root -Filter 'config.toml.pc-setup-backup-*')
+            if ($backups.Count -ne 1) { throw "Expected one backup, found $($backups.Count)." }
+            if (-not (Select-String -LiteralPath $backups[0].FullName -SimpleMatch 'local-only' -Quiet)) {
+              throw 'Backup must preserve the pre-overwrite content.'
+            }
+
+            # Re-applying identical content must not create another backup.
+            & ./scripts/apply-global-mise.ps1
+            $backups = @(Get-ChildItem -LiteralPath $root -Filter 'config.toml.pc-setup-backup-*')
+            if ($backups.Count -ne 1) { throw "Idempotent re-apply created extra backups: $($backups.Count)." }
+
+            # Unmanaged files are still refused, not backed up and replaced.
+            'user = true' | Set-Content -LiteralPath $target
+            $refused = $false
+            try { & ./scripts/apply-global-mise.ps1 } catch { $refused = $true }
+            if (-not $refused) { throw 'Unmanaged global config must be refused.' }
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Validate Infisical-backed Tailscale provisioning
         shell: pwsh
         run: |

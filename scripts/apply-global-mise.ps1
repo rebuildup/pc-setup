@@ -55,6 +55,16 @@ if (Test-Path -LiteralPath $TargetConfig) {
     }
 }
 
+# The managed marker only proves who wrote the file first. Local edits made
+# after that (a tool pinned to another backend, an extra package) would be lost
+# by the overwrite below, so keep a timestamped copy whenever content changes.
+if ((Test-Path -LiteralPath $TargetConfig) -and
+    (Get-FileHash -LiteralPath $TargetConfig).Hash -ne (Get-FileHash -LiteralPath $SourceConfig).Hash) {
+    $backup = "$TargetConfig.pc-setup-backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+    Copy-Item -LiteralPath $TargetConfig -Destination $backup
+    Write-Host "backup  $backup"
+}
+
 Copy-Item -LiteralPath $SourceConfig -Destination $TargetConfig -Force
 Write-Host "synced  $TargetConfig <- $SourceConfig"
 
