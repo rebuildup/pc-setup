@@ -26,8 +26,13 @@ sudo install -o root -g wheel -m 0755 "$source_dir/apply-onishi.sh" "$install_di
 sudo install -o root -g wheel -m 0644 "$source_dir/onishi.json" "$install_dir/onishi.json"
 sudo install -o root -g wheel -m 0644 "$source_dir/$plist_name" "$target_plist"
 
+# Bootout has to follow the install. Bootout first would stop the running job, but
+# the job that bootstrap then starts is whichever helper was on disk at that moment,
+# so replacing the file afterwards leaves the previous helper running. That is how an
+# outdated helper survived an installer run and kept failing to converge.
 sudo /bin/launchctl bootout "system/$label" >/dev/null 2>&1 || true
 sudo /bin/launchctl bootstrap system "$target_plist"
-sudo "$install_dir/apply-onishi.sh"
 
+# The helper now runs for the life of the job, so it does not return. Waiting on it
+# would block the installer forever.
 printf 'Installed macOS Onishi keyboard LaunchDaemon: %s\n' "$target_plist"
