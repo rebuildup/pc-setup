@@ -14,21 +14,12 @@ function Write-Ok { param([string]$Message) Write-Host "OK    $Message" }
 function Write-Fail { param([string]$Message) Write-Host "FAIL  $Message" -ForegroundColor Red; $script:Failures++ }
 function Write-WarnLocal { param([string]$Message) Write-Warning $Message; $script:Warnings++ }
 
+. (Join-Path $PSScriptRoot 'app-detection.ps1')
+
 function Test-CommandPresent {
     param([string]$Name)
     $command = Get-Command $Name -ErrorAction SilentlyContinue
     if ($command) { Write-Ok "$Name -> $($command.Source)" } else { Write-Fail "$Name command missing" }
-}
-
-function Get-UninstallDisplayNames {
-    $paths = @(
-        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
-        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
-        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
-    )
-    foreach ($path in $paths) {
-        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | Where-Object DisplayName | Select-Object -ExpandProperty DisplayName
-    }
 }
 
 function Test-InstalledDisplayName {
@@ -93,14 +84,23 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 else {
     $inventory = Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptDir 'apps.psd1')
+    $appDisplayNames = @(Get-InstalledDisplayNames)
+    $appAppxPackages = @(Get-AppxPackage -ErrorAction SilentlyContinue)
     foreach ($app in $inventory.WingetApps) {
-        & winget list --id $app.Id --exact --source winget --accept-source-agreements --disable-interactivity *> $null
-        if ($LASTEXITCODE -eq 0) { Write-Ok "$($app.Name) installed" } else { Write-Fail "$($app.Name) missing" }
+        $channel = Get-AppInstallChannel -App $app -DisplayNames $appDisplayNames -AppxPackages $appAppxPackages
+        if ($channel) { Write-Ok "$($app.Name) installed ($channel)" } else { Write-Fail "$($app.Name) missing" }
     }
 
-    foreach ($name in @('ChatGPT', 'Microsoft PC Manager')) {
-        $output = & winget list --name $name --accept-source-agreements 2>&1
-        if ($LASTEXITCODE -eq 0 -and ($output -join "`n") -notmatch 'No installed package found') { Write-Ok "$name installed" } else { Write-Fail "$name missing" }
+    # Store apps: winget --name can miss an installed MSIX (observed with
+    # Microsoft PC Manager), so fall back to the Appx package name.
+    foreach ($storeApp in @(
+        @{ Name = 'ChatGPT'; AppxName = '' },
+        @{ Name = 'Microsoft PC Manager'; AppxName = '^Microsoft\.MicrosoftPCManager$' }
+    )) {
+        $output = & winget list --name $storeApp.Name --accept-source-agreements 2>&1
+        $viaWinget = $LASTEXITCODE -eq 0 -and ($output -join "`n") -notmatch 'No installed package found'
+        $viaAppx = $storeApp.AppxName -and [bool]($appAppxPackages | Where-Object { $_.Name -match $storeApp.AppxName })
+        if ($viaWinget -or $viaAppx) { Write-Ok "$($storeApp.Name) installed" } else { Write-Fail "$($storeApp.Name) missing" }
     }
 }
 
@@ -165,7 +165,7 @@ foreach ($commandName in @(
     'gcloud','aws','supabase','vercel','npkill','ocr','cargo-clean-all','dotnet'
 )) { Test-CommandPresent -Name $commandName }
 
-$script:InstalledDisplayNames = @(Get-UninstallDisplayNames)
+$script:InstalledDisplayNames = @(Get-InstalledDisplayNames)
 
 Write-Host "`nVendor-managed child applications"
 Test-InstalledDisplayName -Pattern 'After Effects' -Label 'Adobe After Effects'

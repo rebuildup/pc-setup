@@ -71,11 +71,22 @@ function Install-NotionMsix {
 
 function Install-StoreApps {
     $apps = @(
-        @{ Id = '9PLM9XGG6VKS'; Name = 'ChatGPT' },
-        @{ Id = '9PM860492SZD'; Name = 'Microsoft PC Manager' }
+        @{ Id = '9PLM9XGG6VKS'; Name = 'ChatGPT'; AppxName = '' },
+        @{ Id = '9PM860492SZD'; Name = 'Microsoft PC Manager'; AppxName = '^Microsoft\.MicrosoftPCManager$' }
     )
 
     foreach ($app in $apps) {
+        # Adopt an existing install; winget --name alone can miss an MSIX.
+        $output = & winget list --name $app.Name --accept-source-agreements --disable-interactivity 2>&1
+        $installed = $LASTEXITCODE -eq 0 -and ($output -join "`n") -notmatch 'No installed package found'
+        if (-not $installed -and $app.AppxName) {
+            $installed = [bool](Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object { $_.Name -match $app.AppxName })
+        }
+        if ($installed) {
+            Write-Host "ok      $($app.Name) already installed"
+            continue
+        }
+
         Write-Step "Installing Microsoft Store app: $($app.Name)"
         & winget install --id $app.Id --exact --source msstore --accept-package-agreements --accept-source-agreements --disable-interactivity
         if ($LASTEXITCODE -ne 0) {
