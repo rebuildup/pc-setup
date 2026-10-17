@@ -89,6 +89,8 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 "brew-cask:blender" = { version = "latest", os = "macos" }
 "brew-cask:google-chrome" = { version = "latest", os = "macos" }
 "brew-cask:firefox" = { version = "latest", os = "macos" }
+# Cross-platform clipboard sync (UniClipboard official Homebrew tap).
+"brew-cask:UniClipboard/tap/uniclipboard" = { version = "latest", os = "macos" }
 "brew-cask:stablyai/orca/orca" = { version = "latest", os = "macos" }
 "brew:ffmpeg" = { version = "latest", os = "macos" }
 "brew:zsh-autosuggestions" = { version = "latest", os = "macos" }

@@ -20,6 +20,7 @@
         @{ Id = 'Google.JapaneseIME'; Name = 'Google Japanese Input' }
         @{ Id = 'Logitech.GHUB'; Name = 'Logitech G HUB'; DisplayName = '^Log(itech|icool) G HUB' }
         @{ Id = 'LinearOrbit.Linear'; Name = 'Linear' }
+        @{ Id = 'UniClipboard.UniClipboard'; Name = 'UniClipboard'; DisplayName = '^UniClipboard' }
         @{ Id = 'SlackTechnologies.Slack'; Name = 'Slack'; AppxName = '^91750D7E\.Slack$'; DisplayName = '^Slack' }
         @{ Id = 'Microsoft.Teams'; Name = 'Microsoft Teams'; AppxName = '^MSTeams$'; Optional = $true }
         @{ Id = 'Anysphere.Cursor'; Name = 'Cursor'; DisplayName = '^Cursor' }

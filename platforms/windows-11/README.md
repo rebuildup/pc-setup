@@ -65,6 +65,7 @@ GUI / desktop application は `platforms/windows-11/apps.psd1` が canonical inv
 - Logitech G HUB
 - Linear
 - Slack
+- UniClipboard
 - Microsoft Teams
 - Cursor
 - Visual Studio Code
@@ -75,6 +76,14 @@ GUI / desktop application は `platforms/windows-11/apps.psd1` が canonical inv
 root bootstrap は `install-apps.ps1` を呼び、各 app を exact package ID で個別に導入する。1件の installer failure は warning として残し、残り app と bootstrap 全体は続行する。
 
 一方、`verify.ps1` は同じ `apps.psd1` を読み、missing app を failure として扱う。つまり bootstrap continuity と desired-state completeness を分離する。
+
+### Clipboard sync (UniClipboard)
+
+Windows と macOS の間で、LAN が直接通らない場合にもクリップボードと軽いファイルを同期するため UniClipboard を採用する（[ADR-0015](../../docs/adr/ADR-0015.md)）。Windows の WinGet ID は `UniClipboard.UniClipboard`。`apps.psd1` に宣言し、他の GUI アプリと同じ best-effort インストール / strict verify の対象とする。これを mandatory な SDK phase に移さない。
+
+最初の端末で Space を作成し、もう一方を招待して認証する。Space の招待情報や暗号鍵は pc-setup に保存しない。
+
+以前導入した CrossPaste は desired state に含めない。既存 Windows 端末では CrossPaste を終了した上で `winget uninstall --id 9P6X7D7DMCCR --exact` で削除する（Store 版であることを `winget list` で確認する）。
 
 ### Notion official MSIX boundary
 
