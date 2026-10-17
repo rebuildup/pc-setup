@@ -62,8 +62,11 @@ os = ["windows"]
 
 [tools."github:herdrdev/herdr".platforms]
 # Windows ships a .zip; other platforms ship raw binaries and use the aqua entry.
+# Herdr only publishes a Windows x64 asset, so Windows ARM64 falls back to it
+# (x64 emulation). Verified against every published release: herdrdev/herdr ships
+# herdr-windows-x86_64.zip only, and no herdr-windows-arm64.zip has ever existed.
 windows-x64 = { asset_pattern = "herdr-windows-x86_64.zip" }
-windows-arm64 = { asset_pattern = "herdr-windows-arm64.zip" }
+windows-arm64 = { asset_pattern = "herdr-windows-x86_64.zip" }
 
 [tools."github:alibaba/open-code-review"]
 version = "latest"
