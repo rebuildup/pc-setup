@@ -602,6 +602,388 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Validate adoption of existing installs
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          . ./platforms/windows-11/app-detection.ps1
+
+          # Uninstall keys without DisplayName must not break enumeration under
+          # StrictMode (regression: snapshot.ps1 aborted on a real machine).
+          $null = @(Get-InstalledDisplayNames)
+
+          foreach ($file in 'snapshot.ps1', 'verify.ps1') {
+            $text = Get-Content -LiteralPath "./platforms/windows-11/$file" -Raw
+            if ($text -match 'Where-Object\s+DisplayName\b') {
+              throw "$file must not use a bare 'Where-Object DisplayName' under StrictMode."
+            }
+          }
+
+          $inventory = Import-PowerShellDataFile -LiteralPath ./platforms/windows-11/apps.psd1
+          $slack = $inventory.WingetApps | Where-Object Id -eq 'SlackTechnologies.Slack'
+          if (-not $slack.AppxName) { throw 'Slack must declare AppxName so a Store/MSIX install is adopted.' }
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-adopt-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $inventoryPath = Join-Path $root 'apps.psd1'
+          $logPath = Join-Path $root 'winget.log'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+
+          try {
+            # Pure detection: winget does not know the app, other channels do.
+            $oldPath = $env:PATH
+            @'
+          @echo off
+          exit /b 1
+          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'winget.cmd')
+            $env:PATH = "$fakeBin;$oldPath"
+
+            $app = @{ Id = 'Contoso.App'; Name = 'Contoso'; AppxName = '^Contoso\.App$'; DisplayName = '^Contoso Vendor' }
+            if ((Get-AppInstallChannel -App $app -DisplayNames @() -AppxPackages @()) -ne $null) { throw 'App must be absent when no channel has it.' }
+            if ((Get-AppInstallChannel -App $app -DisplayNames @() -AppxPackages @([pscustomobject]@{ Name = 'Contoso.App' })) -ne 'appx') { throw 'MSIX install must be adopted.' }
+            if ((Get-AppInstallChannel -App $app -DisplayNames @('Contoso Vendor 1.0') -AppxPackages @()) -ne 'registry') { throw 'Vendor installer must be adopted.' }
+
+            # install-apps.ps1 must not call `winget install` for an adopted app.
+            @'
+          @{
+              WingetApps = @(
+                  @{ Id = 'Contoso.Adopted'; Name = 'Adopted'; AppxName = '^Contoso\.Adopted$' }
+                  @{ Id = 'Contoso.Missing'; Name = 'Missing' }
+              )
+          }
+          '@ | Set-Content -LiteralPath $inventoryPath
+
+            @'
+          @echo off
+          if "%1"=="list" exit /b 1
+          if "%1"=="install" (
+            echo %3>>"%FAKE_WINGET_LOG%"
+            exit /b 0
+          )
+          exit /b 0
+          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'winget.cmd')
+
+            function Get-AppxPackage { [pscustomobject]@{ Name = 'Contoso.Adopted' } }
+            $env:FAKE_WINGET_LOG = $logPath
+            & ./platforms/windows-11/install-apps.ps1 -InventoryPath $inventoryPath
+
+            $attempted = @(Get-Content -LiteralPath $logPath)
+            if ($attempted.Count -ne 1 -or $attempted[0] -ne 'Contoso.Missing') {
+              throw "Only the missing app may be installed, got: $($attempted -join ', ')"
+            }
+          }
+          finally {
+            if ($oldPath) { $env:PATH = $oldPath }
+            Remove-Item Env:FAKE_WINGET_LOG -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Validate global mise config backup before overwrite
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-mise-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $target = Join-Path $root 'config.toml'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+          $oldPath = $env:PATH
+
+          try {
+            "@echo off`r`nexit /b 0" | Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd')
+            $env:PATH = "$fakeBin;$oldPath"
+            $env:MISE_GLOBAL_CONFIG_FILE = $target
+            $env:MISE_GITHUB_TOKEN = 'ci-placeholder'
+
+            # Managed file with a local edit that the repository does not have.
+            "# Managed by rebuildup/pc-setup.`n[tools]`nlocal-only = `"1`"" | Set-Content -LiteralPath $target
+            & ./scripts/apply-global-mise.ps1
+
+            $backups = @(Get-ChildItem -LiteralPath $root -Filter 'config.toml.pc-setup-backup-*')
+            if ($backups.Count -ne 1) { throw "Expected one backup, found $($backups.Count)." }
+            if (-not (Select-String -LiteralPath $backups[0].FullName -SimpleMatch 'local-only' -Quiet)) {
+              throw 'Backup must preserve the pre-overwrite content.'
+            }
+
+            # Re-applying identical content must not create another backup.
+            & ./scripts/apply-global-mise.ps1
+            $backups = @(Get-ChildItem -LiteralPath $root -Filter 'config.toml.pc-setup-backup-*')
+            if ($backups.Count -ne 1) { throw "Idempotent re-apply created extra backups: $($backups.Count)." }
+
+            # Unmanaged files are still refused, not backed up and replaced.
+            'user = true' | Set-Content -LiteralPath $target
+            $refused = $false
+            try { & ./scripts/apply-global-mise.ps1 } catch { $refused = $true }
+            if (-not $refused) { throw 'Unmanaged global config must be refused.' }
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      # Regression for the 2026-10-17 incident: a plain mise command on Windows
+      # auto-installed rust@stable against the user's rustup toolchain and left
+      # rustc.exe/cargo.exe deleted. Everything runs in throwaway MISE_*/RUSTUP_HOME/
+      # CARGO_HOME directories and uses `install --dry-run`, so no real toolchain
+      # is ever touched.
+      - name: Validate mise never manages Rust or PowerShell on Windows
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-rust-$([guid]::NewGuid())"
+          New-Item -ItemType Directory -Path $root | Out-Null
+          $oldPath = $env:PATH
+          $repo = (Get-Location).Path
+
+          try {
+            # 1. Generate the Windows copy of the global config (fake mise: the
+            #    apply script's `mise install` must not run for real here).
+            $fakeBin = Join-Path $root 'fakebin'
+            New-Item -ItemType Directory -Path $fakeBin | Out-Null
+            "@echo off`r`nexit /b 0" | Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd')
+            $generated = Join-Path $root 'generated.toml'
+            $env:PATH = "$fakeBin;$oldPath"
+            $env:MISE_GLOBAL_CONFIG_FILE = $generated
+            $env:MISE_GITHUB_TOKEN = 'ci-placeholder'
+            & ./scripts/apply-global-mise.ps1 | Out-Null
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN
+            $env:PATH = $oldPath
+            $text = Get-Content -LiteralPath $generated -Raw
+            if ($text -notmatch '(?m)^disable_tools\s*=\s*\["rust"\]') { throw 'Windows config must set disable_tools = ["rust"].' }
+            if ($text -match '(?m)^rust\s*=\s*"') { throw 'rust must not be declared without an os condition.' }
+
+            # 2. Real mise, fully isolated.
+            $zip = Join-Path $root 'mise.zip'
+            Invoke-WebRequest -Uri 'https://github.com/jdx/mise/releases/download/v2026.9.11/mise-v2026.9.11-windows-x64.zip' -OutFile $zip
+            Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $root 'mise-dist')
+            $mise = (Get-ChildItem -Path (Join-Path $root 'mise-dist') -Recurse -Filter mise.exe | Select-Object -First 1).FullName
+
+            $env:MISE_DATA_DIR = Join-Path $root 'data'
+            $env:MISE_CACHE_DIR = Join-Path $root 'cache'
+            $env:MISE_STATE_DIR = Join-Path $root 'state'
+            $env:MISE_CONFIG_DIR = Join-Path $root 'cfgdir'
+            $env:MISE_TRUSTED_CONFIG_PATHS = $root
+            $env:RUSTUP_HOME = Join-Path $root 'rustup'
+            $env:CARGO_HOME = Join-Path $root 'cargo'
+
+            $project = Join-Path $root 'project'
+            New-Item -ItemType Directory -Path $project | Out-Null
+            "[tools]`nrust = `"1.85.0`"" | Set-Content -LiteralPath (Join-Path $project 'mise.toml')
+            "[toolchain]`nchannel = `"1.85.0`"" | Set-Content -LiteralPath (Join-Path $project 'rust-toolchain.toml')
+
+            # Trimmed config: the generated [settings] plus only the entries
+            # under test (Rust, PowerShell, and a Rust-dependent cargo tool).
+            $settings = ($text -split '(?m)^\[tools\]')[0]
+            $entries = $text -split "`r?`n" | Where-Object { $_ -match '^(rust|powershell|"cargo:cargo-clean-all")\s*=' }
+            if (@($entries).Count -lt 3) { throw "Expected rust, powershell and cargo-clean-all entries, got: $($entries -join ' | ')" }
+            $trimmed = Join-Path $root 'trimmed.toml'
+            ($settings + "[tools]`n" + ($entries -join "`n") + "`n") | Set-Content -LiteralPath $trimmed
+
+            function Get-DryRun([string]$Config) {
+              $env:MISE_GLOBAL_CONFIG_FILE = $Config
+              Push-Location $project
+              try { return (& $mise install --dry-run 2>&1 | Out-String) } finally { Pop-Location }
+            }
+
+            $guarded = Get-DryRun $trimmed
+            if ($guarded -match 'rust@') { throw "mise would install Rust on Windows:`n$guarded" }
+            if ($guarded -match 'powershell@') { throw "mise would install PowerShell on Windows:`n$guarded" }
+
+            # Control: the pre-fix shape must trigger the install, otherwise this
+            # test could not have caught the incident.
+            $unguarded = Join-Path $root 'unguarded.toml'
+            "[tools]`nrust = `"stable`"`n`"cargo:cargo-clean-all`" = { version = `"latest`", depends = [`"rust`"] }`n" | Set-Content -LiteralPath $unguarded
+            $control = Get-DryRun $unguarded
+            if ($control -notmatch 'rust@') { throw "Control config did not report a Rust install; the test is not sensitive:`n$control" }
+
+            foreach ($dir in $env:RUSTUP_HOME, $env:CARGO_HOME) {
+              if (Test-Path -LiteralPath $dir) { throw "$dir was created; mise touched rustup." }
+            }
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN -ErrorAction SilentlyContinue
+            Set-Location $repo
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Validate Visual Studio capability check
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          if ((Get-Content -LiteralPath ./mise.toml -Raw) -match '(?m)^"winget:Microsoft\.VisualStudio\.') {
+            throw 'mise.toml must not require a specific Visual Studio product.'
+          }
+          . ./platforms/windows-11/visual-studio.ps1
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-vs-$([guid]::NewGuid())"
+          New-Item -ItemType Directory -Path $root | Out-Null
+          try {
+            function New-FakeVswhere([string]$Name, [object[]]$Instances) {
+              $json = Join-Path $root "$Name.json"
+              ConvertTo-Json -InputObject @($Instances) -Depth 6 | Set-Content -LiteralPath $json
+              $cmd = Join-Path $root "$Name.cmd"
+              "@echo off`r`ntype `"$json`"" | Set-Content -LiteralPath $cmd
+              return $cmd
+            }
+            function New-Package([string]$Id, [string]$Type = 'Component') { @{ id = $Id; type = $Type } }
+
+            $complete = @{
+              displayName = 'Visual Studio Community 2026'; installationVersion = '18.0'; installationPath = 'C:\vs'
+              packages = @(
+                (New-Package 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64'),
+                (New-Package 'Microsoft.VisualStudio.Component.Windows11SDK.26100'),
+                (New-Package 'Microsoft.VisualStudio.Workload.NativeDesktop' 'Workload')
+              )
+            }
+            $noSdk = @{
+              displayName = 'Visual Studio Build Tools 2022'; installationVersion = '17.0'; installationPath = 'C:\bt'
+              packages = @( (New-Package 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64') )
+            }
+            # A look-alike must not satisfy the SDK requirement.
+            $lookalike = @{
+              displayName = 'Lookalike'; installationVersion = '1'; installationPath = 'C:\x'
+              packages = @(
+                (New-Package 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64'),
+                (New-Package 'Microsoft.VisualStudio.Component.Windows11Sdk.WindowsPerformanceToolkit')
+              )
+            }
+
+            $ok = @(Get-VisualStudioStatus -VswherePath (New-FakeVswhere 'ok' @($complete)))
+            if ($ok.Count -ne 1 -or $ok[0].Missing.Count -ne 0) { throw 'Any edition/year with MSVC and a Windows SDK must pass.' }
+            if ($ok[0].MissingRecommendedWorkloads -notcontains 'Microsoft.VisualStudio.Workload.ManagedDesktop') { throw 'Missing optional workloads must be reported.' }
+
+            $bad = @(Get-VisualStudioStatus -VswherePath (New-FakeVswhere 'bad' @($noSdk)))
+            if ($bad[0].Missing -notcontains 'Windows SDK') { throw 'A missing Windows SDK must be reported.' }
+
+            $look = @(Get-VisualStudioStatus -VswherePath (New-FakeVswhere 'look' @($lookalike)))
+            if ($look[0].Missing -notcontains 'Windows SDK') { throw 'The performance toolkit must not count as a Windows SDK.' }
+
+            $mixed = @(Get-VisualStudioStatus -VswherePath (New-FakeVswhere 'mixed' @($noSdk, $complete)))
+            if (@($mixed | Where-Object { $_.Missing.Count -eq 0 }).Count -ne 1) { throw 'One complete instance among several must satisfy the requirement.' }
+
+            # verify.ps1 only reads; it must not call any installer entry point.
+            $verify = Get-Content -LiteralPath ./platforms/windows-11/verify.ps1 -Raw
+            foreach ($forbidden in 'vs_installer', 'vs_community', 'setup.exe', '--add', 'modify') {
+              if ($verify -match [regex]::Escape($forbidden)) { throw "verify.ps1 must not modify Visual Studio ($forbidden)." }
+            }
+          }
+          finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Validate pending apps, Cubase, Tailscale and PowerShell PATH handling
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          . ./platforms/windows-11/app-detection.ps1
+
+          # Cubase: bundled editions such as "Cubase LE AI Elements" are installs.
+          foreach ($name in 'Steinberg Cubase LE AI Elements 13', 'Cubase 14', 'Steinberg Cubase Pro 13') {
+            if ($name -notmatch $script:CubaseDisplayNamePattern) { throw "$name must be recognised as Cubase." }
+          }
+          if ('Steinberg Download Assistant' -match $script:CubaseDisplayNamePattern) { throw 'Download Assistant is not Cubase.' }
+
+          # Tailscale: only Running is ok; everything else is a manual boundary.
+          if ((Get-TailscaleBackendVerdict -BackendState 'Running') -ne 'ok') { throw 'Running must be ok.' }
+          foreach ($state in 'NoState', 'NeedsLogin', 'Stopped', 'Starting', '') {
+            if ((Get-TailscaleBackendVerdict -BackendState $state) -ne 'manual') { throw "$state must be a manual boundary." }
+          }
+          $verify = Get-Content -LiteralPath ./platforms/windows-11/verify.ps1 -Raw
+          foreach ($mutating in '\$tailscale\s+(up|login|logout|down|set|set-raw)\b', '\$tailscale\s+serve\s+(--|reset|\d)') {
+            if ($verify -match $mutating) { throw "verify.ps1 must not change Tailscale state ($mutating)." }
+          }
+
+          # PATH reordering keeps every entry; only the order changes.
+          $x64 = 'C:\Program Files\PowerShell\7'
+          $x86 = 'C:\Program Files (x86)\PowerShell\7\'
+          $path = 'C:\a;C:\Program Files (x86)\PowerShell\7\;C:\b;C:\Program Files\PowerShell\7;C:\c'
+          $fixed = Get-ReorderedPath -Path $path -Preferred $x64 -Shadowed $x86
+          if ($fixed -ne 'C:\a;C:\Program Files\PowerShell\7;C:\Program Files (x86)\PowerShell\7\;C:\b;C:\c') { throw "Unexpected reorder: $fixed" }
+          if ((Get-ReorderedPath -Path $fixed -Preferred $x64 -Shadowed $x86) -ne $fixed) { throw 'Reordering must be idempotent.' }
+          $missing = Get-ReorderedPath -Path 'C:\a;C:\Program Files (x86)\PowerShell\7;C:\b' -Preferred $x64 -Shadowed $x86
+          if ($missing -ne 'C:\a;C:\Program Files\PowerShell\7;C:\Program Files (x86)\PowerShell\7;C:\b') { throw "Preferred entry must be inserted: $missing" }
+          $noX86 = 'C:\a;C:\b'
+          if ((Get-ReorderedPath -Path $noX86 -Preferred $x64 -Shadowed $x86) -ne $noX86) { throw 'Without an x86 entry the PATH must be unchanged.' }
+          $sortedIn = ($path -split ';' | ForEach-Object { $_.TrimEnd('\').ToLowerInvariant() } | Sort-Object) -join '|'
+          $sortedOut = ($fixed -split ';' | ForEach-Object { $_.TrimEnd('\').ToLowerInvariant() } | Sort-Object) -join '|'
+          if ($sortedIn -ne $sortedOut) { throw 'Reordering must not add or remove entries.' }
+
+          # Optional apps: a failed install is recorded once and never retried.
+          $inventory = Import-PowerShellDataFile -LiteralPath ./platforms/windows-11/apps.psd1
+          foreach ($id in 'Microsoft.Teams', 'Warp.Warp') {
+            if (-not ($inventory.WingetApps | Where-Object { $_.Id -eq $id -and $_.Optional })) { throw "$id must be optional." }
+          }
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-optional-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+          $oldPath = $env:PATH
+          try {
+            $env:PC_SETUP_STATE_DIR = Join-Path $root 'state'
+            $env:FAKE_WINGET_LOG = Join-Path $root 'winget.log'
+            @'
+          @{
+              WingetApps = @(
+                  @{ Id = 'Opt.App'; Name = 'Optional'; Optional = $true }
+                  @{ Id = 'Req.App'; Name = 'Required' }
+              )
+          }
+          '@ | Set-Content -LiteralPath (Join-Path $root 'apps.psd1')
+            @'
+          @echo off
+          if "%1"=="list" exit /b 1
+          if "%1"=="install" (
+            echo %3>>"%FAKE_WINGET_LOG%"
+            exit /b 42
+          )
+          exit /b 0
+          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'winget.cmd')
+            $env:PATH = "$fakeBin;$oldPath"
+
+            function Get-AppxPackage { @() }
+            & ./platforms/windows-11/install-apps.ps1 -InventoryPath (Join-Path $root 'apps.psd1')
+            & ./platforms/windows-11/install-apps.ps1 -InventoryPath (Join-Path $root 'apps.psd1')
+
+            $attempts = @(Get-Content -LiteralPath $env:FAKE_WINGET_LOG)
+            $optionalAttempts = @($attempts | Where-Object { $_ -eq 'Opt.App' }).Count
+            $requiredAttempts = @($attempts | Where-Object { $_ -eq 'Req.App' }).Count
+            if ($optionalAttempts -ne 1) { throw "Optional app must be attempted exactly once, was $optionalAttempts." }
+            if ($requiredAttempts -ne 2) { throw "Required app keeps being attempted, was $requiredAttempts." }
+            $pending = Get-Content -LiteralPath (Join-Path $env:PC_SETUP_STATE_DIR 'pending-apps.json') -Raw | ConvertFrom-Json
+            if (-not $pending.PSObject.Properties['Opt.App']) { throw 'Failure of the optional app must be recorded.' }
+            if ($pending.PSObject.Properties['Req.App']) { throw 'Required apps must not be recorded as pending.' }
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:PC_SETUP_STATE_DIR, Env:FAKE_WINGET_LOG -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          # Herdr: Windows pins the GitHub backend (newer than the aqua registry);
+          # Linux/macOS keep the registry entry.
+          $toml = Get-Content -LiteralPath ./mise.global.toml -Raw
+          if ($toml -notmatch '(?m)^herdr = \{ version = "latest", os = \["linux", "macos"\] \}') { throw 'The registry herdr must be limited to linux/macos.' }
+          if ($toml -notmatch '(?s)\[tools\."github:herdrdev/herdr"\][^\[]*os = \["windows"\]') { throw 'The GitHub-backend herdr must be Windows-only.' }
+          if ($toml -notmatch 'herdr-windows-x86_64\.zip') { throw 'The Windows herdr asset pattern is required.' }
+          if ((Get-Content -LiteralPath ./mise.global.lock -Raw) -notmatch 'backend = "github:herdrdev/herdr"') { throw 'mise.global.lock must contain the GitHub-backend herdr.' }
+
+          # The fake winget above leaves a non-zero $LASTEXITCODE, which pwsh would
+          # otherwise report as the step's exit code.
+          $global:LASTEXITCODE = 0
+
       - name: Validate Infisical-backed Tailscale provisioning
         shell: pwsh
         run: |

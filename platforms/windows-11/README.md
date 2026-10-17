@@ -46,7 +46,6 @@ root `mise.toml` の mandatory Windows package phase には、bootstrap / develo
 - Git
 - PowerShell 7
 - .NET SDK 10
-- Visual Studio 2022 Community
 - Android Studio
 - Google Cloud SDK
 - AWS CLI
@@ -100,6 +99,41 @@ OSごとにWinGet packageを重複宣言せず、`mise.global.toml [tools]` を�
 - Supabase CLI / Vercel CLI
 - ripgrep / fd / fzf / jq / bat / gdu
 - ShellCheck / Neovim
+
+### Rust on Windows
+
+Windows の Rust toolchain の正本は既存の rustup (`rustup.rs`) であり、mise は Rust を管理しない。
+
+- `mise.global.toml` の `rust` は `os = ["linux", "macos"]` に限定する。
+- `scripts/apply-global-mise.ps1` は Windows 用 copy に `disable_tools = ["rust"]` を追加する。プロジェクトの `mise.toml` や `rust-toolchain.toml` 由来の Rust 指定も mise は無視する。
+- 理由: mise が既存 rustup toolchain に対して `rust@stable` を自動 install し、競合でロールバックした結果 `rustc.exe` / `cargo.exe` が消えた実例がある。mise shim を 1 回呼ぶだけで起きた。
+- `cargo:cargo-clean-all` など Rust 依存の cargo backend tool は、Rust 自体を mise に要求しない。`cargo` は PATH 上の rustup proxy を使う。
+- `verify.ps1` は `rustup run stable rustc/cargo` で実バイナリを確認する。
+
+### Optional apps and pending items
+
+`apps.psd1` の `Optional = $true` は任意アプリ (Microsoft Teams、Warp)。
+
+- 導入に失敗したら `%LOCALAPPDATA%\pc-setup\pending-apps.json` に記録し、以後 `install-apps.ps1` は自動再試行しない。再試行したい場合はその entry を削除する。
+- `verify.ps1` は未導入でも FAIL にせず WARN (pending) とする。必須の開発環境の成立を妨げない。
+- Tailscale の backend が `Running` 以外 (`NoState` / `NeedsLogin` など) の場合、verify は WARN (手動境界) とする。認証・node 登録・Serve 設定は自動実行せず、既存の node identity を変更しない。
+
+### PowerShell
+
+Windows の PowerShell は WinGet 管理の `Microsoft.PowerShell` を正本とし、`mise.global.toml` の `powershell` は Linux/macOS 限定。
+
+Machine PATH で x86 版 (`Program Files (x86)\PowerShell`) が x64 版より先にある場合、`pwsh` は x86 版に解決される。Machine PATH は User PATH より先に評価されるため、User 側では直せない。
+
+```powershell
+pwsh -NoProfile -File platforms/windows-11/powershell-path.ps1          # plan のみ
+pwsh -NoProfile -File platforms/windows-11/powershell-path.ps1 -Apply   # 管理者 shell で実行
+```
+
+並び順だけを変更し、PATH entry も PowerShell 本体も削除しない。変更前の PATH は `%LOCALAPPDATA%\pc-setup` に保存する。
+
+### Herdr
+
+実機の Herdr は GitHub backend (`github:herdrdev/herdr`、aqua registry より新しい)。Windows だけこの宣言を `mise.global.toml` に置き、Linux/macOS は従来の registry entry のまま。`mise.global.lock` には Windows の GitHub backend entry を追加している。
 
 ## Microsoft Store boundary
 
@@ -166,6 +200,13 @@ Creative Cloudへログイン後:
 Steinberg Download Assistantを使い、ライセンスに従ってCubaseを導入する。
 
 ### Visual Studio
+
+pc-setup は特定の製品 ID (例: `Microsoft.VisualStudio.2022.Community`) を要求しない。どの edition / 年版 (2022 Community、2026 Insiders、Build Tools など) でもよく、`verify.ps1` が `vswhere` で次の **capability** を検証する。
+
+- MSVC x64/x86 build tools (`Microsoft.VisualStudio.Component.VC.Tools.x86.x64`)
+- Windows 10/11 SDK (`Microsoft.VisualStudio.Component.Windows1[01]SDK.*`)
+
+不足していても Visual Studio の構成は自動変更しない (installer 実行・workload 追加/削除なし)。FAIL として報告するだけで、Visual Studio Installer での追加は手動。C++ / .NET desktop の workload は未導入なら WARN のみ。
 
 active projectに必要なworkloadだけをVisual Studio Installerから有効化する。
 

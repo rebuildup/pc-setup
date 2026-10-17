@@ -14,21 +14,13 @@ function Write-Ok { param([string]$Message) Write-Host "OK    $Message" }
 function Write-Fail { param([string]$Message) Write-Host "FAIL  $Message" -ForegroundColor Red; $script:Failures++ }
 function Write-WarnLocal { param([string]$Message) Write-Warning $Message; $script:Warnings++ }
 
+. (Join-Path $PSScriptRoot 'app-detection.ps1')
+. (Join-Path $PSScriptRoot 'visual-studio.ps1')
+
 function Test-CommandPresent {
     param([string]$Name)
     $command = Get-Command $Name -ErrorAction SilentlyContinue
     if ($command) { Write-Ok "$Name -> $($command.Source)" } else { Write-Fail "$Name command missing" }
-}
-
-function Get-UninstallDisplayNames {
-    $paths = @(
-        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
-        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
-        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*'
-    )
-    foreach ($path in $paths) {
-        Get-ItemProperty -Path $path -ErrorAction SilentlyContinue | Where-Object DisplayName | Select-Object -ExpandProperty DisplayName
-    }
 }
 
 function Test-InstalledDisplayName {
@@ -93,14 +85,25 @@ if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
 }
 else {
     $inventory = Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptDir 'apps.psd1')
+    $appDisplayNames = @(Get-InstalledDisplayNames)
+    $appAppxPackages = @(Get-AppxPackage -ErrorAction SilentlyContinue)
     foreach ($app in $inventory.WingetApps) {
-        & winget list --id $app.Id --exact --source winget --accept-source-agreements --disable-interactivity *> $null
-        if ($LASTEXITCODE -eq 0) { Write-Ok "$($app.Name) installed" } else { Write-Fail "$($app.Name) missing" }
+        $channel = Get-AppInstallChannel -App $app -DisplayNames $appDisplayNames -AppxPackages $appAppxPackages
+        if ($channel) { Write-Ok "$($app.Name) installed ($channel)" }
+        elseif (Test-OptionalApp -App $app) { Write-WarnLocal "$($app.Name) is not installed (optional, pending; does not block the development environment)" }
+        else { Write-Fail "$($app.Name) missing" }
     }
 
-    foreach ($name in @('ChatGPT', 'Microsoft PC Manager')) {
-        $output = & winget list --name $name --accept-source-agreements 2>&1
-        if ($LASTEXITCODE -eq 0 -and ($output -join "`n") -notmatch 'No installed package found') { Write-Ok "$name installed" } else { Write-Fail "$name missing" }
+    # Store apps: winget --name can miss an installed MSIX (observed with
+    # Microsoft PC Manager), so fall back to the Appx package name.
+    foreach ($storeApp in @(
+        @{ Name = 'ChatGPT'; AppxName = '' },
+        @{ Name = 'Microsoft PC Manager'; AppxName = '^Microsoft\.MicrosoftPCManager$' }
+    )) {
+        $output = & winget list --name $storeApp.Name --accept-source-agreements 2>&1
+        $viaWinget = $LASTEXITCODE -eq 0 -and ($output -join "`n") -notmatch 'No installed package found'
+        $viaAppx = $storeApp.AppxName -and [bool]($appAppxPackages | Where-Object { $_.Name -match $storeApp.AppxName })
+        if ($viaWinget -or $viaAppx) { Write-Ok "$($storeApp.Name) installed" } else { Write-Fail "$($storeApp.Name) missing" }
     }
 }
 
@@ -109,6 +112,57 @@ if (Test-NotionInstalled) {
 }
 else {
     Write-Fail 'Notion missing'
+}
+
+Write-Host "`nVisual Studio (any edition/year; capabilities, not a product ID)"
+$vswhere = Get-VswherePath
+if (-not $vswhere) {
+    Write-Fail 'vswhere.exe not found; install any Visual Studio edition with the MSVC and Windows SDK components'
+}
+else {
+    $vsInstances = @(Get-VisualStudioStatus -VswherePath $vswhere)
+    $vsComplete = @($vsInstances | Where-Object { $_.Missing.Count -eq 0 })
+    if ($vsComplete.Count -gt 0) {
+        foreach ($vs in $vsComplete) {
+            Write-Ok "$($vs.Name) $($vs.Version): MSVC tools and Windows SDK present"
+            foreach ($workload in $vs.MissingRecommendedWorkloads) {
+                Write-WarnLocal "$($vs.Name): optional workload $workload not installed (not modified; enable it in Visual Studio Installer if a project needs it)"
+            }
+        }
+    }
+    else {
+        $detail = if ($vsInstances.Count -eq 0) { 'no Visual Studio instance found' } else { ($vsInstances | ForEach-Object { "$($_.Name) lacks: $($_.Missing -join ', ')" }) -join '; ' }
+        Write-Fail "no Visual Studio instance has the MSVC tools and Windows SDK ($detail). verify does not change Visual Studio; add the components in Visual Studio Installer."
+    }
+}
+
+Write-Host "`nPowerShell (WinGet-managed Microsoft.PowerShell is canonical)"
+$pwshCommand = Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+$pwshX64 = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+if (-not (Test-Path -LiteralPath $pwshX64)) {
+    Write-Fail "PowerShell 7 x64 not found at $pwshX64"
+}
+elseif ($pwshCommand -and ($pwshCommand.Source -ne $pwshX64)) {
+    Write-WarnLocal "pwsh resolves to $($pwshCommand.Source), not the x64 install. Nothing was removed; run platforms/windows-11/powershell-path.ps1 (plan) and -Apply from an elevated shell, or call $pwshX64 explicitly."
+}
+else {
+    Write-Ok "pwsh -> $pwshX64"
+}
+
+Write-Host "`nRust (rustup is canonical on Windows)"
+$rustup = Get-Command rustup -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $rustup) {
+    Write-WarnLocal 'rustup not found; install it from https://rustup.rs (mise does not manage Rust on Windows)'
+}
+else {
+    # `rustup run` executes the real toolchain binaries, so a toolchain whose
+    # rustc.exe/cargo.exe were removed fails here instead of passing on proxies.
+    foreach ($tool in 'rustc', 'cargo') {
+        $versionOutput = & $rustup.Source run stable $tool --version 2>&1
+        if ($LASTEXITCODE -eq 0) { Write-Ok "rustup stable $tool -> $($versionOutput | Select-Object -First 1)" } else { Write-Fail "rustup stable $tool is broken: $($versionOutput | Select-Object -First 1)" }
+    }
+    $disabled = (& mise settings get disable_tools 2>$null) -join ' '
+    if ($disabled -match 'rust') { Write-Ok 'mise disable_tools includes rust' } else { Write-WarnLocal 'mise disable_tools does not include rust; re-run scripts/apply-global-mise.ps1' }
 }
 
 Write-Host "`nTailscale / WSL SSH"
@@ -120,6 +174,7 @@ if (-not $tailscale) {
 else {
     Write-Ok 'Tailscale command available'
 
+    $tailscaleVerdict = 'manual'
     $statusOutput = @(& $tailscale status --json 2>$null)
     if ($LASTEXITCODE -ne 0 -or $statusOutput.Count -eq 0) {
         Write-Fail 'Tailscale status unavailable'
@@ -127,11 +182,14 @@ else {
     else {
         try {
             $status = ($statusOutput -join [Environment]::NewLine) | ConvertFrom-Json
-            if ($status.BackendState -eq 'Running') {
+            $tailscaleVerdict = Get-TailscaleBackendVerdict -BackendState $status.BackendState
+            if ($tailscaleVerdict -eq 'ok') {
                 Write-Ok 'Tailscale backend running'
             }
             else {
-                Write-Fail "Tailscale backend state is $($status.BackendState)"
+                # Login, node registration and Serve are manual/secret-backed
+                # boundaries (setup-tailscale.ps1); verify only reports them.
+                Write-WarnLocal "Tailscale backend state is $($status.BackendState) (pending manual step: authenticate and run setup-tailscale.ps1; the existing node identity is left as is)"
             }
         }
         catch {
@@ -141,7 +199,7 @@ else {
 
     $serveStatus = @(& $tailscale serve status 2>$null) -join [Environment]::NewLine
     if ($LASTEXITCODE -ne 0) {
-        Write-Fail 'Tailscale Serve status unavailable'
+        if ($tailscaleVerdict -eq 'ok') { Write-Fail 'Tailscale Serve status unavailable' } else { Write-WarnLocal 'Tailscale Serve status unavailable (backend is not Running; pending manual step)' }
     }
     else {
         foreach ($mapping in $tailscaleConfig.Tailscale.Serve) {
@@ -151,7 +209,8 @@ else {
                 Write-Ok "Tailscale Serve $($mapping.ListenPort) -> $($mapping.Target)"
             }
             else {
-                Write-Fail "Tailscale Serve mapping missing for port $($mapping.ListenPort)"
+                if ($tailscaleVerdict -eq 'ok') { Write-Fail "Tailscale Serve mapping missing for port $($mapping.ListenPort)" }
+                else { Write-WarnLocal "Tailscale Serve mapping for port $($mapping.ListenPort) is pending (backend is not Running; configure after the manual authentication step)" }
             }
         }
     }
@@ -165,12 +224,12 @@ foreach ($commandName in @(
     'gcloud','aws','supabase','vercel','npkill','ocr','cargo-clean-all','dotnet'
 )) { Test-CommandPresent -Name $commandName }
 
-$script:InstalledDisplayNames = @(Get-UninstallDisplayNames)
+$script:InstalledDisplayNames = @(Get-InstalledDisplayNames)
 
 Write-Host "`nVendor-managed child applications"
 Test-InstalledDisplayName -Pattern 'After Effects' -Label 'Adobe After Effects'
 Test-InstalledDisplayName -Pattern 'Illustrator' -Label 'Adobe Illustrator'
-Test-InstalledDisplayName -Pattern '^Cubase' -Label 'Cubase'
+Test-InstalledDisplayName -Pattern $script:CubaseDisplayNamePattern -Label 'Cubase'
 
 if ($script:InstalledDisplayNames | Where-Object { $_ -match 'Steinberg Download Assistant' }) { Write-Ok 'Steinberg Download Assistant installed' } else { Write-WarnLocal 'Steinberg Download Assistant not found; verify manually if Cubase is managed another way' }
 

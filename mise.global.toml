@@ -14,7 +14,10 @@ node = "26"
 python = "3.14"
 bun = "latest"
 pnpm = "latest"
-rust = "stable"
+# Linux/macOS: mise manages Rust. Windows: the existing rustup installation is
+# canonical (see platforms/windows-11/README.md); apply-global-mise.ps1 also
+# adds `disable_tools = ["rust"]` there so no config can make mise touch it.
+rust = { version = "stable", os = ["linux", "macos"] }
 
 gh = "latest"
 infisical = "latest"
@@ -24,7 +27,10 @@ codex = "latest"
 # (aqua:anomalyco/opencode) only tracks the 1.x GitHub releases.
 "npm:@opencode/cli" = { version = "latest", depends = ["node"], allow_builds = ["@opencode/cli"] }
 worktrunk = "latest"
-herdr = "latest"
+# herdr: the aqua registry entry lags the GitHub releases, so Windows pins the GitHub
+# backend below (same as the maintained machine: 0.9.5 vs aqua 0.9.3). Linux/macOS
+# keep the registry entry unchanged.
+herdr = { version = "latest", os = ["linux", "macos"] }
 
 gcloud = { version = "latest", os = ["linux", "macos"] }
 aws-cli = { version = "latest", os = ["linux", "macos"] }
@@ -42,10 +48,22 @@ bat = "latest"
 gdu = "latest"
 shellcheck = "latest"
 neovim = "latest"
-powershell = "7.6.6"
+# Windows PowerShell is WinGet-managed (Microsoft.PowerShell); a second mise copy
+# would shadow it with an older shim.
+powershell = { version = "7.6.6", os = ["linux", "macos"] }
 "npm:@mariozechner/pi-coding-agent" = "latest"
 "npm:playwright" = "latest"
 ruby = "4"
+
+[tools."github:herdrdev/herdr"]
+version = "latest"
+bin = "herdr"
+os = ["windows"]
+
+[tools."github:herdrdev/herdr".platforms]
+# Windows ships a .zip; other platforms ship raw binaries and use the aqua entry.
+windows-x64 = { asset_pattern = "herdr-windows-x86_64.zip" }
+windows-arm64 = { asset_pattern = "herdr-windows-arm64.zip" }
 
 [tools."github:alibaba/open-code-review"]
 version = "latest"
