@@ -12,7 +12,7 @@ gh = "latest"
 infisical = "latest"
 claude = "latest"
 codex = "latest"
-opencode = "latest"
+"npm:@opencode/cli" = "latest"
 worktrunk = "latest"
 herdr = "latest"
 
@@ -34,6 +34,9 @@ shellcheck = "latest"
 neovim = "latest"
 powershell = "7.6.6"
 "npm:@mariozechner/pi-coding-agent" = "latest"
+# DeepSeek Harness. Every upstream version is a prerelease (rc/alpha), so the
+# version is pinned explicitly; bump by hand after verifying a new rc.
+"npm:@deepseek-ai/dsh" = "0.2.0-rc.2"
 "npm:playwright" = "latest"
 ruby = "3"
 
@@ -72,3 +75,24 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 # exists and makes every `docker pull` fail. This formula provides the same
 # Keychain-backed helper without Docker Desktop.
 "brew:docker-credential-helper" = { version = "latest", os = "macos" }
+"brew-cask:microsoft-powerpoint" = { version = "latest", os = ["macos"] }
+"brew-cask:claude" = { version = "latest", os = ["macos"] }
+"brew-cask:crosspaste" = { version = "latest", os = ["macos"] }
+
+[settings.github]
+credential_command = 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'
+
+# Keep rustup's toolchain selection working: the `rust` tool would export
+# RUSTUP_TOOLCHAIN=stable and silently override per-project rust-toolchain.toml
+# pins (e.g. xyt-media pins 1.97.1 to match CI). rustup treats an empty value
+# as unset, so this preserves both rustup defaults and toolchain files.
+[env]
+RUSTUP_TOOLCHAIN = ""
+
+# npm tools install through `npm install -g` instead of the embedded aube
+# installer: aube cannot round-trip dsh's large dependency graph into
+# aube-lock.yaml (YAML parse failure at `mise lock` time), so npm tools no
+# longer record transitive-graph sidecars. See ADR-0010.
+[settings.npm]
+package_manager = "npm"
+shell_out = true
