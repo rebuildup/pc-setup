@@ -213,7 +213,7 @@ These Skills are reconciled from `rebuildup/project-init`; `skills/README.md` re
 project-init 由来の Agent Skills は **project-local** に管理し、global install を canonical にしない。
 
 - 初回導入 / 全体 reconcile: `bunx skills add rebuildup/project-init --skill '*' --agent claude-code opencode codex -y`
-- fresh clone から lock を復元: `bunx skills install`
+- fresh clone では、commit 済みの Skill file をそのまま使う。`bunx skills install` は現在の `skills` CLI では `add` の別名であり、lock からの復元にならない。`bunx skills experimental_install` は lock の hash と照合せず配布元の最新を取得するため、復元の根拠にしない
 - 継続更新: `bunx skills update -p -y`
 - `skills-lock.json` は `skills` CLI が生成・更新する source/freshness metadata として commit する。手で hash / source entry を捏造しない。
 - upstream-managed Skill 本文は手編集しない。project 固有の refinement / override は別の project-local Skill、adapter、ADR、docs に置き、次回 update で上書きされない構造にする。
