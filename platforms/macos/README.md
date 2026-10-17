@@ -4,6 +4,14 @@
 
 共通CLI/runtimeはroot `mise.toml` / `mise.global.toml` が所有し、このdirectoryはmacOS固有の設定、manual boundary、verificationを所有する。
 
+## Clipboard sync (UniClipboard)
+
+Windows と macOS の間で、直接 LAN 接続が成立しないネットワークでもクリップボードと軽いファイルを同期できるよう UniClipboard を採用する（[ADR-0015](../../docs/adr/ADR-0015.md)）。`mise.global.toml` に公式 tap の `brew-cask:UniClipboard/tap/uniclipboard` を macOS 限定で宣言し、`mise bootstrap packages apply` で導入する。
+
+初回は Windows との Space ペアリングを手動で行う。招待コード・パスフレーズ・暗号鍵を repository に保存しない。
+
+CrossPaste は desired state から除外する。以前 `mise bootstrap packages use -g brew-cask:crosspaste` で入れた場合は、global 設定から当該宣言を削除後、`mise bootstrap packages prune --manager brew-cask --dry-run` で削除予定のアプリを確認し、意図した対象だけなら `mise bootstrap packages prune --manager brew-cask` を実行する。mise 管理外の CrossPaste はインストール元のアンインストール手順を使う。
+
 ## Keyboard baseline
 
 低レイヤーの1:1配列変換はmacOS標準の `hidutil` で大西配列へ変換する。
