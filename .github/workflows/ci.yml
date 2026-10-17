@@ -980,6 +980,10 @@ jobs:
           if ($toml -notmatch 'herdr-windows-x86_64\.zip') { throw 'The Windows herdr asset pattern is required.' }
           if ((Get-Content -LiteralPath ./mise.global.lock -Raw) -notmatch 'backend = "github:herdrdev/herdr"') { throw 'mise.global.lock must contain the GitHub-backend herdr.' }
 
+          # The fake winget above leaves a non-zero $LASTEXITCODE, which pwsh would
+          # otherwise report as the step's exit code.
+          $global:LASTEXITCODE = 0
+
       - name: Validate Infisical-backed Tailscale provisioning
         shell: pwsh
         run: |
