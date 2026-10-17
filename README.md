@@ -91,7 +91,7 @@ OSに依存しにくい開発CLI/runtimeは一度だけ宣言する。
 
 Open Code Review は npm trust policy を迂回せず、公式 `alibaba/open-code-review` GitHub Release のplatform binaryをmiseから導入する。詳細は [ADR-0007](./docs/adr/ADR-0007.md) を参照。
 
-`mise.global.toml` は `~/.config/mise/config.toml` として適用されます。project固有versionは各projectの `mise.toml` / Flake / toolchain file等が上書きします。
+`mise.global.toml` は `~/.config/mise/config.toml` として適用されます。project固有versionは各projectの `mise.toml` / Flake / toolchain file等が上書きします。Rustは `idiomatic_version_file_enable_tools = ["rust"]` によりmiseが `rust-toolchain.toml` を読むため、projectの `rust-toolchain.toml` と `mise.toml` の `rust` のどちらでも、machine-globalの `stable` より優先されます。
 
 ### Continuous update train
 
