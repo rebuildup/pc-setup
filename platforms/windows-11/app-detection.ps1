@@ -54,3 +54,87 @@ function Get-AppInstallChannel {
 
     return $null
 }
+
+# ---------------------------------------------------------------------------
+# Optional apps: record a failed install, never retry it automatically.
+# ---------------------------------------------------------------------------
+
+function Get-PcSetupStateDir {
+    if ($env:PC_SETUP_STATE_DIR) { return $env:PC_SETUP_STATE_DIR }
+    return Join-Path $env:LOCALAPPDATA 'pc-setup'
+}
+
+function Get-PendingApps {
+    $path = Join-Path (Get-PcSetupStateDir) 'pending-apps.json'
+    $pending = @{}
+    if (Test-Path -LiteralPath $path) {
+        try {
+            $parsed = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+            foreach ($property in $parsed.PSObject.Properties) { $pending[$property.Name] = $property.Value }
+        }
+        catch { Write-Warning "Ignoring unreadable $path : $($_.Exception.Message)" }
+    }
+    return $pending
+}
+
+function Add-PendingApp {
+    param([Parameter(Mandatory)][string]$Id, [Parameter(Mandatory)][string]$Reason)
+    $dir = Get-PcSetupStateDir
+    New-Item -ItemType Directory -Force -Path $dir | Out-Null
+    $pending = Get-PendingApps
+    $pending[$Id] = [ordered]@{ Reason = $Reason; At = (Get-Date).ToString('s') }
+    $pending | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $dir 'pending-apps.json') -Encoding utf8
+}
+
+function Test-OptionalApp {
+    param([Parameter(Mandatory)][hashtable]$App)
+    return ($App.ContainsKey('Optional') -and $App.Optional)
+}
+
+# ---------------------------------------------------------------------------
+# Verification helpers with pure inputs (unit-tested in CI).
+# ---------------------------------------------------------------------------
+
+# Cubase may be a full edition or a bundled "Steinberg Cubase LE AI Elements 13".
+$script:CubaseDisplayNamePattern = '^(Steinberg )?Cubase'
+
+# Tailscale enrolment, login and Serve are manual/secret-backed boundaries. Any
+# backend state other than Running is reported as pending, never as a failure
+# that should be "fixed" by an automatic login or node registration.
+function Get-TailscaleBackendVerdict {
+    param([string]$BackendState)
+    if ($BackendState -eq 'Running') { return 'ok' }
+    return 'manual'
+}
+
+# Moves $Preferred to sit directly before $Shadowed in a PATH string. Entries are
+# never removed or rewritten; only the order changes. Returns the input
+# unchanged when the order is already right.
+function Get-ReorderedPath {
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][string]$Preferred,
+        [Parameter(Mandatory)][string]$Shadowed
+    )
+    $normalize = { param($e) $e.Trim().TrimEnd('\').ToLowerInvariant() }
+    $entries = [System.Collections.Generic.List[string]]::new()
+    foreach ($entry in ($Path -split ';')) { if ($entry) { $entries.Add($entry) } }
+
+    $preferredIndex = -1; $shadowedIndex = -1
+    for ($i = 0; $i -lt $entries.Count; $i++) {
+        $n = & $normalize $entries[$i]
+        if ($preferredIndex -lt 0 -and $n -eq (& $normalize $Preferred)) { $preferredIndex = $i }
+        if ($shadowedIndex -lt 0 -and $n -eq (& $normalize $Shadowed)) { $shadowedIndex = $i }
+    }
+
+    if ($shadowedIndex -lt 0) { return $Path }
+    if ($preferredIndex -ge 0 -and $preferredIndex -lt $shadowedIndex) { return $Path }
+
+    $value = if ($preferredIndex -ge 0) { $entries[$preferredIndex] } else { $Preferred }
+    if ($preferredIndex -ge 0) {
+        $entries.RemoveAt($preferredIndex)
+        if ($preferredIndex -lt $shadowedIndex) { $shadowedIndex-- }
+    }
+    $entries.Insert($shadowedIndex, $value)
+    return ($entries -join ';')
+}
