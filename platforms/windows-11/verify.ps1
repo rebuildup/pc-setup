@@ -15,6 +15,7 @@ function Write-Fail { param([string]$Message) Write-Host "FAIL  $Message" -Foreg
 function Write-WarnLocal { param([string]$Message) Write-Warning $Message; $script:Warnings++ }
 
 . (Join-Path $PSScriptRoot 'app-detection.ps1')
+. (Join-Path $PSScriptRoot 'visual-studio.ps1')
 
 function Test-CommandPresent {
     param([string]$Name)
@@ -109,6 +110,28 @@ if (Test-NotionInstalled) {
 }
 else {
     Write-Fail 'Notion missing'
+}
+
+Write-Host "`nVisual Studio (any edition/year; capabilities, not a product ID)"
+$vswhere = Get-VswherePath
+if (-not $vswhere) {
+    Write-Fail 'vswhere.exe not found; install any Visual Studio edition with the MSVC and Windows SDK components'
+}
+else {
+    $vsInstances = @(Get-VisualStudioStatus -VswherePath $vswhere)
+    $vsComplete = @($vsInstances | Where-Object { $_.Missing.Count -eq 0 })
+    if ($vsComplete.Count -gt 0) {
+        foreach ($vs in $vsComplete) {
+            Write-Ok "$($vs.Name) $($vs.Version): MSVC tools and Windows SDK present"
+            foreach ($workload in $vs.MissingRecommendedWorkloads) {
+                Write-WarnLocal "$($vs.Name): optional workload $workload not installed (not modified; enable it in Visual Studio Installer if a project needs it)"
+            }
+        }
+    }
+    else {
+        $detail = if ($vsInstances.Count -eq 0) { 'no Visual Studio instance found' } else { ($vsInstances | ForEach-Object { "$($_.Name) lacks: $($_.Missing -join ', ')" }) -join '; ' }
+        Write-Fail "no Visual Studio instance has the MSVC tools and Windows SDK ($detail). verify does not change Visual Studio; add the components in Visual Studio Installer."
+    }
 }
 
 Write-Host "`nRust (rustup is canonical on Windows)"

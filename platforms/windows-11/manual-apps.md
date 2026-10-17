@@ -69,7 +69,7 @@ Do not infer the actual key mapping from this installer inventory. Capture the m
 
 ## Visual Studio workloads
 
-`Microsoft.VisualStudio.2022.Community` installs the Visual Studio product shell.
+Any Visual Studio edition/year is accepted; pc-setup does not install one. `verify.ps1` checks the MSVC tools and Windows SDK capabilities and never modifies the installation.
 
 For the current Windows development use cases, review Visual Studio Installer and ensure the actual workloads/components required by active projects are present, especially:
 

@@ -46,7 +46,8 @@ bun = "1.4.2"
 "winget:Git.Git" = { os = "windows" }
 "winget:Microsoft.PowerShell" = { os = "windows" }
 "winget:Microsoft.DotNet.SDK.10" = { os = "windows" }
-"winget:Microsoft.VisualStudio.2022.Community" = { os = "windows" }
+# Visual Studio is intentionally not installed here: any edition/year is accepted
+# and platforms/windows-11/verify.ps1 checks the MSVC / Windows SDK capabilities.
 "winget:Google.AndroidStudio" = { os = "windows" }
 "winget:Google.CloudSDK" = { os = "windows" }
 "winget:Amazon.AWSCLI" = { os = "windows" }

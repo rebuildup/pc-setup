@@ -46,7 +46,6 @@ root `mise.toml` の mandatory Windows package phase には、bootstrap / develo
 - Git
 - PowerShell 7
 - .NET SDK 10
-- Visual Studio 2022 Community
 - Android Studio
 - Google Cloud SDK
 - AWS CLI
@@ -176,6 +175,13 @@ Creative Cloudへログイン後:
 Steinberg Download Assistantを使い、ライセンスに従ってCubaseを導入する。
 
 ### Visual Studio
+
+pc-setup は特定の製品 ID (例: `Microsoft.VisualStudio.2022.Community`) を要求しない。どの edition / 年版 (2022 Community、2026 Insiders、Build Tools など) でもよく、`verify.ps1` が `vswhere` で次の **capability** を検証する。
+
+- MSVC x64/x86 build tools (`Microsoft.VisualStudio.Component.VC.Tools.x86.x64`)
+- Windows 10/11 SDK (`Microsoft.VisualStudio.Component.Windows1[01]SDK.*`)
+
+不足していても Visual Studio の構成は自動変更しない (installer 実行・workload 追加/削除なし)。FAIL として報告するだけで、Visual Studio Installer での追加は手動。C++ / .NET desktop の workload は未導入なら WARN のみ。
 
 active projectに必要なworkloadだけをVisual Studio Installerから有効化する。
 
