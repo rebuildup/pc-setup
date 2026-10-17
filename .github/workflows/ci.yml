@@ -815,6 +815,73 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Validate Visual Studio capability check
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          if ((Get-Content -LiteralPath ./mise.toml -Raw) -match '(?m)^"winget:Microsoft\.VisualStudio\.') {
+            throw 'mise.toml must not require a specific Visual Studio product.'
+          }
+          . ./platforms/windows-11/visual-studio.ps1
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-vs-$([guid]::NewGuid())"
+          New-Item -ItemType Directory -Path $root | Out-Null
+          try {
+            function New-FakeVswhere([string]$Name, [object[]]$Instances) {
+              $json = Join-Path $root "$Name.json"
+              ConvertTo-Json -InputObject @($Instances) -Depth 6 | Set-Content -LiteralPath $json
+              $cmd = Join-Path $root "$Name.cmd"
+              "@echo off`r`ntype `"$json`"" | Set-Content -LiteralPath $cmd
+              return $cmd
+            }
+            function New-Package([string]$Id, [string]$Type = 'Component') { @{ id = $Id; type = $Type } }
+
+            $complete = @{
+              displayName = 'Visual Studio Community 2026'; installationVersion = '18.0'; installationPath = 'C:\vs'
+              packages = @(
+                (New-Package 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64'),
+                (New-Package 'Microsoft.VisualStudio.Component.Windows11SDK.26100'),
+                (New-Package 'Microsoft.VisualStudio.Workload.NativeDesktop' 'Workload')
+              )
+            }
+            $noSdk = @{
+              displayName = 'Visual Studio Build Tools 2022'; installationVersion = '17.0'; installationPath = 'C:\bt'
+              packages = @( (New-Package 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64') )
+            }
+            # A look-alike must not satisfy the SDK requirement.
+            $lookalike = @{
+              displayName = 'Lookalike'; installationVersion = '1'; installationPath = 'C:\x'
+              packages = @(
+                (New-Package 'Microsoft.VisualStudio.Component.VC.Tools.x86.x64'),
+                (New-Package 'Microsoft.VisualStudio.Component.Windows11Sdk.WindowsPerformanceToolkit')
+              )
+            }
+
+            $ok = @(Get-VisualStudioStatus -VswherePath (New-FakeVswhere 'ok' @($complete)))
+            if ($ok.Count -ne 1 -or $ok[0].Missing.Count -ne 0) { throw 'Any edition/year with MSVC and a Windows SDK must pass.' }
+            if ($ok[0].MissingRecommendedWorkloads -notcontains 'Microsoft.VisualStudio.Workload.ManagedDesktop') { throw 'Missing optional workloads must be reported.' }
+
+            $bad = @(Get-VisualStudioStatus -VswherePath (New-FakeVswhere 'bad' @($noSdk)))
+            if ($bad[0].Missing -notcontains 'Windows SDK') { throw 'A missing Windows SDK must be reported.' }
+
+            $look = @(Get-VisualStudioStatus -VswherePath (New-FakeVswhere 'look' @($lookalike)))
+            if ($look[0].Missing -notcontains 'Windows SDK') { throw 'The performance toolkit must not count as a Windows SDK.' }
+
+            $mixed = @(Get-VisualStudioStatus -VswherePath (New-FakeVswhere 'mixed' @($noSdk, $complete)))
+            if (@($mixed | Where-Object { $_.Missing.Count -eq 0 }).Count -ne 1) { throw 'One complete instance among several must satisfy the requirement.' }
+
+            # verify.ps1 only reads; it must not call any installer entry point.
+            $verify = Get-Content -LiteralPath ./platforms/windows-11/verify.ps1 -Raw
+            foreach ($forbidden in 'vs_installer', 'vs_community', 'setup.exe', '--add', 'modify') {
+              if ($verify -match [regex]::Escape($forbidden)) { throw "verify.ps1 must not modify Visual Studio ($forbidden)." }
+            }
+          }
+          finally {
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Validate Infisical-backed Tailscale provisioning
         shell: pwsh
         run: |
