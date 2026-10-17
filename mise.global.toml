@@ -62,8 +62,10 @@ os = ["windows"]
 
 [tools."github:herdrdev/herdr".platforms]
 # Windows ships a .zip; other platforms ship raw binaries and use the aqua entry.
+# Herdr only publishes a Windows x64 asset, so Windows ARM64 falls back to it
+# (x64 emulation). See release-0-6-0 for the original entry.
 windows-x64 = { asset_pattern = "herdr-windows-x86_64.zip" }
-windows-arm64 = { asset_pattern = "herdr-windows-arm64.zip" }
+windows-arm64 = { asset_pattern = "herdr-windows-x86_64.zip" }
 
 [tools."github:alibaba/open-code-review"]
 version = "latest"
@@ -104,8 +106,12 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 
 [settings.github]
 # Unix shells expand `$MISE_CREDENTIAL_HOST`; mise's Windows default inline shell
-# is `cmd.exe`, which does not. The Windows bootstrap copies a sibling entry that
-# uses `%MISE_CREDENTIAL_HOST%` syntax into the rendered ~/.config/mise/config.toml.
+# is `cmd.exe`, which does not, so this `$MISE_CREDENTIAL_HOST` form will not
+# resolve on Windows under mise's default shell. Generating a Windows-specific
+# `%MISE_CREDENTIAL_HOST%` variant in the rendered `~/.config/mise/config.toml`
+# is intentionally not implemented in this branch and is left to the
+# Windows/WSL bootstrap owner. The current `scripts/apply-global-mise.ps1`
+# copies the source config as-is.
 credential_command = 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'
 
 # Keep rustup's toolchain selection working: the `rust` tool would export
