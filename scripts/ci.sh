@@ -404,6 +404,48 @@ grep -Fq -- '--locked' scripts/apply-global-mise.sh
 grep -Fq 'PC_SETUP_MISE_SOURCE_LOCK_FILE' scripts/apply-global-mise.ps1
 grep -Fq -- "'--locked'" scripts/apply-global-mise.ps1
 
+printf 'Checking GitHub credential_command portability contract...\n'
+python3 - <<'PY'
+import tomllib
+from pathlib import Path
+
+# mise runs credential_command through its default inline shell -- `sh -o
+# errexit -c` on Unix, `cmd /c` on Windows -- and substitutes nothing itself.
+# A `$VAR` form therefore resolves on Unix only, and a `%VAR%` form resolves on
+# Windows only, so the shared machine-wide file carries the Unix form and
+# scripts/windows-mise-config.ps1 rewrites it for the rendered Windows copy.
+# Baking either spelling into the shared file breaks the other platform.
+with Path("mise.global.toml").open("rb") as fh:
+    config = tomllib.load(fh)
+
+command = config.get("settings", {}).get("github", {}).get("credential_command")
+if command is None:
+    raise SystemExit("mise.global.toml must declare settings.github.credential_command")
+
+if "%MISE_CREDENTIAL_HOST%" in command:
+    raise SystemExit(
+        "mise.global.toml must not use the cmd.exe %MISE_CREDENTIAL_HOST% form: "
+        "cmd.exe cannot be assumed on the Unix machines that also read this file"
+    )
+
+if "$MISE_CREDENTIAL_HOST" not in command:
+    raise SystemExit(
+        "credential_command must read the host from $MISE_CREDENTIAL_HOST; mise "
+        f"sets it for the command and the shell expands it: {command!r}"
+    )
+print("ok      mise.global.toml carries the portable $MISE_CREDENTIAL_HOST form")
+PY
+
+grep -Fq '%MISE_CREDENTIAL_HOST%' scripts/windows-mise-config.ps1
+grep -Fq 'windows-mise-config.ps1' scripts/apply-global-mise.ps1
+
+# The rewrite is the only thing standing between the shared Unix spelling and a
+# Windows machine, so it has to be exercised rather than merely grepped for.
+if command -v pwsh >/dev/null 2>&1; then
+  printf 'Running Windows mise config renderer checks...\n'
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-mise-config.ps1
+fi
+
 # Both CI steps that run apply-global-mise.sh under a strict fake mise have to
 # pin the lock source. A checkout carrying mise.global.lock would otherwise
 # switch them to `install --locked`, which the fake mise rejects, so every train
