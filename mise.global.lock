@@ -440,6 +440,15 @@ aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1
 backend = "npm:@mariozechner/pi-coding-agent"
 specifiers = ["latest"]
 
+[[tools."npm:@opencode/cli"]]
+version = "2.0.27"
+aube = { path = ".mise/locks/mise.global/npm-opencode-cli/2.0.27~009061c2", digest = "sha256:aad0cd46871ca868f21367bf6096a0b15ec87e61abb1b144a0f9602e7aa39b1a" }
+backend = "npm:@opencode/cli"
+specifiers = ["latest"]
+
+[tools."npm:@opencode/cli".options]
+allow_builds = '["@opencode/cli"]'
+
 [[tools."npm:npkill"]]
 version = "0.12.2"
 aube = { path = ".mise/locks/mise.global/npm-npkill/0.12.2", digest = "sha256:cf21ea8cbc0fbe8ef89734485f83d7b77464f06a50c8b1a170d5688726dc4e7e" }
@@ -451,31 +460,6 @@ version = "1.64.0"
 aube = { path = ".mise/locks/mise.global/npm-playwright/1.64.0", digest = "sha256:f59d688014768e57fe2563af80ef926b096a2e059ae642f8e3b826be989be08f" }
 backend = "npm:playwright"
 specifiers = ["latest"]
-
-[[tools.opencode]]
-version = "1.19.0"
-backend = "aqua:anomalyco/opencode"
-specifiers = ["latest"]
-
-[tools.opencode."platforms.linux-x64"]
-checksum = "sha256:7bb9e61ad6feacf2e89c10a6a2c1840e3de4220bb50ba1fc7110f31806076aec"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.0/opencode-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/629455299"
-
-[tools.opencode."platforms.macos-arm64"]
-checksum = "sha256:0d5f511948d6fbfedf9bb16753c0ac42613dcc8de75d9deb7e8d0cf584c8fba6"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.0/opencode-darwin-arm64.zip"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/629459345"
-
-[tools.opencode."platforms.macos-x64"]
-checksum = "sha256:515380b03f3410f2178c8c1c7ba6d1e9556a3bdee2a01d114e7b1681952131a0"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.0/opencode-darwin-x64.zip"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/629459348"
-
-[tools.opencode."platforms.windows-x64"]
-checksum = "sha256:17108e9448c4fdad48eb8714c4ed6f5dfc9cf86c2eb8f2ce5d02043fef806eb5"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.0/opencode-windows-x64.zip"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/629458990"
 
 [[tools.pnpm]]
 version = "12.11.2"
@@ -694,6 +678,7 @@ signer = "sigstore-oidc:https://github.com/max-sixty/worktrunk/.github/workflows
 checksum = "sha256:8a2bb053c4bc80dea7d9ce6c221ff038d10a3d2dca2dc8f60d1b1a094fa783a9"
 url = "https://github.com/max-sixty/worktrunk/releases/download/v0.80.0/worktrunk-aarch64-apple-darwin.tar.xz"
 signer = "sigstore-oidc:https://github.com/max-sixty/worktrunk/.github/workflows/release.yaml"
+repository_ids = { repository = "1078528927" }
 
 [tools.worktrunk."platforms.macos-x64"]
 checksum = "sha256:aa898aa301617abaf91cb3078de4c8c11444a061016dc8f6dd80aa17cc1c46be"
