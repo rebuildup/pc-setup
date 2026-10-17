@@ -3,18 +3,18 @@
 lockfile_version = 3
 
 [[tools.aws-cli]]
-version = "2.37.13"
+version = "2.38.0"
 backend = "aqua:aws/aws-cli"
 specifiers = ["latest"]
 
 [tools.aws-cli."platforms.linux-x64"]
-url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.37.13.zip"
+url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.38.0.zip"
 
 [tools.aws-cli."platforms.macos-arm64"]
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.13.pkg"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.38.0.pkg"
 
 [tools.aws-cli."platforms.macos-x64"]
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.13.pkg"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.38.0.pkg"
 
 [[tools.bat]]
 version = "0.26.1"
@@ -188,21 +188,21 @@ url = "https://github.com/junegunn/fzf/releases/download/v0.74.5/fzf-0.74.5-wind
 url_api = "https://api.github.com/repos/junegunn/fzf/releases/assets/629581724"
 
 [[tools.gcloud]]
-version = "588.0.0"
-backend = "vfox:mise-plugins/vfox-gcloud"
+version = "589.0.0"
+backend = "vfox:jdx/vfox-gcloud"
 specifiers = ["latest"]
 
 [tools.gcloud."platforms.linux-x64"]
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-588.0.0-linux-x86_64.tar.gz"
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-589.0.0-linux-x86_64.tar.gz"
 
 [tools.gcloud."platforms.macos-arm64"]
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-588.0.0-darwin-arm.tar.gz"
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-589.0.0-darwin-arm.tar.gz"
 
 [tools.gcloud."platforms.macos-x64"]
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-588.0.0-darwin-x86_64.tar.gz"
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-589.0.0-darwin-x86_64.tar.gz"
 
 [tools.gcloud."platforms.windows-x64"]
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-588.0.0-windows-x86_64-bundled-python.zip"
+url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-589.0.0-windows-x86_64-bundled-python.zip"
 
 [[tools.gdu]]
 version = "5.38.0"
@@ -340,7 +340,7 @@ url = "https://github.com/herdrdev/herdr/releases/download/v0.9.3/herdr-windows-
 url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/599036387"
 
 [[tools.infisical]]
-version = "0.43.141"
+version = "0.43.143"
 backend = "github:Infisical/cli"
 specifiers = ["latest"]
 
@@ -348,24 +348,24 @@ specifiers = ["latest"]
 asset_pattern = "cli_{{ version }}_{{ os(macos='darwin') }}_{{ arch(x64='amd64') }}.tar.gz"
 
 [tools.infisical."platforms.linux-x64"]
-checksum = "sha256:d93a9b5ae46c6097889926b95c1c09992f44619053793eaa61d66884726c95e5"
-url = "https://github.com/Infisical/cli/releases/download/v0.43.141/cli_0.43.141_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/625848459"
+checksum = "sha256:ce02c84be4164d8386c7534f93ce5b5467cf48b31b15e35e372f9979f3086308"
+url = "https://github.com/Infisical/cli/releases/download/v0.43.143/cli_0.43.143_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/635342857"
 
 [tools.infisical."platforms.macos-arm64"]
-checksum = "sha256:868aae3e772f3f0f17c2d5518c4ce9232920954279d3ccaba8174e65bffe49d5"
-url = "https://github.com/Infisical/cli/releases/download/v0.43.141/cli_0.43.141_darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/625841431"
+checksum = "sha256:e5d668dd03a49c601f82e3665979a59ba9001224c2bb92f5ca7e53c822e2be83"
+url = "https://github.com/Infisical/cli/releases/download/v0.43.143/cli_0.43.143_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/635336875"
 
 [tools.infisical."platforms.macos-x64"]
-checksum = "sha256:d8222cca518ce02da42b6cc6be3448eecec9e0347cfe39cab2f8ef842fcacb82"
-url = "https://github.com/Infisical/cli/releases/download/v0.43.141/cli_0.43.141_darwin_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/625841433"
+checksum = "sha256:7e0270e3423771a6e77f4fc8b7061c5f0c0ba4c6e4b33867e52cc27f69e3d76b"
+url = "https://github.com/Infisical/cli/releases/download/v0.43.143/cli_0.43.143_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/635336880"
 
 [tools.infisical."platforms.windows-x64"]
-checksum = "sha256:969c6fea963b27ad4f28dfccf8d6d8df218a37d6bdeff571d1439c4b99e03900"
-url = "https://github.com/Infisical/cli/releases/download/v0.43.141/cli_0.43.141_windows_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/625851053"
+checksum = "sha256:520e7e8bc2d40d5c2867d3b6041e83f2037847a117cd4477fb0c99c7d4cfd237"
+url = "https://github.com/Infisical/cli/releases/download/v0.43.143/cli_0.43.143_windows_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/635343432"
 
 [[tools.jq]]
 version = "1.8.2"
@@ -424,9 +424,18 @@ url = "https://nodejs.org/dist/v26.11.1/node-v26.11.1-darwin-arm64.tar.gz"
 
 [[tools."npm:@mariozechner/pi-coding-agent"]]
 version = "0.73.1"
-aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:2a6863e6a58fafdefacc3e96ee70baa9f809a72f42a8daba9ae98bf0ba8b1458" }
+aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:eb8f0cfd4a1f0118a51b13c1694d3fa2a0ad6f0128bcc339096bd7f00bf8564d" }
 backend = "npm:@mariozechner/pi-coding-agent"
 specifiers = ["latest"]
+
+[[tools."npm:@opencode/cli"]]
+version = "2.0.27"
+aube = { path = ".mise/locks/mise.global/npm-opencode-cli/2.0.27~009061c2", digest = "sha256:aad0cd46871ca868f21367bf6096a0b15ec87e61abb1b144a0f9602e7aa39b1a" }
+backend = "npm:@opencode/cli"
+specifiers = ["latest"]
+
+[tools."npm:@opencode/cli".options]
+allow_builds = '["@opencode/cli"]'
 
 [[tools."npm:npkill"]]
 version = "0.12.2"
@@ -439,31 +448,6 @@ version = "1.64.0"
 aube = { path = ".mise/locks/mise.global/npm-playwright/1.64.0", digest = "sha256:f59d688014768e57fe2563af80ef926b096a2e059ae642f8e3b826be989be08f" }
 backend = "npm:playwright"
 specifiers = ["latest"]
-
-[[tools.opencode]]
-version = "1.19.0"
-backend = "aqua:anomalyco/opencode"
-specifiers = ["latest"]
-
-[tools.opencode."platforms.linux-x64"]
-checksum = "sha256:7bb9e61ad6feacf2e89c10a6a2c1840e3de4220bb50ba1fc7110f31806076aec"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.0/opencode-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/629455299"
-
-[tools.opencode."platforms.macos-arm64"]
-checksum = "sha256:0d5f511948d6fbfedf9bb16753c0ac42613dcc8de75d9deb7e8d0cf584c8fba6"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.0/opencode-darwin-arm64.zip"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/629459345"
-
-[tools.opencode."platforms.macos-x64"]
-checksum = "sha256:515380b03f3410f2178c8c1c7ba6d1e9556a3bdee2a01d114e7b1681952131a0"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.0/opencode-darwin-x64.zip"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/629459348"
-
-[tools.opencode."platforms.windows-x64"]
-checksum = "sha256:17108e9448c4fdad48eb8714c4ed6f5dfc9cf86c2eb8f2ce5d02043fef806eb5"
-url = "https://github.com/anomalyco/opencode/releases/download/v1.19.0/opencode-windows-x64.zip"
-url_api = "https://api.github.com/repos/anomalyco/opencode/releases/assets/629458990"
 
 [[tools.pnpm]]
 version = "12.11.2"
