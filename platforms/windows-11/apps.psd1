@@ -5,6 +5,10 @@
 # AppxName    optional regex: the same app already installed as an MSIX/Store package
 # DisplayName optional regex: the same app already installed by a vendor installer
 #
+# Optional    $true: a failed install is recorded as pending (pending-apps.json under
+#             %LOCALAPPDATA%\pc-setup), never retried automatically, and does not make
+#             verify.ps1 fail. Delete the entry to allow a retry.
+#
 # AppxName/DisplayName let install-apps.ps1 and verify.ps1 adopt an existing
 # install made through another channel instead of installing a second copy.
 @{
@@ -17,10 +21,10 @@
         @{ Id = 'Logitech.GHUB'; Name = 'Logitech G HUB'; DisplayName = '^Log(itech|icool) G HUB' }
         @{ Id = 'LinearOrbit.Linear'; Name = 'Linear' }
         @{ Id = 'SlackTechnologies.Slack'; Name = 'Slack'; AppxName = '^91750D7E\.Slack$'; DisplayName = '^Slack' }
-        @{ Id = 'Microsoft.Teams'; Name = 'Microsoft Teams'; AppxName = '^MSTeams$' }
+        @{ Id = 'Microsoft.Teams'; Name = 'Microsoft Teams'; AppxName = '^MSTeams$'; Optional = $true }
         @{ Id = 'Anysphere.Cursor'; Name = 'Cursor'; DisplayName = '^Cursor' }
         @{ Id = 'Microsoft.VisualStudioCode'; Name = 'Visual Studio Code' }
-        @{ Id = 'Warp.Warp'; Name = 'Warp'; DisplayName = '^Warp' }
+        @{ Id = 'Warp.Warp'; Name = 'Warp'; DisplayName = '^Warp'; Optional = $true }
         @{ Id = 'Adobe.CreativeCloud'; Name = 'Adobe Creative Cloud' }
         @{ Id = 'jtroo.kanata_gui'; Name = 'kanata GUI' }
     )

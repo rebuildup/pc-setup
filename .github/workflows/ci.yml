@@ -882,6 +882,108 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      - name: Validate pending apps, Cubase, Tailscale and PowerShell PATH handling
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          . ./platforms/windows-11/app-detection.ps1
+
+          # Cubase: bundled editions such as "Cubase LE AI Elements" are installs.
+          foreach ($name in 'Steinberg Cubase LE AI Elements 13', 'Cubase 14', 'Steinberg Cubase Pro 13') {
+            if ($name -notmatch $script:CubaseDisplayNamePattern) { throw "$name must be recognised as Cubase." }
+          }
+          if ('Steinberg Download Assistant' -match $script:CubaseDisplayNamePattern) { throw 'Download Assistant is not Cubase.' }
+
+          # Tailscale: only Running is ok; everything else is a manual boundary.
+          if ((Get-TailscaleBackendVerdict -BackendState 'Running') -ne 'ok') { throw 'Running must be ok.' }
+          foreach ($state in 'NoState', 'NeedsLogin', 'Stopped', 'Starting', '') {
+            if ((Get-TailscaleBackendVerdict -BackendState $state) -ne 'manual') { throw "$state must be a manual boundary." }
+          }
+          $verify = Get-Content -LiteralPath ./platforms/windows-11/verify.ps1 -Raw
+          foreach ($mutating in '\$tailscale\s+(up|login|logout|down|set|set-raw)\b', '\$tailscale\s+serve\s+(--|reset|\d)') {
+            if ($verify -match $mutating) { throw "verify.ps1 must not change Tailscale state ($mutating)." }
+          }
+
+          # PATH reordering keeps every entry; only the order changes.
+          $x64 = 'C:\Program Files\PowerShell\7'
+          $x86 = 'C:\Program Files (x86)\PowerShell\7\'
+          $path = 'C:\a;C:\Program Files (x86)\PowerShell\7\;C:\b;C:\Program Files\PowerShell\7;C:\c'
+          $fixed = Get-ReorderedPath -Path $path -Preferred $x64 -Shadowed $x86
+          if ($fixed -ne 'C:\a;C:\Program Files\PowerShell\7;C:\Program Files (x86)\PowerShell\7\;C:\b;C:\c') { throw "Unexpected reorder: $fixed" }
+          if ((Get-ReorderedPath -Path $fixed -Preferred $x64 -Shadowed $x86) -ne $fixed) { throw 'Reordering must be idempotent.' }
+          $missing = Get-ReorderedPath -Path 'C:\a;C:\Program Files (x86)\PowerShell\7;C:\b' -Preferred $x64 -Shadowed $x86
+          if ($missing -ne 'C:\a;C:\Program Files\PowerShell\7;C:\Program Files (x86)\PowerShell\7;C:\b') { throw "Preferred entry must be inserted: $missing" }
+          $noX86 = 'C:\a;C:\b'
+          if ((Get-ReorderedPath -Path $noX86 -Preferred $x64 -Shadowed $x86) -ne $noX86) { throw 'Without an x86 entry the PATH must be unchanged.' }
+          $sortedIn = ($path -split ';' | ForEach-Object { $_.TrimEnd('\').ToLowerInvariant() } | Sort-Object) -join '|'
+          $sortedOut = ($fixed -split ';' | ForEach-Object { $_.TrimEnd('\').ToLowerInvariant() } | Sort-Object) -join '|'
+          if ($sortedIn -ne $sortedOut) { throw 'Reordering must not add or remove entries.' }
+
+          # Optional apps: a failed install is recorded once and never retried.
+          $inventory = Import-PowerShellDataFile -LiteralPath ./platforms/windows-11/apps.psd1
+          foreach ($id in 'Microsoft.Teams', 'Warp.Warp') {
+            if (-not ($inventory.WingetApps | Where-Object { $_.Id -eq $id -and $_.Optional })) { throw "$id must be optional." }
+          }
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-optional-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+          $oldPath = $env:PATH
+          try {
+            $env:PC_SETUP_STATE_DIR = Join-Path $root 'state'
+            $env:FAKE_WINGET_LOG = Join-Path $root 'winget.log'
+            @'
+          @{
+              WingetApps = @(
+                  @{ Id = 'Opt.App'; Name = 'Optional'; Optional = $true }
+                  @{ Id = 'Req.App'; Name = 'Required' }
+              )
+          }
+          '@ | Set-Content -LiteralPath (Join-Path $root 'apps.psd1')
+            @'
+          @echo off
+          if "%1"=="list" exit /b 1
+          if "%1"=="install" (
+            echo %3>>"%FAKE_WINGET_LOG%"
+            exit /b 42
+          )
+          exit /b 0
+          '@ | Set-Content -LiteralPath (Join-Path $fakeBin 'winget.cmd')
+            $env:PATH = "$fakeBin;$oldPath"
+
+            function Get-AppxPackage { @() }
+            & ./platforms/windows-11/install-apps.ps1 -InventoryPath (Join-Path $root 'apps.psd1')
+            & ./platforms/windows-11/install-apps.ps1 -InventoryPath (Join-Path $root 'apps.psd1')
+
+            $attempts = @(Get-Content -LiteralPath $env:FAKE_WINGET_LOG)
+            $optionalAttempts = @($attempts | Where-Object { $_ -eq 'Opt.App' }).Count
+            $requiredAttempts = @($attempts | Where-Object { $_ -eq 'Req.App' }).Count
+            if ($optionalAttempts -ne 1) { throw "Optional app must be attempted exactly once, was $optionalAttempts." }
+            if ($requiredAttempts -ne 2) { throw "Required app keeps being attempted, was $requiredAttempts." }
+            $pending = Get-Content -LiteralPath (Join-Path $env:PC_SETUP_STATE_DIR 'pending-apps.json') -Raw | ConvertFrom-Json
+            if (-not $pending.PSObject.Properties['Opt.App']) { throw 'Failure of the optional app must be recorded.' }
+            if ($pending.PSObject.Properties['Req.App']) { throw 'Required apps must not be recorded as pending.' }
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:PC_SETUP_STATE_DIR, Env:FAKE_WINGET_LOG -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          # Herdr: Windows pins the GitHub backend (newer than the aqua registry);
+          # Linux/macOS keep the registry entry.
+          $toml = Get-Content -LiteralPath ./mise.global.toml -Raw
+          if ($toml -notmatch '(?m)^herdr = \{ version = "latest", os = \["linux", "macos"\] \}') { throw 'The registry herdr must be limited to linux/macos.' }
+          if ($toml -notmatch '(?s)\[tools\."github:herdrdev/herdr"\][^\[]*os = \["windows"\]') { throw 'The GitHub-backend herdr must be Windows-only.' }
+          if ($toml -notmatch 'herdr-windows-x86_64\.zip') { throw 'The Windows herdr asset pattern is required.' }
+          if ((Get-Content -LiteralPath ./mise.global.lock -Raw) -notmatch 'backend = "github:herdrdev/herdr"') { throw 'mise.global.lock must contain the GitHub-backend herdr.' }
+
+          # The fake winget above leaves a non-zero $LASTEXITCODE, which pwsh would
+          # otherwise report as the step's exit code.
+          $global:LASTEXITCODE = 0
+
       - name: Validate Infisical-backed Tailscale provisioning
         shell: pwsh
         run: |

@@ -314,6 +314,20 @@ url = "https://github.com/alibaba/open-code-review/releases/download/v1.12.13/op
 url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/621701110"
 provenance = "github-attestations"
 
+[[tools."github:herdrdev/herdr"]]
+version = "0.9.5"
+backend = "github:herdrdev/herdr"
+specifiers = ["latest"]
+
+[tools."github:herdrdev/herdr".options]
+asset_pattern = "herdr-windows-x86_64.zip"
+
+[tools."github:herdrdev/herdr"."platforms.windows-x64"]
+checksum = "sha256:d2c6c9c971c43a0bfdde8c692a9a1a7a45c3e4807cd01ae45662b4734fac1cbf"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-windows-x86_64.zip"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898234"
+provenance = "github-attestations"
+
 [[tools.herdr]]
 version = "0.9.3"
 backend = "aqua:herdrdev/herdr"

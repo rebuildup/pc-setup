@@ -110,6 +110,31 @@ Windows の Rust toolchain の正本は既存の rustup (`rustup.rs`) であり�
 - `cargo:cargo-clean-all` など Rust 依存の cargo backend tool は、Rust 自体を mise に要求しない。`cargo` は PATH 上の rustup proxy を使う。
 - `verify.ps1` は `rustup run stable rustc/cargo` で実バイナリを確認する。
 
+### Optional apps and pending items
+
+`apps.psd1` の `Optional = $true` は任意アプリ (Microsoft Teams、Warp)。
+
+- 導入に失敗したら `%LOCALAPPDATA%\pc-setup\pending-apps.json` に記録し、以後 `install-apps.ps1` は自動再試行しない。再試行したい場合はその entry を削除する。
+- `verify.ps1` は未導入でも FAIL にせず WARN (pending) とする。必須の開発環境の成立を妨げない。
+- Tailscale の backend が `Running` 以外 (`NoState` / `NeedsLogin` など) の場合、verify は WARN (手動境界) とする。認証・node 登録・Serve 設定は自動実行せず、既存の node identity を変更しない。
+
+### PowerShell
+
+Windows の PowerShell は WinGet 管理の `Microsoft.PowerShell` を正本とし、`mise.global.toml` の `powershell` は Linux/macOS 限定。
+
+Machine PATH で x86 版 (`Program Files (x86)\PowerShell`) が x64 版より先にある場合、`pwsh` は x86 版に解決される。Machine PATH は User PATH より先に評価されるため、User 側では直せない。
+
+```powershell
+pwsh -NoProfile -File platforms/windows-11/powershell-path.ps1          # plan のみ
+pwsh -NoProfile -File platforms/windows-11/powershell-path.ps1 -Apply   # 管理者 shell で実行
+```
+
+並び順だけを変更し、PATH entry も PowerShell 本体も削除しない。変更前の PATH は `%LOCALAPPDATA%\pc-setup` に保存する。
+
+### Herdr
+
+実機の Herdr は GitHub backend (`github:herdrdev/herdr`、aqua registry より新しい)。Windows だけこの宣言を `mise.global.toml` に置き、Linux/macOS は従来の registry entry のまま。`mise.global.lock` には Windows の GitHub backend entry を追加している。
+
 ## Microsoft Store boundary
 
 miseのWinGet managerではStore sourceをこのrepositoryの要件どおり明示できないため、Store product IDをroot PowerShell adapterが扱う。

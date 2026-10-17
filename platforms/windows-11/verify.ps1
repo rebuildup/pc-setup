@@ -89,7 +89,9 @@ else {
     $appAppxPackages = @(Get-AppxPackage -ErrorAction SilentlyContinue)
     foreach ($app in $inventory.WingetApps) {
         $channel = Get-AppInstallChannel -App $app -DisplayNames $appDisplayNames -AppxPackages $appAppxPackages
-        if ($channel) { Write-Ok "$($app.Name) installed ($channel)" } else { Write-Fail "$($app.Name) missing" }
+        if ($channel) { Write-Ok "$($app.Name) installed ($channel)" }
+        elseif (Test-OptionalApp -App $app) { Write-WarnLocal "$($app.Name) is not installed (optional, pending; does not block the development environment)" }
+        else { Write-Fail "$($app.Name) missing" }
     }
 
     # Store apps: winget --name can miss an installed MSIX (observed with
@@ -134,6 +136,19 @@ else {
     }
 }
 
+Write-Host "`nPowerShell (WinGet-managed Microsoft.PowerShell is canonical)"
+$pwshCommand = Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+$pwshX64 = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+if (-not (Test-Path -LiteralPath $pwshX64)) {
+    Write-Fail "PowerShell 7 x64 not found at $pwshX64"
+}
+elseif ($pwshCommand -and ($pwshCommand.Source -ne $pwshX64)) {
+    Write-WarnLocal "pwsh resolves to $($pwshCommand.Source), not the x64 install. Nothing was removed; run platforms/windows-11/powershell-path.ps1 (plan) and -Apply from an elevated shell, or call $pwshX64 explicitly."
+}
+else {
+    Write-Ok "pwsh -> $pwshX64"
+}
+
 Write-Host "`nRust (rustup is canonical on Windows)"
 $rustup = Get-Command rustup -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $rustup) {
@@ -159,6 +174,7 @@ if (-not $tailscale) {
 else {
     Write-Ok 'Tailscale command available'
 
+    $tailscaleVerdict = 'manual'
     $statusOutput = @(& $tailscale status --json 2>$null)
     if ($LASTEXITCODE -ne 0 -or $statusOutput.Count -eq 0) {
         Write-Fail 'Tailscale status unavailable'
@@ -166,11 +182,14 @@ else {
     else {
         try {
             $status = ($statusOutput -join [Environment]::NewLine) | ConvertFrom-Json
-            if ($status.BackendState -eq 'Running') {
+            $tailscaleVerdict = Get-TailscaleBackendVerdict -BackendState $status.BackendState
+            if ($tailscaleVerdict -eq 'ok') {
                 Write-Ok 'Tailscale backend running'
             }
             else {
-                Write-Fail "Tailscale backend state is $($status.BackendState)"
+                # Login, node registration and Serve are manual/secret-backed
+                # boundaries (setup-tailscale.ps1); verify only reports them.
+                Write-WarnLocal "Tailscale backend state is $($status.BackendState) (pending manual step: authenticate and run setup-tailscale.ps1; the existing node identity is left as is)"
             }
         }
         catch {
@@ -180,7 +199,7 @@ else {
 
     $serveStatus = @(& $tailscale serve status 2>$null) -join [Environment]::NewLine
     if ($LASTEXITCODE -ne 0) {
-        Write-Fail 'Tailscale Serve status unavailable'
+        if ($tailscaleVerdict -eq 'ok') { Write-Fail 'Tailscale Serve status unavailable' } else { Write-WarnLocal 'Tailscale Serve status unavailable (backend is not Running; pending manual step)' }
     }
     else {
         foreach ($mapping in $tailscaleConfig.Tailscale.Serve) {
@@ -190,7 +209,8 @@ else {
                 Write-Ok "Tailscale Serve $($mapping.ListenPort) -> $($mapping.Target)"
             }
             else {
-                Write-Fail "Tailscale Serve mapping missing for port $($mapping.ListenPort)"
+                if ($tailscaleVerdict -eq 'ok') { Write-Fail "Tailscale Serve mapping missing for port $($mapping.ListenPort)" }
+                else { Write-WarnLocal "Tailscale Serve mapping for port $($mapping.ListenPort) is pending (backend is not Running; configure after the manual authentication step)" }
             }
         }
     }
@@ -209,7 +229,7 @@ $script:InstalledDisplayNames = @(Get-InstalledDisplayNames)
 Write-Host "`nVendor-managed child applications"
 Test-InstalledDisplayName -Pattern 'After Effects' -Label 'Adobe After Effects'
 Test-InstalledDisplayName -Pattern 'Illustrator' -Label 'Adobe Illustrator'
-Test-InstalledDisplayName -Pattern '^Cubase' -Label 'Cubase'
+Test-InstalledDisplayName -Pattern $script:CubaseDisplayNamePattern -Label 'Cubase'
 
 if ($script:InstalledDisplayNames | Where-Object { $_ -match 'Steinberg Download Assistant' }) { Write-Ok 'Steinberg Download Assistant installed' } else { Write-WarnLocal 'Steinberg Download Assistant not found; verify manually if Cubase is managed another way' }
 
