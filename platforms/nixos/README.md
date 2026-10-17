@@ -287,14 +287,18 @@ gh auth status
 
 Claude Code 本体は `mise.global.toml` の portable CLI baseline から導入します。
 
-provider 接続は machine provisioning ではなく `rebuildup/dotfiles` の Infisical runtime integration が所有します。MiMo 利用時は dotfiles の provider entrypoint 経由で起動します。
+provider 接続は machine provisioning ではなく `rebuildup/dotfiles` の Infisical runtime integration が所有します。
 
 ```bash
-claude
-# equivalent: ~/.dotfiles/script/agent/mimo claude
+claude                          # official native Claude Code login
+agent list                      # configured harness/provider routes
+agent claude openrouter         # explicit opt-in API route (dotfiles launcher)
+agent opencode zen              # free OpenCode Zen models
+# MiMo は dotfiles の tuned entrypoint が維持:
+~/.dotfiles/script/agent/mimo claude
 ```
 
-`~/.config/pc-setup/shell-init.bash` は `~/.dotfiles/script/agent` を PATH 先頭に置き、`mimo` entrypoint が存在する場合に `claude` を process-scoped injection へ委譲します。委譲は shell function と、agent 配下の `claude` PATH shim の両方で行うため、function 未定義のシェルでも素の Claude Code に落ちません。provider URL / model / credential は shell には export されません。
+`~/.config/pc-setup/shell-init.bash` は `~/.dotfiles/script/agent`（provider-tuned entrypoint）を PATH に追加するだけで、`claude` を shell function や PATH shim で委譲しません（native CLI のまま）。provider URL / model / credential を shell に export もしません。代替API route は `agent` launcher（`~/.local/bin/agent`、設定は `~/.dotfiles/config/agents.toml`）が process-scoped に注入します。`agent` 本体は dotfiles の `./script/link` が配置します。
 
 ### OpenCode
 

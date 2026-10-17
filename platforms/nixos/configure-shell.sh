@@ -26,11 +26,9 @@ if [[ -d "$pc_setup_agent_entry" ]]; then
     *) export PATH="$pc_setup_agent_entry:$PATH" ;;
   esac
 fi
-if [[ -x "$pc_setup_agent_entry/mimo" ]]; then
-  claude() {
-    "$HOME/.dotfiles/script/agent/mimo" claude "$@"
-  }
-fi
+# Native 'claude' stays untouched. Opt-in API routes go through the dotfiles
+# `agent` launcher: ~/.local/bin/agent, config ~/.dotfiles/config/agents.toml
+# (process-scoped Infisical injection, explicit provider per launch).
 
 if command -v wt >/dev/null 2>&1; then
   eval "$(wt config shell init bash)"

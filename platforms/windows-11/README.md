@@ -148,6 +148,17 @@ Windows nativeのsymlink adapterはまだcanonical化していないため、roo
 
 現時点のuser-level agent/dotfiles設定はWSL側をcanonicalとし、Windows native adapter完成後に同じsource of truthを接続する。
 
+例外として、統一 `agent` ランチャー（rebuildup/dotfiles PR #46）はBun + TypeScriptの単一実装（`script/agent.ts`）でWindows nativeを直接サポートする。symlink不要で、以下で起動できる:
+
+```powershell
+& ~\.dotfiles\script\agent.ps1 check
+& ~\.dotfiles\script\agent.ps1 opencode zen -- run "explain this repo"
+& ~\.dotfiles\script\agent.ps1 opencode-zen -- run "..."   # shortcut form（TOML由来）
+& ~\.dotfiles\script\agent.ps1 shortcuts create            # ~/.local/bin に最小 .cmd を生成
+```
+
+Secret注入は `script/with-secrets.ps1`（`infisical.exe` をWindows nativeで起動）。`config/agents.toml` は全OS共通のsource of truth。引数の忠実な渡し方にはPowerShell 7.3+を推奨（entry scriptが `$PSNativeCommandArgumentPassing = 'Standard'` を設定）。`bun` と `pwsh` はmise bootstrap（`mise.global.toml` / mandatory package）で揃う。
+
 ## Manual/vendor boundaries
 
 次はpackage presenceだけでは完了しない。
