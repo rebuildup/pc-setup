@@ -88,6 +88,20 @@ F1でのOnishi/QWERTY切替、Caps extra layer等は `platforms/macos/kanata` �
 
 KanataとKarabiner VirtualHID daemonはsystem LaunchDaemonとして起動する。詳細とTCC permission boundaryは [kanata/README.md](./kanata/README.md) を参照。
 
+## Orca
+
+[Orca](https://github.com/stablyai/orca) は、並列に動かすエージェントの worktree と terminal をまとめて扱う任意の GUI frontend である（[ADR-0014](../../docs/adr/ADR-0014.md)）。`mise bootstrap packages apply` が Homebrew cask で導入する。
+
+worktree の作成・削除時の処理は、各 project の `mise run worktree:setup` / `worktree:teardown` が持つ。Orca と Worktrunk はどちらもそれを呼ぶだけなので、Orca がなくても同じ状態を作れる。
+
+### 初回設定（手動）
+
+Orca の設定は Orca 自身の profile state に保存され、pc-setup は書き換えない。初回起動後に次を設定する。
+
+1. **Settings → General → Workspace** で、外部の worktree を表示する。Worktrunk や plain git で作った worktree が sidebar に出る。
+2. **Settings → Agents** の Skill は、Orca の updater に任せる。Orca の Skill stub を project の `skills-lock.json` や dotfiles に入れない。
+3. Orca から worktree を作る場合は、**Advanced** で branch 名を Issue 番号にする。
+
 ## Containers (Colima)
 
 コンテナ実行は Docker Desktop ではなく [Colima](https://github.com/abiosoft/colima) で構成する ([ADR-0013](../../docs/adr/ADR-0013.md))。
