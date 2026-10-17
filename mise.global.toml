@@ -1,20 +1,36 @@
 # Managed by rebuildup/pc-setup.
 # Machine-wide portable CLI/runtime defaults. Project configs override these values.
 
+# The `rust` tool exports RUSTUP_TOOLCHAIN, which rustup ranks above a
+# project's rust-toolchain.toml. Letting mise read rust-toolchain.toml makes
+# the project's pin the selected mise version, so RUSTUP_TOOLCHAIN carries the
+# project pin; a project mise.toml `rust` entry still wins as usual, and the
+# global `rust = "stable"` applies only where a project declares neither.
+[settings]
+idiomatic_version_file_enable_tools = ["rust"]
+
 [tools]
-node = "24"
+node = "26"
 python = "3.14"
 bun = "latest"
 pnpm = "latest"
-rust = "stable"
+# Linux/macOS: mise manages Rust. Windows: the existing rustup installation is
+# canonical (see platforms/windows-11/README.md); apply-global-mise.ps1 also
+# adds `disable_tools = ["rust"]` there so no config can make mise touch it.
+rust = { version = "stable", os = ["linux", "macos"] }
 
 gh = "latest"
 infisical = "latest"
 claude = "latest"
 codex = "latest"
-"npm:@opencode/cli" = "latest"
+# OpenCode 2 is distributed as @opencode/cli on npm; the legacy `opencode` tool
+# (aqua:anomalyco/opencode) only tracks the 1.x GitHub releases.
+"npm:@opencode/cli" = { version = "latest", depends = ["node"], allow_builds = ["@opencode/cli"] }
 worktrunk = "latest"
-herdr = "latest"
+# herdr: the aqua registry entry lags the GitHub releases, so Windows pins the GitHub
+# backend below (same as the maintained machine: 0.9.5 vs aqua 0.9.3). Linux/macOS
+# keep the registry entry unchanged.
+herdr = { version = "latest", os = ["linux", "macos"] }
 
 gcloud = { version = "latest", os = ["linux", "macos"] }
 aws-cli = { version = "latest", os = ["linux", "macos"] }
@@ -32,13 +48,22 @@ bat = "latest"
 gdu = "latest"
 shellcheck = "latest"
 neovim = "latest"
-powershell = "7.6.6"
+# Windows PowerShell is WinGet-managed (Microsoft.PowerShell); a second mise copy
+# would shadow it with an older shim.
+powershell = { version = "7.6.6", os = ["linux", "macos"] }
 "npm:@mariozechner/pi-coding-agent" = "latest"
-# DeepSeek Harness. Every upstream version is a prerelease (rc/alpha), so the
-# version is pinned explicitly; bump by hand after verifying a new rc.
-"npm:@deepseek-ai/dsh" = "0.2.0-rc.2"
 "npm:playwright" = "latest"
-ruby = "3"
+ruby = "4"
+
+[tools."github:herdrdev/herdr"]
+version = "latest"
+bin = "herdr"
+os = ["windows"]
+
+[tools."github:herdrdev/herdr".platforms]
+# Windows ships a .zip; other platforms ship raw binaries and use the aqua entry.
+windows-x64 = { asset_pattern = "herdr-windows-x86_64.zip" }
+windows-arm64 = { asset_pattern = "herdr-windows-arm64.zip" }
 
 [tools."github:alibaba/open-code-review"]
 version = "latest"
@@ -66,6 +91,7 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 "brew-cask:firefox" = { version = "latest", os = "macos" }
 "brew-cask:stablyai/orca/orca" = { version = "latest", os = "macos" }
 "brew:ffmpeg" = { version = "latest", os = "macos" }
+"brew:zsh-autosuggestions" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
 "brew:docker" = { version = "latest", os = "macos" }
 "brew:docker-compose" = { version = "latest", os = "macos" }
@@ -75,11 +101,11 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 # exists and makes every `docker pull` fail. This formula provides the same
 # Keychain-backed helper without Docker Desktop.
 "brew:docker-credential-helper" = { version = "latest", os = "macos" }
-"brew-cask:microsoft-powerpoint" = { version = "latest", os = ["macos"] }
-"brew-cask:claude" = { version = "latest", os = ["macos"] }
-"brew-cask:crosspaste" = { version = "latest", os = ["macos"] }
 
 [settings.github]
+# Unix shells expand `$MISE_CREDENTIAL_HOST`; mise's Windows default inline shell
+# is `cmd.exe`, which does not. The Windows bootstrap copies a sibling entry that
+# uses `%MISE_CREDENTIAL_HOST%` syntax into the rendered ~/.config/mise/config.toml.
 credential_command = 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'
 
 # Keep rustup's toolchain selection working: the `rust` tool would export
@@ -89,10 +115,13 @@ credential_command = 'gh auth token --hostname "$MISE_CREDENTIAL_HOST"'
 [env]
 RUSTUP_TOOLCHAIN = ""
 
-# npm tools install through `npm install -g` instead of the embedded aube
+# npm tools install through `npm install -g` instead of mise's embedded aube
 # installer: aube cannot round-trip dsh's large dependency graph into
 # aube-lock.yaml (YAML parse failure at `mise lock` time), so npm tools no
-# longer record transitive-graph sidecars. See ADR-0010.
+# longer record transitive-graph sidecars. The two options below are applied
+# only to the global install path: projects that rely on aube's trust policy
+# and sidecars can opt out by overriding them in their project mise.toml. See
+# ADR-0010.
 [settings.npm]
 package_manager = "npm"
 shell_out = true

@@ -207,6 +207,14 @@ converge() {
 # Keeping the job alive means the LaunchDaemon must not restart it on success.
 converge || exit 1
 
+# Clear the Kanata virtual keyboard as soon as the physical layout has converged,
+# before the first watch_interval wait. The virtual keyboard restores the mapping
+# every time the DriverKit extension registers, so doing it here closes the gap
+# between converge and the first verify_state; otherwise a stale mapping on the
+# virtual keyboard would survive for watch_interval seconds on the login screen.
+# The drift loop retries clear_virtual_keyboard, so a failure here is not fatal.
+clear_virtual_keyboard || log "virtual keyboard clear at startup failed; the drift loop will retry"
+
 while true; do
   /bin/sleep "$watch_interval"
 

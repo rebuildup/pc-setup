@@ -483,6 +483,7 @@ provenance = "github-attestations"
 [[tools."github:alibaba/open-code-review"]]
 version = "1.13.0"
 backend = "github:alibaba/open-code-review"
+specifiers = ["latest"]
 
 [tools."github:alibaba/open-code-review".options]
 asset_pattern = "opencodereview-darwin-amd64"
@@ -502,6 +503,7 @@ provenance = "github-attestations"
 [[tools."github:alibaba/open-code-review"]]
 version = "1.13.0"
 backend = "github:alibaba/open-code-review"
+specifiers = ["latest"]
 
 [tools."github:alibaba/open-code-review".options]
 asset_pattern = "opencodereview-linux-amd64"
@@ -533,6 +535,7 @@ provenance = "github-attestations"
 [[tools."github:alibaba/open-code-review"]]
 version = "1.13.0"
 backend = "github:alibaba/open-code-review"
+specifiers = ["latest"]
 
 [tools."github:alibaba/open-code-review".options]
 asset_pattern = "opencodereview-windows-amd64.exe"
@@ -547,6 +550,73 @@ provenance = "github-attestations"
 checksum = "sha256:595aafc7f072f1aaf531823121341886687aae9cd45a60323383c9db635d19d9"
 url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.0/opencodereview-windows-amd64.exe"
 url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/636612927"
+provenance = "github-attestations"
+
+[[tools."github:herdrdev/herdr"]]
+version = "0.9.5"
+backend = "github:herdrdev/herdr"
+specifiers = ["latest"]
+
+[tools."github:herdrdev/herdr"."platforms.linux-x64"]
+checksum = "sha256:14d9e8bc8b4a9e0118d77c32266f76d461f09b40342eb23752960bd89f59929d"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898235"
+provenance = "github-attestations"
+
+[tools."github:herdrdev/herdr"."platforms.linux-x64-baseline"]
+checksum = "sha256:14d9e8bc8b4a9e0118d77c32266f76d461f09b40342eb23752960bd89f59929d"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898235"
+provenance = "github-attestations"
+
+[tools."github:herdrdev/herdr"."platforms.linux-x64-musl"]
+checksum = "sha256:14d9e8bc8b4a9e0118d77c32266f76d461f09b40342eb23752960bd89f59929d"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898235"
+provenance = "github-attestations"
+
+[tools."github:herdrdev/herdr"."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:14d9e8bc8b4a9e0118d77c32266f76d461f09b40342eb23752960bd89f59929d"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-linux-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898235"
+provenance = "github-attestations"
+
+[tools."github:herdrdev/herdr"."platforms.macos-arm64"]
+checksum = "sha256:fb77c2232a05a8035421382c894392f4174e4e38a18e48af3dd0290157c3a7e2"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-aarch64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898230"
+provenance = "github-attestations"
+
+[tools."github:herdrdev/herdr"."platforms.macos-x64"]
+checksum = "sha256:5fb0a908ec7f6745e3e245738b06bfad56c46391c391ab3c0955fbead01f1369"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898229"
+provenance = "github-attestations"
+
+[tools."github:herdrdev/herdr"."platforms.macos-x64-baseline"]
+checksum = "sha256:5fb0a908ec7f6745e3e245738b06bfad56c46391c391ab3c0955fbead01f1369"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-x86_64"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898229"
+provenance = "github-attestations"
+
+[[tools."github:herdrdev/herdr"]]
+version = "0.9.5"
+backend = "github:herdrdev/herdr"
+specifiers = ["latest"]
+
+[tools."github:herdrdev/herdr".options]
+asset_pattern = "herdr-windows-x86_64.zip"
+
+[tools."github:herdrdev/herdr"."platforms.windows-x64"]
+checksum = "sha256:d2c6c9c971c43a0bfdde8c692a9a1a7a45c3e4807cd01ae45662b4734fac1cbf"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-windows-x86_64.zip"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898234"
+provenance = "github-attestations"
+
+[tools."github:herdrdev/herdr"."platforms.windows-x64-baseline"]
+checksum = "sha256:d2c6c9c971c43a0bfdde8c692a9a1a7a45c3e4807cd01ae45662b4734fac1cbf"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-windows-x86_64.zip"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898234"
 provenance = "github-attestations"
 
 [[tools.herdr]]
@@ -744,50 +814,45 @@ url = "https://github.com/neovim/neovim/releases/download/v0.12.6/nvim-win64.zip
 url = "https://github.com/neovim/neovim/releases/download/v0.12.6/nvim-win64.zip"
 
 [[tools.node]]
-version = "24.22.0"
+version = "26.11.1"
 backend = "core:node"
-specifiers = ["24"]
+specifiers = ["26"]
 
 [tools.node."platforms.linux-x64"]
-checksum = "sha256:28ea0a438de9a13bd7891fd758eee6c7819ee8af5442dfd8d45bd65e56d4228c"
-url = "https://nodejs.org/dist/v24.22.0/node-v24.22.0-linux-x64.tar.gz"
+checksum = "sha256:15fc043a51a5783f2f4b634561091658f5a7f0e3db03f997dca3a8033a33e45b"
+url = "https://nodejs.org/dist/v26.11.1/node-v26.11.1-linux-x64.tar.gz"
 
 [tools.node."platforms.linux-x64-baseline"]
-checksum = "sha256:28ea0a438de9a13bd7891fd758eee6c7819ee8af5442dfd8d45bd65e56d4228c"
-url = "https://nodejs.org/dist/v24.22.0/node-v24.22.0-linux-x64.tar.gz"
+checksum = "sha256:15fc043a51a5783f2f4b634561091658f5a7f0e3db03f997dca3a8033a33e45b"
+url = "https://nodejs.org/dist/v26.11.1/node-v26.11.1-linux-x64.tar.gz"
 
 [tools.node."platforms.linux-x64-musl"]
-checksum = "sha256:72cd253fbe0c2539d52208ed098d47b78ff2c32ba76295d8e6b5b0ce067dcba5"
-url = "https://unofficial-builds.nodejs.org/download/release/v24.22.0/node-v24.22.0-linux-x64-musl.tar.gz"
+checksum = "sha256:dc822f43a55877e060b9e16702019c91deb9684310fa47ea4e9bdab0f2146366"
+url = "https://unofficial-builds.nodejs.org/download/release/v26.11.1/node-v26.11.1-linux-x64-musl.tar.gz"
 
 [tools.node."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:72cd253fbe0c2539d52208ed098d47b78ff2c32ba76295d8e6b5b0ce067dcba5"
-url = "https://unofficial-builds.nodejs.org/download/release/v24.22.0/node-v24.22.0-linux-x64-musl.tar.gz"
+checksum = "sha256:dc822f43a55877e060b9e16702019c91deb9684310fa47ea4e9bdab0f2146366"
+url = "https://unofficial-builds.nodejs.org/download/release/v26.11.1/node-v26.11.1-linux-x64-musl.tar.gz"
 
 [tools.node."platforms.macos-arm64"]
-checksum = "sha256:6a9724d9b50a5f22b4816cded441b5a8d9ddae546191a5e5b7efa5a5e2ee26d5"
-url = "https://nodejs.org/dist/v24.22.0/node-v24.22.0-darwin-arm64.tar.gz"
+checksum = "sha256:d916511b55965e91be7a88e17f88d895b6793ceaba3e6c9b194aefe51c2c65ac"
+url = "https://nodejs.org/dist/v26.11.1/node-v26.11.1-darwin-arm64.tar.gz"
 
 [tools.node."platforms.macos-x64"]
-checksum = "sha256:495e3f273c645f3c4677d438304cdfc701729ea5dec5728f5c8e76a2dece4b91"
-url = "https://nodejs.org/dist/v24.22.0/node-v24.22.0-darwin-x64.tar.gz"
+checksum = "sha256:9a8129bd9ab08039793dd1143a7aedee6b5d60ac06592ad938d8bddf36142f3a"
+url = "https://nodejs.org/dist/v26.11.1/node-v26.11.1-darwin-x64.tar.gz"
 
 [tools.node."platforms.macos-x64-baseline"]
-checksum = "sha256:495e3f273c645f3c4677d438304cdfc701729ea5dec5728f5c8e76a2dece4b91"
-url = "https://nodejs.org/dist/v24.22.0/node-v24.22.0-darwin-x64.tar.gz"
+checksum = "sha256:9a8129bd9ab08039793dd1143a7aedee6b5d60ac06592ad938d8bddf36142f3a"
+url = "https://nodejs.org/dist/v26.11.1/node-v26.11.1-darwin-x64.tar.gz"
 
 [tools.node."platforms.windows-x64"]
-checksum = "sha256:f9683a19877e12a9b167305c8db71040d812876359de21f0d2e97c3f321f80c3"
-url = "https://nodejs.org/dist/v24.22.0/node-v24.22.0-win-x64.zip"
+checksum = "sha256:97f36a8a9684ff0d3e35758b4610fef5b628a5880e96f2ccc11240e5daf9934e"
+url = "https://nodejs.org/dist/v26.11.1/node-v26.11.1-win-x64.zip"
 
 [tools.node."platforms.windows-x64-baseline"]
-checksum = "sha256:f9683a19877e12a9b167305c8db71040d812876359de21f0d2e97c3f321f80c3"
-url = "https://nodejs.org/dist/v24.22.0/node-v24.22.0-win-x64.zip"
-
-[[tools."npm:@deepseek-ai/dsh"]]
-version = "0.2.0-rc.2"
-backend = "npm:@deepseek-ai/dsh"
-specifiers = ["0.2.0-rc.2"]
+checksum = "sha256:97f36a8a9684ff0d3e35758b4610fef5b628a5880e96f2ccc11240e5daf9934e"
+url = "https://nodejs.org/dist/v26.11.1/node-v26.11.1-win-x64.zip"
 
 [[tools."npm:@mariozechner/pi-coding-agent"]]
 version = "0.73.1"
@@ -798,6 +863,14 @@ specifiers = ["latest"]
 version = "2.0.30"
 backend = "npm:@opencode/cli"
 specifiers = ["latest"]
+
+[[tools."npm:@opencode/cli"]]
+version = "2.0.30"
+backend = "npm:@opencode/cli"
+specifiers = ["latest"]
+
+[tools."npm:@opencode/cli".options]
+allow_builds = '["@opencode/cli"]'
 
 [[tools."npm:npkill"]]
 version = "0.12.2"
@@ -1019,22 +1092,22 @@ url = "https://github.com/BurntSushi/ripgrep/releases/download/15.2.0/ripgrep-15
 url_api = "https://api.github.com/repos/BurntSushi/ripgrep/releases/assets/478119643"
 
 [[tools.ruby]]
-version = "3.4.11"
+version = "4.0.7"
 backend = "core:ruby"
-specifiers = ["3"]
+specifiers = ["4"]
 
 [tools.ruby."platforms.windows-x64"]
-checksum = "sha256:a9aca84326a90422c0905bcb47be629b687a881dcad96149604c2cb074d03154"
-url = "https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-3.4.11-1/rubyinstaller-3.4.11-1-x64.7z"
+checksum = "sha256:7a9be96d3448ecbd9a81eccae1f619131dfcc761f2c98dded03ece6c05d0474f"
+url = "https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-4.0.7-1/rubyinstaller-4.0.7-1-x64.7z"
 
 [tools.ruby."platforms.windows-x64-baseline"]
-checksum = "sha256:a9aca84326a90422c0905bcb47be629b687a881dcad96149604c2cb074d03154"
-url = "https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-3.4.11-1/rubyinstaller-3.4.11-1-x64.7z"
+checksum = "sha256:7a9be96d3448ecbd9a81eccae1f619131dfcc761f2c98dded03ece6c05d0474f"
+url = "https://github.com/oneclick/rubyinstaller2/releases/download/RubyInstaller-4.0.7-1/rubyinstaller-4.0.7-1-x64.7z"
 
 [[tools.ruby]]
-version = "3.4.11"
+version = "4.0.7"
 backend = "core:ruby"
-specifiers = ["3"]
+specifiers = ["4"]
 
 [tools.ruby.options]
 compile = "false"
@@ -1043,35 +1116,35 @@ ruby_build_repo = "https://github.com/rbenv/ruby-build.git"
 ruby_install = "false"
 
 [tools.ruby."platforms.linux-x64"]
-checksum = "sha256:187448200a8af7a9caf32bc4eb40b63bdc1fe3666400d1bdd875fc1adbe0be36"
-url = "https://github.com/jdx/ruby/releases/download/3.4.11-2/ruby-3.4.11.x86_64_linux.tar.gz"
+checksum = "sha256:659c4c80138145f3be439b3e4275b616cc87022e9488b823d708ab75a77558a9"
+url = "https://github.com/jdx/ruby/releases/download/4.0.7-2/ruby-4.0.7.x86_64_linux.tar.gz"
 provenance = "github-attestations"
 
 [tools.ruby."platforms.linux-x64-baseline"]
-checksum = "sha256:187448200a8af7a9caf32bc4eb40b63bdc1fe3666400d1bdd875fc1adbe0be36"
-url = "https://github.com/jdx/ruby/releases/download/3.4.11-2/ruby-3.4.11.x86_64_linux.tar.gz"
+checksum = "sha256:659c4c80138145f3be439b3e4275b616cc87022e9488b823d708ab75a77558a9"
+url = "https://github.com/jdx/ruby/releases/download/4.0.7-2/ruby-4.0.7.x86_64_linux.tar.gz"
 provenance = "github-attestations"
 
 [tools.ruby."platforms.linux-x64-musl"]
-checksum = "sha256:5c22be44524312b3d433d68739bcc530633b1da5ef8ba0afa0a37680da17d3de"
-url = "https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.11.tar.gz"
+checksum = "sha256:911ace20f90d068ca0e4dda6d0e4f0f81e52e52f2dd4f4004c721e253412e82d"
+url = "https://cache.ruby-lang.org/pub/ruby/4.0/ruby-4.0.7.tar.gz"
 
 [tools.ruby."platforms.linux-x64-musl-baseline"]
-checksum = "sha256:5c22be44524312b3d433d68739bcc530633b1da5ef8ba0afa0a37680da17d3de"
-url = "https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.11.tar.gz"
+checksum = "sha256:911ace20f90d068ca0e4dda6d0e4f0f81e52e52f2dd4f4004c721e253412e82d"
+url = "https://cache.ruby-lang.org/pub/ruby/4.0/ruby-4.0.7.tar.gz"
 
 [tools.ruby."platforms.macos-arm64"]
-checksum = "sha256:72efe9e14e3a9a254edf3dc56f2e843422e8b23317e4bc2b6cef9271c3838d89"
-url = "https://github.com/jdx/ruby/releases/download/3.4.11-2/ruby-3.4.11.macos.tar.gz"
+checksum = "sha256:6ad0acc5b0c437a2514679ff9a0f925e8b66ad4e96357e9ae2764b622f5d88d4"
+url = "https://github.com/jdx/ruby/releases/download/4.0.7-2/ruby-4.0.7.macos.tar.gz"
 provenance = "github-attestations"
 
 [tools.ruby."platforms.macos-x64"]
-checksum = "sha256:5c22be44524312b3d433d68739bcc530633b1da5ef8ba0afa0a37680da17d3de"
-url = "https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.11.tar.gz"
+checksum = "sha256:911ace20f90d068ca0e4dda6d0e4f0f81e52e52f2dd4f4004c721e253412e82d"
+url = "https://cache.ruby-lang.org/pub/ruby/4.0/ruby-4.0.7.tar.gz"
 
 [tools.ruby."platforms.macos-x64-baseline"]
-checksum = "sha256:5c22be44524312b3d433d68739bcc530633b1da5ef8ba0afa0a37680da17d3de"
-url = "https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.11.tar.gz"
+checksum = "sha256:911ace20f90d068ca0e4dda6d0e4f0f81e52e52f2dd4f4004c721e253412e82d"
+url = "https://cache.ruby-lang.org/pub/ruby/4.0/ruby-4.0.7.tar.gz"
 
 [[tools.rust]]
 version = "stable"

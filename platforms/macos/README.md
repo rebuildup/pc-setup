@@ -39,7 +39,7 @@ installerはsystem-wideに次を配置する。
 - `/usr/local/libexec/pc-setup/macos-keyboard/onishi.json`
 - `/Library/LaunchDaemons/dev.rebuildup.pc-setup.onishi-keymap.plist`
 
-LaunchDaemonはmacOS起動時にrootでmappingを適用し、収束後も常駐して状態を監視し続ける。これはログイン後だけ動くLaunchAgentではなく、macOSのloginwindowより前に起動できるsystem serviceとして扱う。
+LaunchDaemonはmacOS起動時にrootでmappingを適用し、収束後も常駐して状態を監視し続ける。これはログイン後だけ動くLaunchAgentではなく、macOSのloginwindow入力受付より前に登録されるsystem serviceとして扱う。launchdはplistのジョブ起動順を厳密に保証しないため、loginwindowがmapping適用より先に進む経路は残る;詳細は [Login screen boundary](#login-screen-boundary) を参照。
 
 installerはhelperを配置した後にLaunchDaemonを再登録する。順序を逆にすると、再登録したjobはディスク上にあるhelperを読み込むため、配置済みの新しいhelperではなく古いhelperが動き続ける。
 
@@ -57,7 +57,7 @@ tail -5 /var/log/pc-setup-onishi.log
 
 ### Login screen boundary
 
-`hidutil` のmapping自体は全ユーザーに適用されるため、通常のmacOS loginwindowではsystem LaunchDaemonにより適用可能。
+`hidutil` のmapping自体は全ユーザーに適用されるため、通常のmacOS loginwindowでsystem LaunchDaemonから適用されることを意図している。ただしlaunchdはplistのジョブ起動順を保証しないため、loginwindowがmapping適用より先に入力受付を始める経路は残る。login screenでUS ANSI配列が出る場合はhelperの状態を確認し、必要ならinstallerを再実行する。
 
 ただしFileVaultが有効なcold boot直後のpassword画面はmacOSのuserlandではなくPreboot環境で動く。その段階では `launchd` / `hidutil` / Kanata はまだ起動していないため、このrepositoryの仕組みではカスタマイズできない。
 
@@ -65,6 +65,8 @@ tail -5 /var/log/pc-setup-onishi.log
 
 ```bash
 fdesetup status
+launchctl print system/dev.rebuildup.pc-setup.onishi-keymap
+hidutil property --matching '{"PrimaryUsagePage":1,"PrimaryUsage":6,"Transport":"FIFO"}' --get "UserKeyMapping" | grep -c 'Src ='
 ```
 
 一時的にQWERTYへ戻す:

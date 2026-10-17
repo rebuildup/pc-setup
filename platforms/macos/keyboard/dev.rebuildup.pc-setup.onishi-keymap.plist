@@ -29,9 +29,16 @@
     <string>5</string>
   </dict>
   <!-- Not Background. A Background job is scheduled at low priority and macOS
-       deferred it until loginwindow came up, which left the login screen and any
-       password typed there on raw US ANSI. The base layout has to be in place
-       before loginwindow accepts input. -->
+       had deferred it until loginwindow came up, which repeatedly left the
+       login screen on raw US ANSI in practice. Adaptive shifts between
+       Background and Interactive based on activity, so the helper is not
+       pinned to the Background tier and observes XPC traffic promptly.
+       ProcessType is a resource classification, not a launch-order setting;
+       the helper and the LaunchDaemon are loaded at boot, but launchd does
+       not guarantee that any userland job runs before loginwindow accepts
+       input. The login-window pre-applicability of the layout is therefore
+       a best-effort property of the helper, not a guaranteed invariant.
+       See ADR-0012. -->
   <key>ProcessType</key>
   <string>Adaptive</string>
   <key>StandardOutPath</key>
