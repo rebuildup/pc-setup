@@ -473,7 +473,7 @@ url = "https://nodejs.org/dist/v26.12.0/node-v26.12.0-win-x64.zip"
 
 [[tools."npm:@mariozechner/pi-coding-agent"]]
 version = "0.73.1"
-aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:7fab97e03fd02cb9a876fe0c731ddeba1a47da68ca1cca12fb0796b75312d2dc" }
+aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:dbd8a1627c1df0d98e241ffc34683c5cd7ba87e516e7386e3a448fbc82a2bf0c" }
 backend = "npm:@mariozechner/pi-coding-agent"
 specifiers = ["latest"]
 
