@@ -3,18 +3,18 @@
 lockfile_version = 3
 
 [[tools.aws-cli]]
-version = "2.38.1"
+version = "2.38.2"
 backend = "aqua:aws/aws-cli"
 specifiers = ["latest"]
 
 [tools.aws-cli."platforms.linux-x64"]
-url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.38.1.zip"
+url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.38.2.zip"
 
 [tools.aws-cli."platforms.macos-arm64"]
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.38.1.pkg"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.38.2.pkg"
 
 [tools.aws-cli."platforms.macos-x64"]
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.38.1.pkg"
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.38.2.pkg"
 
 [[tools.bat]]
 version = "0.26.1"
@@ -88,29 +88,29 @@ backend = "cargo:cargo-clean-all"
 specifiers = ["latest"]
 
 [[tools.claude]]
-version = "2.1.303"
+version = "2.1.304"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools.claude."platforms.linux-x64"]
-checksum = "sha256:9ef730488e8b75d47f23c156282a73c89db3342aaf756ed7ec0b78a88fb31f3e"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.303/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/654495696"
+checksum = "sha256:ea6ae29e6eea7dd35d4b05a5a1db5a040a0b294c5ab7d0f7fa299db9b6e625c0"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.304/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/657250593"
 
 [tools.claude."platforms.macos-arm64"]
-checksum = "sha256:cf40802aba7ff81f3c9085b7016e181a9ad2bc2ea9afa0853bff2fd2b496855c"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.303/claude-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/654495511"
+checksum = "sha256:bb2fb10066e34c67facad46bf94d47e72c4d808a7a23590224544ee4b4aadaea"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.304/claude-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/657250421"
 
 [tools.claude."platforms.macos-x64"]
-checksum = "sha256:7397e7f71c68524cf9ff947c943378ed9eb48f6d293c101b287b85019e7c18f6"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.303/claude-darwin-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/654495514"
+checksum = "sha256:7c98406983c5a96c95c7a8b456c49def8324cbdde28e5aa002bbca0e838ca190"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.304/claude-darwin-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/657250422"
 
 [tools.claude."platforms.windows-x64"]
-checksum = "sha256:4a752a7061f629e62928ed34444b1d595d2964b488987dece7b884a2f254d872"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.303/claude-win32-x64.zip"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/654495721"
+checksum = "sha256:33e63736ab22ac2c29e8ad75554842dc9f5e06f5d12f9e786938c8a80c230e6f"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.304/claude-win32-x64.zip"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/657250615"
 
 [[tools.codex]]
 version = "0.163.0"
@@ -259,7 +259,7 @@ url_api = "https://api.github.com/repos/cli/cli/releases/assets/599854760"
 provenance = "github-attestations"
 
 [[tools."github:alibaba/open-code-review"]]
-version = "1.13.1"
+version = "1.13.2"
 backend = "github:alibaba/open-code-review"
 specifiers = ["latest"]
 
@@ -267,41 +267,13 @@ specifiers = ["latest"]
 asset_pattern = "opencodereview-darwin-arm64"
 
 [tools."github:alibaba/open-code-review"."platforms.macos-arm64"]
-checksum = "sha256:0813c8d41309e00018c28c94a6979280dfb53fae805cc927df0f530941d378b5"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.1/opencodereview-darwin-arm64"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/649177760"
+checksum = "sha256:097911c7181cb2ede7c6ae1eb0e706458b1ad89e06ae8a0591d783b221dce5e5"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.2/opencodereview-darwin-arm64"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/658116116"
 provenance = "github-attestations"
 
 [[tools."github:alibaba/open-code-review"]]
-version = "1.13.1"
-backend = "github:alibaba/open-code-review"
-specifiers = ["latest"]
-
-[tools."github:alibaba/open-code-review".options]
-asset_pattern = "opencodereview-windows-amd64.exe"
-
-[tools."github:alibaba/open-code-review"."platforms.windows-x64"]
-checksum = "sha256:a9a2b2148bd983be42b8f8fc1cd433e9100b620014408481495bf86cd64ea3ec"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.1/opencodereview-windows-amd64.exe"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/649177755"
-provenance = "github-attestations"
-
-[[tools."github:alibaba/open-code-review"]]
-version = "1.13.1"
-backend = "github:alibaba/open-code-review"
-specifiers = ["latest"]
-
-[tools."github:alibaba/open-code-review".options]
-asset_pattern = "opencodereview-darwin-amd64"
-
-[tools."github:alibaba/open-code-review"."platforms.macos-x64"]
-checksum = "sha256:e6542cf650c395d817a8e9d9e3fdcf15f3bad87a19e1e4d7a1fccbfddbba8050"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.1/opencodereview-darwin-amd64"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/649177758"
-provenance = "github-attestations"
-
-[[tools."github:alibaba/open-code-review"]]
-version = "1.13.1"
+version = "1.13.2"
 backend = "github:alibaba/open-code-review"
 specifiers = ["latest"]
 
@@ -309,9 +281,37 @@ specifiers = ["latest"]
 asset_pattern = "opencodereview-linux-amd64"
 
 [tools."github:alibaba/open-code-review"."platforms.linux-x64"]
-checksum = "sha256:3a8248b959177814fc38a1a6bb87742985103e839bfe4582d97ae30d969dd913"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.1/opencodereview-linux-amd64"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/649177762"
+checksum = "sha256:c3c24f35bcc6544de7939c82559187f0aa2cc905c2e07eb24ef55239e7c1bc1a"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.2/opencodereview-linux-amd64"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/658116114"
+provenance = "github-attestations"
+
+[[tools."github:alibaba/open-code-review"]]
+version = "1.13.2"
+backend = "github:alibaba/open-code-review"
+specifiers = ["latest"]
+
+[tools."github:alibaba/open-code-review".options]
+asset_pattern = "opencodereview-windows-amd64.exe"
+
+[tools."github:alibaba/open-code-review"."platforms.windows-x64"]
+checksum = "sha256:6b932a7ec7aa91cbb7725ebb8f082504e82824b2616cff42aaaf62a6fec5fe6b"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.2/opencodereview-windows-amd64.exe"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/658116111"
+provenance = "github-attestations"
+
+[[tools."github:alibaba/open-code-review"]]
+version = "1.13.2"
+backend = "github:alibaba/open-code-review"
+specifiers = ["latest"]
+
+[tools."github:alibaba/open-code-review".options]
+asset_pattern = "opencodereview-darwin-amd64"
+
+[tools."github:alibaba/open-code-review"."platforms.macos-x64"]
+checksum = "sha256:68c275e99761309a602edfc0b1275f52c7bd2100473ad219c6344aa8c353cd1a"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.2/opencodereview-darwin-amd64"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/658116113"
 provenance = "github-attestations"
 
 [[tools."github:herdrdev/herdr"]]
@@ -377,7 +377,7 @@ url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-windows-
 url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898234"
 
 [[tools.infisical]]
-version = "0.44.2"
+version = "0.44.3"
 backend = "github:Infisical/cli"
 specifiers = ["latest"]
 
@@ -385,24 +385,24 @@ specifiers = ["latest"]
 asset_pattern = "cli_{{ version }}_{{ os(macos='darwin') }}_{{ arch(x64='amd64') }}.tar.gz"
 
 [tools.infisical."platforms.linux-x64"]
-checksum = "sha256:6e8a3b9c4f17e2a95d5934f9bc87b7935927c4cd43dd5f9ba984a89f898022ca"
-url = "https://github.com/Infisical/cli/releases/download/v0.44.2/cli_0.44.2_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/648580157"
+checksum = "sha256:d1f802e5e7f27aa8d5408146629a700518c7f40bceaf0c39cc5cc87d856b6c54"
+url = "https://github.com/Infisical/cli/releases/download/v0.44.3/cli_0.44.3_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/657475719"
 
 [tools.infisical."platforms.macos-arm64"]
-checksum = "sha256:a86da497f8f620ad61f921c420c4570f49578d4c3b5d897db2fd9d0fdc68c34c"
-url = "https://github.com/Infisical/cli/releases/download/v0.44.2/cli_0.44.2_darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/648564069"
+checksum = "sha256:5b82c2705edbd6c8190dacf861eb64ea71ac05824cca84c1b59c91f44a8f7a33"
+url = "https://github.com/Infisical/cli/releases/download/v0.44.3/cli_0.44.3_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/657461800"
 
 [tools.infisical."platforms.macos-x64"]
-checksum = "sha256:8a44ee55e38cec97da8425530a32d535292020906f64b1c78f354c4fddeafe21"
-url = "https://github.com/Infisical/cli/releases/download/v0.44.2/cli_0.44.2_darwin_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/648564065"
+checksum = "sha256:20cb33b468fe6f2de994393a88ed11b7c3ec4484403096ec34e08e88c31f57d7"
+url = "https://github.com/Infisical/cli/releases/download/v0.44.3/cli_0.44.3_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/657461802"
 
 [tools.infisical."platforms.windows-x64"]
-checksum = "sha256:ffba4d077f70793f09e73e78d4d0e20a3df2244e416aeb39a842608baef0be72"
-url = "https://github.com/Infisical/cli/releases/download/v0.44.2/cli_0.44.2_windows_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/648573696"
+checksum = "sha256:512cf252e43f07aad85aa675a346cadaa732179308f4f8ba978fb23d76d03a3c"
+url = "https://github.com/Infisical/cli/releases/download/v0.44.3/cli_0.44.3_windows_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/657473185"
 
 [[tools.jq]]
 version = "1.8.2"
@@ -473,7 +473,7 @@ url = "https://nodejs.org/dist/v26.12.0/node-v26.12.0-win-x64.zip"
 
 [[tools."npm:@mariozechner/pi-coding-agent"]]
 version = "0.73.1"
-aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:1eaf413223a56560b10671fb0c2c33b453a8846398ea5a18c120b50a76f472ae" }
+aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:1ec6e3766598f08aacef1a77fc67de4bd1d6d49f210de4b2737df46795108e05" }
 backend = "npm:@mariozechner/pi-coding-agent"
 specifiers = ["latest"]
 
@@ -558,23 +558,23 @@ backend = "core:python"
 specifiers = ["3.14"]
 
 [tools.python."platforms.linux-x64"]
-checksum = "sha256:d8faa1b588506b9e3e5a3f57807bb056d534a1641a6b10d15b6ea3f0b413b960"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/cpython-3.14.8+20261013-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+checksum = "sha256:b88a4ac994ac55c35a03a3672103618d5c5d5bf342db7b2093b8d328b6516b42"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261020/cpython-3.14.8+20261020-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [tools.python."platforms.macos-arm64"]
-checksum = "sha256:994adadc202c5df0b4570192cc9a70e3f2c131e512f4a125c56efa8562f44b28"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/cpython-3.14.8+20261013-aarch64-apple-darwin-install_only_stripped.tar.gz"
+checksum = "sha256:f0f1402b45a8a655fc78c8ee62462fddcb9dc8717a022e79700d07e44fd18d4a"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261020/cpython-3.14.8+20261020-aarch64-apple-darwin-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [tools.python."platforms.macos-x64"]
-checksum = "sha256:f0137337ecf6234b30c9c955219dae2d71e1a00387c4d204d6c6929e24bf9a90"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/cpython-3.14.8+20261013-x86_64-apple-darwin-install_only_stripped.tar.gz"
+checksum = "sha256:e862bbef6f5109f464323c6827d14717b4d8e3ff2e0050f4452ba770fcd0d0b2"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261020/cpython-3.14.8+20261020-x86_64-apple-darwin-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [tools.python."platforms.windows-x64"]
-checksum = "sha256:dce851f280b986764037bd952d40819e94ccceb08ac914004123f43ce17f4095"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261013/cpython-3.14.8+20261013-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
+checksum = "sha256:6761cf0dd740591df7643cf55fd03913c8ec7ddd88b419fe2f170abe3479e198"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261020/cpython-3.14.8+20261020-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [[tools.ripgrep]]
@@ -692,8 +692,8 @@ url = "https://github.com/supabase/cli/releases/download/v2.121.0/supabase_windo
 url_api = "https://api.github.com/repos/supabase/cli/releases/assets/640847856"
 
 [[tools.vercel]]
-version = "64.5.0"
-aube = { path = ".mise/locks/mise.global/vercel/64.5.0~a6545071", digest = "sha256:9be5f7f435aef19ae8b7136ee639223b3964972b48cc22affec2ddedac539b2a" }
+version = "64.7.0"
+aube = { path = ".mise/locks/mise.global/vercel/64.7.0~a6545071", digest = "sha256:6834f03fd24f3970c8149f7932665cf3b9df090d5a80e759a015a41aa87c7f3a" }
 backend = "npm:vercel"
 specifiers = ["latest"]
 
