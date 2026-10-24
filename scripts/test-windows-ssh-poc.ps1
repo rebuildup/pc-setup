@@ -14,6 +14,7 @@ function Assert-Throws($Block) {
 }
 $key = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA poc'
 Assert-PocInput 'rebui' '100.118.123.62' '100.101.102.103' $key
+Assert-Throws { Assert-PocInput 'rebui' '' '100.101.102.103' $key }
 Assert-Throws { Assert-PocInput 'rebui *' '100.118.123.62' '100.101.102.103' $key }
 Assert-Throws { Assert-PocInput 'rebui' '0.0.0.0' '100.101.102.103' $key }
 Assert-Throws { Assert-PocInput 'rebui' '100.118.123.62' '100.64.0.0/10' $key }

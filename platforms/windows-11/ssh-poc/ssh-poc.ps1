@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory)][ValidateSet('Bootstrap','Verify','Start','Undo')][string]$Action,
     [string]$UserName,
-    [string]$ListenAddress = '100.118.123.62',
+    [string]$ListenAddress,
     [string]$ControllerAddress,
     [string]$PublicKeyPath
 )
