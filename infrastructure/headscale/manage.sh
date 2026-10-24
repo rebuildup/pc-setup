@@ -24,11 +24,13 @@ done
 docker info >/dev/null
 case "$operation" in
   validate)
+    image="$("${compose[@]}" config --images)"
+    [[ -n "$image" && "$image" != *$'\n'* ]] || { printf 'Expected exactly one Compose image\n' >&2; exit 1; }
     # Separate ephemeral state: configtest constructs a server and may write DB/keys.
     docker run --rm --network bridge --tmpfs /var/lib/headscale \
       --mount "type=bind,source=$target/config.yaml,target=/etc/headscale/config.yaml,readonly" \
       --mount "type=bind,source=$target/policy.json,target=/etc/headscale/policy.json,readonly" \
-      ghcr.io/juanfont/headscale:0.29.6 configtest
+      "$image" configtest
     ;;
   apply) "${compose[@]}" up -d --wait --wait-timeout 180 ;;
   verify)

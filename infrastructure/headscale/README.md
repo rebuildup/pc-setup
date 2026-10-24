@@ -21,7 +21,7 @@ sudo bash infrastructure/headscale/manage.sh apply
 sudo bash infrastructure/headscale/manage.sh verify
 ```
 
-`validate` は Compose schema と official image の `configtest` を検証する。configtest は server を構築するため、実 DB とは別の tmpfs state を使う。稼働後 `verify` は health、実行中 server を使った `policy check --file`、公開 TLS health を検証する。公開 TLS の初回発行には DNS・80 の条件が必要。失敗時は盲目的に再起動せず `docker compose --project-directory /srv/devnode-headscale logs --tail 100 headscale` を private な terminal で確認する。ログを公開する前に node 情報等を除去する。
+`validate` は Compose の一つの image reference を解決し、Compose schema と official image の `configtest` を検証する。configtest は server を構築するため、実 DB とは別の tmpfs state を使う。稼働後 `verify` は health、実行中 server を使った `policy check --file`、公開 TLS health を検証する。公開 TLS の初回発行には DNS・80 の条件が必要。失敗時は盲目的に再起動せず `docker compose --project-directory /srv/devnode-headscale logs --tail 100 headscale` を private な terminal で確認する。ログを公開する前に node 情報等を除去する。
 
 `manage.sh` は project と既知の named resource の ownership label を確認する。`apply` はこの専用 project だけを起動する。既存資源を引き継ぐ汎用 installer ではない。手動で同名 project を作っていた場合も marker/label だけで正当と判断せず、先に resource の由来を確認する。
 
@@ -41,7 +41,11 @@ embedded DERP は無効で、この VPS に UDP 3478 は開けない。default T
 
 設定・policy・image 更新は backup 後に source diff を review する。prepare は既存と異なる file を上書きしないため、更新時は managed directory の旧 file を保護してから operator が明示的に差し替える。稼働中 policy の暗黙 hot reload に依存せず専用 service を再作成し、policy check を実行する。schema migration 後の image downgrade は volume の同時 restore が必要になり得る。
 
+`stop` も source と host 設定の一致を要求する。設定差分や破損で拒否され、緊急停止が必要な場合は、実在する当該 container の `com.docker.compose.project` が `devnode-headscale`、`com.docker.compose.service` が `headscale`、`com.docker.compose.project.config_files` が `/srv/devnode-headscale/compose.yaml` であることと、image / mount の由来を `docker inspect` で実測確認する。その container ID を明示して `sudo docker stop <確認済みのcontainer-ID>` だけを実行する。名前だけでは所有権の根拠にしない。full down / prune や他 service 操作は使わない。
+
 PoC rollback は `sudo bash infrastructure/headscale/manage.sh stop` で専用 service を止め、public DNS/firewall の今回追加分だけを戻す。volume は保持し、`down -v`、system prune、Infisical の compose 操作は使わない。SSH/private key や既存 management tailnet を変更しない。最後に Infisical の開始前後 assertion を照合する。
+
+image は 0.29.6 の official OCI multi-platform index digest `sha256:cabe84f0699913dbca9320f0883dca7565dd08df3c5be29edfabbebeff763966`（amd64 / arm64）に固定する。tag と digest を組で review し、実際の image 選択は Compose を唯一の source とする。
 
 ## 検証範囲と根拠
 

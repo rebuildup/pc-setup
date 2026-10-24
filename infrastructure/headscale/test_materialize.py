@@ -49,6 +49,49 @@ exit 1
             self.assertEqual(result.returncode, 0, result.stderr.decode())
             self.assertEqual(calls.read_text().splitlines(), ['health', 'policy'])
 
+    def test_validate_uses_one_compose_image(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp).resolve()
+            tools = root / 'bin'
+            tools.mkdir()
+            docker = tools / 'docker'
+            docker.write_text("""#!/usr/bin/env bash
+set -eu
+if [[ "$1" = compose ]]; then
+  for arg in "$@"; do
+    if [[ "$arg" = --images ]]; then
+      printf '%s\\n' "$CLI_TEST_IMAGES"
+      exit 0
+    fi
+  done
+  exit 0
+fi
+if [[ "$1" = run ]]; then
+  printf '%s\\n' "$@" > "$CLI_TEST_CALLS"
+  exit 0
+fi
+[[ "$1" = info ]] && exit 0
+exit 1
+""")
+            docker.chmod(0o755)
+            calls = root / 'calls'
+            for images, succeeds in [('example.invalid/reviewed@sha256:123', True),
+                                     ('', False), ('image-one\nimage-two', False)]:
+                with self.subTest(images=images):
+                    calls.unlink(missing_ok=True)
+                    env = dict(os.environ, PATH=f'{tools}:{os.environ["PATH"]}',
+                               CLI_TEST_CALLS=str(calls), CLI_TEST_IMAGES=images)
+                    result = subprocess.run(
+                        ['bash', str(SCRIPT.with_name('manage.sh')), 'validate',
+                         str(root / 'service')], capture_output=True, env=env)
+                    self.assertEqual(result.returncode == 0, succeeds,
+                                     result.stderr.decode())
+                    if succeeds:
+                        self.assertEqual(calls.read_text().splitlines()[-2:],
+                                         [images, 'configtest'])
+                    else:
+                        self.assertFalse(calls.exists())
+
     def test_fresh_and_repeat(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = pathlib.Path(tmp).resolve() / 'service'
