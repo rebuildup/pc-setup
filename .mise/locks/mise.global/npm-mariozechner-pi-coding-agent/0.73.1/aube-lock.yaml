@@ -23,8 +23,8 @@ packages:
       zod:
         optional: true
 
-  '@aws-sdk/client-bedrock-runtime@3.1155.0':
-    resolution: {integrity: sha512-L+xXHIoQo3wcMlNyOe3OIo7Oq8uEL+1rbv/igbHvKTYIGXbmYZY9hKalTOh25jmV1gAfnQq4oxS9taqVzSry8w==}
+  '@aws-sdk/client-bedrock-runtime@3.1156.0':
+    resolution: {integrity: sha512-YtYsel8aoGP0K//ZO4qqgab6W/wYKHL+8MiWE4Z2SKKWz7MbVWMfUKKySdAle5RcE1yTviRF2RMlXE5MVPW/mA==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/core@3.978.5':
@@ -85,6 +85,10 @@ packages:
 
   '@aws-sdk/token-providers@3.1155.0':
     resolution: {integrity: sha512-iIcQnYLhWuq9qOLQbIWFrxF3PF0svVeZvHnUS4DUnO4zUFmFHIyGyjqrntXG+e/5PUgfavV0pYfDIKHxTzN2LA==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/token-providers@3.1156.0':
+    resolution: {integrity: sha512-/dS+LLiTM+63ZE1gEOmlXwQ0yrkyT+Bk1xUalfCXPo8w5RUvJXFhXUTAoe7vI83h1YjhFQz1CQtB6ZP6rn8g6g==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/types@3.975.0':
@@ -736,8 +740,8 @@ packages:
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
-  typebox@1.4.2:
-    resolution: {integrity: sha512-eSoZzgSIyOKDtTH9MI7XMAxMaiXq7UiSFWarysN1ka66baTLDxAVdQ6WkWn6qDqsJFVrcjzvuP+CqHo9yrlQpg==}
+  typebox@1.4.3:
+    resolution: {integrity: sha512-u3nyf7ZciAv1GOijVpI0TDt9At5wmEi7lSHSlRrnjuThv1DcB7fgGBqqrz+fGZ54jAfTpOOX0JXwxSIg3pnxQA==}
 
   uint8array-extras@1.6.0:
     resolution: {integrity: sha512-8iAasVS4wUx0gPLjH8Xtz2PeDzTSiy8QiLGu2DT3X5GU+egFEQhpnbtkehbAwjvDcxIERmCYcysiODFmE3Ud0Q==}
@@ -811,14 +815,14 @@ snapshots:
     dependencies:
       json-schema-to-ts: 3.1.1
 
-  '@aws-sdk/client-bedrock-runtime@3.1155.0':
+  '@aws-sdk/client-bedrock-runtime@3.1156.0':
     dependencies:
       '@aws-sdk/core': 3.978.5
       '@aws-sdk/credential-provider-node': 3.972.88
       '@aws-sdk/eventstream-handler-node': 3.972.38
       '@aws-sdk/middleware-eventstream': 3.972.33
       '@aws-sdk/middleware-websocket': 3.972.58
-      '@aws-sdk/token-providers': 3.1155.0
+      '@aws-sdk/token-providers': 3.1156.0
       '@aws-sdk/types': 3.975.0
       '@smithy/core': 3.36.2
       '@smithy/fetch-http-handler': 5.8.0
@@ -972,6 +976,15 @@ snapshots:
       '@smithy/types': 4.19.0
       tslib: 2.8.1
 
+  '@aws-sdk/token-providers@3.1156.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.5
+      '@aws-sdk/nested-clients': 3.997.50
+      '@aws-sdk/types': 3.975.0
+      '@smithy/core': 3.36.2
+      '@smithy/types': 4.19.0
+      tslib: 2.8.1
+
   '@aws-sdk/types@3.975.0':
     dependencies:
       '@smithy/types': 4.19.0
@@ -1046,7 +1059,7 @@ snapshots:
   '@mariozechner/pi-agent-core@0.73.1(zod@4.6.7)':
     dependencies:
       '@mariozechner/pi-ai': 0.73.1(zod@4.6.7)
-      typebox: 1.4.2
+      typebox: 1.4.3
     transitivePeerDependencies:
       - '@modelcontextprotocol/sdk'
       - '@opentelemetry/api'
@@ -1062,14 +1075,14 @@ snapshots:
   '@mariozechner/pi-ai@0.73.1(zod@4.6.7)':
     dependencies:
       '@anthropic-ai/sdk': 0.91.1
-      '@aws-sdk/client-bedrock-runtime': 3.1155.0
+      '@aws-sdk/client-bedrock-runtime': 3.1156.0
       '@google/genai': 1.52.0
       '@mistralai/mistralai': 2.7.0
       chalk: 5.6.2
       openai: 6.26.0
       partial-json: 0.1.7
       proxy-agent: 6.5.0
-      typebox: 1.4.2
+      typebox: 1.4.3
       undici: 7.30.1
       zod-to-json-schema: 3.25.2(zod@4.6.7)
     transitivePeerDependencies:
@@ -1103,7 +1116,7 @@ snapshots:
       minimatch: 10.2.6
       proper-lockfile: 4.1.2
       strip-ansi: 7.2.0
-      typebox: 1.4.2
+      typebox: 1.4.3
       undici: 7.30.1
       uuid: 14.0.3
       yaml: 2.9.1
@@ -1662,7 +1675,7 @@ snapshots:
 
   tslib@2.8.1: {}
 
-  typebox@1.4.2: {}
+  typebox@1.4.3: {}
 
   uint8array-extras@1.6.0: {}
 

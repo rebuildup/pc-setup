@@ -3,10 +3,10 @@
   "private": true,
   "aube": {
     "allowBuilds": {
-      "@opencode/cli": true
+      "esbuild": true
     }
   },
   "dependencies": {
-    "@opencode/cli": "2.1.2"
+    "vercel": "65.2.0"
   }
 }
