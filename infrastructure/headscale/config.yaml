@@ -1,0 +1,58 @@
+# Schema: juanfont/headscale v0.29.6 config-example.yaml
+server_url: https://headscale.rebuildup.dev
+listen_addr: 0.0.0.0:8443
+metrics_listen_addr: ""
+grpc_listen_addr: 127.0.0.1:50443
+grpc_allow_insecure: false
+trusted_proxies: []
+noise:
+  private_key_path: /var/lib/headscale/noise_private.key
+prefixes:
+  v4: 100.96.0.0/16
+  allocation: sequential
+derp:
+  server:
+    enabled: false
+  urls:
+    - https://controlplane.tailscale.com/derpmap/default
+  paths: []
+  auto_update_enabled: true
+  update_frequency: 3h
+disable_check_updates: true
+node:
+  expiry: 4320h
+database:
+  type: sqlite
+  sqlite:
+    path: /var/lib/headscale/db.sqlite
+    write_ahead_log: true
+    wal_autocheckpoint: 1000
+acme_url: https://acme-v02.api.letsencrypt.org/directory
+acme_email: ""
+tls_letsencrypt_hostname: headscale.rebuildup.dev
+tls_letsencrypt_cache_dir: /var/lib/headscale/cache
+tls_letsencrypt_challenge_type: HTTP-01
+tls_letsencrypt_listen: ":8080"
+policy:
+  mode: file
+  path: /etc/headscale/policy.json
+dns:
+  magic_dns: true
+  base_domain: devnodes.rebuildup.dev
+  override_local_dns: false
+  nameservers:
+    global: []
+    split: {}
+  search_domains: []
+  extra_records: []
+unix_socket: /var/lib/headscale/headscale.sock
+unix_socket_permission: "0600"
+log:
+  level: info
+  format: text
+logtail:
+  enabled: false
+taildrop:
+  enabled: false
+auto_update:
+  enabled: false

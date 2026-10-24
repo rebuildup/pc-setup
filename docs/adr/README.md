@@ -22,3 +22,5 @@
 | [ADR-0014](./ADR-0014.md) | Accepted | Orca は macOS の任意の worktree frontend とし、設定と Skill stub は Orca 自身が持つ |
 
 新しい ADR は `ADR-NNNN.md` の連番で追加します。既存 decision を置換する場合は旧 ADR の status と `Superseded by` も更新します。
+
+- [ADR-0015](ADR-0015.md): Headscale control plane の独立 VPS cohost PoC
