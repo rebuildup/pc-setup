@@ -258,3 +258,7 @@ snapshotはevidenceであり、検出した全appを自動的にdesired stateへ
 password / token / API key / cookie / license secret / private keyはrepositoryへ保存しない。
 
 portable secretはInfisicalがsource of truth。Tailscale provisioning の provider pointer / required key / forwarding contract は `tailscale.psd1` に置き、OAuth client secret value は Infisical だけに保持する。各サービスのinteractive login / licensingは必要に応じて実機で行う。
+
+## 専用 SSH 接続 PoC
+
+既存 VPN 上の Windows 接続検証は [SSH PoC runbook](ssh-poc/README.md) を参照する。専用鍵・port 22222・限定 firewall・明示 user を使用し、初回は Windows ローカルの管理者 PowerShell から実行する。通常 bootstrap から自動有効化しない。
