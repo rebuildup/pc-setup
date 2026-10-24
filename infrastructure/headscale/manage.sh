@@ -32,8 +32,8 @@ case "$operation" in
     ;;
   apply) "${compose[@]}" up -d --wait --wait-timeout 180 ;;
   verify)
-    "${compose[@]}" exec -T headscale health
-    "${compose[@]}" exec -T headscale policy check --file /etc/headscale/policy.json
+    "${compose[@]}" exec -T headscale headscale health
+    "${compose[@]}" exec -T headscale headscale policy check --file /etc/headscale/policy.json
     curl --fail --silent --show-error https://headscale.rebuildup.dev/health
     ;;
   stop) "${compose[@]}" stop ;;
