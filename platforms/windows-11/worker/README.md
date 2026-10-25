@@ -62,12 +62,29 @@ PASSにはSID一致、標準token、canary不在、管理鍵file open拒否、�
 
 ## 次のgateと禁止操作
 
-WSL importはこのsource段階に含まれない。後段で[Microsoftの手順](https://learn.microsoft.com/windows/wsl/use-custom-distro)をworker Windows user内で実行し、UUID対応distroだけを登録する。import直前もhashを再確認する。LinuxではWindows PATH混入を防ぎ、Linux-native runtimeの実体/versionを確認する。新規distroのinterop/automount抑制は防御補助でありOS権限境界の代替ではない。network公開port/Headscale/Infisical登録は別gate。
+`wsl-worker.ps1` は[Microsoftのimport手順](https://learn.microsoft.com/windows/wsl/use-custom-distro)に沿う後続stage。元のmanifest/probeは維持し、別の `%ProgramData%\pc-setup-worker-wsl-<UUID>` に管理者所有・当該worker読取のみのsource/image/manifestを固定する。異なるsource/ACL/hash/部分状態は上書きしない。
+
+review済みsourceとpassword配送を固定したnative x64管理者controllerから、次の順で呼ぶ。passwordはSecureString memory内だけ。例は手順であり実機成功の証拠ではない。
+
+```powershell
+$wslEntry = './platforms/windows-11/worker/wsl-worker.ps1'
+& $wslEntry -Action Prepare -InstanceId $instance -ImagePath $image
+& $wslEntry -Action Inventory -InstanceId $instance -Password $password
+# Inventoryが空で、直前の容量/image検査が成功した場合だけ、一度実行する。
+& $wslEntry -Action Import -InstanceId $instance -Password $password
+& $wslEntry -Action Verify -InstanceId $instance -Password $password
+```
+
+Inventoryは専用標準user本人のHKCU、SID、native profile、`.wslconfig`、canary不在を検査する。Importは既存distro/install directoryを拒否し、新しいUUID対応distroだけをWSL2として登録する。一度失敗したimportは再試行/adopt/rollbackせず証跡を保って調査する。Verifyはregistryの名前/version/BasePathを別途照合する。import command成功と登録検証、Linux boot、SSH/Herdr疎通を混同しない。
+
+LinuxではWindows PATH混入を防ぎ、Linux-native runtimeの実体/versionを確認する。新規distroのinterop/automount抑制は防御補助でありOS権限境界の代替ではない。network公開port/Headscale/Infisical登録は別gate。`terminal.shell_mode=non_login` はPowerShellの `-NoProfile` を意味せず、worker clean environmentの代替にしない。
 
 unregister、既存WSL停止/再生成、OS upgrade/reboot、daemon/scheduler追加は提供しない。再作成は新UUID/新resourceで行い、既存accountのpassword resetでidentityを取り替えない。
 
 ## 検証
 
 `scripts/test-windows-worker.ps1` はpure contract/parser/env builder/registry errorの拒否を検査する。Windows管理者ではtemp配下のscratch ACL/state fixtureでforeign SID/hash/file/partial state拒否と再実行を検査する。実ユーザー/WSLは触らず、非管理者ではfixtureをSKIP表示する。`scripts/ci.sh` に組み込み、Windows CIは非変更Capabilityも実行する。
+
+`scripts/test-windows-worker-wsl.ps1` はforeign/duplicate/WSL1/path drift/既存importの拒否、registry path正規化、限定import argv、source parserを検査する。native credentialed実行・実WSL登録・bootは別の実機証跡が必要。
 
 一次資料（2026-10-25確認）: [.NET Password](https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.processstartinfo.password)、[LoadUserProfile](https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.processstartinfo.loaduserprofile)、[CreateProcessWithLogonW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createprocesswithlogonw)。現在userのWindows mountから管理鍵が見えるという実測と、本案の別user拒否proofを混同しない。
