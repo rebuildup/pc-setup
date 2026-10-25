@@ -37,6 +37,8 @@ try {
 
 Provisionは新規standard local user `pcw-<UUID先頭12桁>` を作る。local Users以外のgroup所属は拒否する。短縮名衝突もforeignとして拒否し、別accountへ黙って切り替えない。再実行はSID/description/ACL/hash/source/budget照合だけでpasswordをresetしない。
 
+Windows accountのDescriptionは専用plan属性 `AccountDescription=pcw/v1/<完全UUID>`（43文字）で、[New-LocalUserの上限48文字](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.localaccounts/new-localuser?view=powershell-5.1#-description)以内にする。manifestのOwner namespace `pc-setup/windows-worker/v1` と分離し、作成・照合に同じ属性を使う。旧namespaceとUUIDを連結したDescriptionや、属性のない旧manifestはadopt/上書きしない。
+
 manifestと固定child probeは `%ProgramData%\pc-setup-worker-<UUID>`、dataは `%ProgramData%\pc-setup-worker-data-<UUID>`。ownerはAdministrators、SYSTEM/AdministratorsのみFullControl。workerはmetadataへReadAndExecute、dataへModify。他worker/Users全体へは許可しない。foreign path/reparse point/SID/group/ACL/hash drift/不明metadata fileを拒否する。途中失敗は保持して停止し、adopt/上書き修復/自動削除しない。
 
 PrepareProfileは.NETのSecureString credentialと`LoadUserProfile=true`でそのuser自身のprofileをロードし、新規`.wslconfig`だけを作る。同一内容の再実行は照合、異なる既存file/reparse pointは拒否。管理者token/controller envを渡さず、stdinも閉じる。worker自身のregistry inventoryを先に調べ、アクセス拒否を空と扱わない。失敗時は管理者fallbackしない。

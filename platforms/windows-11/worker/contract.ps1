@@ -5,6 +5,7 @@ function New-WorkerPlan([string]$InstanceId, [int]$MemoryGB = 4, [int]$Processor
     if ($MemoryGB -lt 2 -or $MemoryGB -gt 8 -or $Processors -lt 1 -or $Processors -gt 4) { throw 'Worker budget: memory 2..8 GiB, processors 1..4.' }
     [pscustomobject][ordered]@{
         Owner = 'pc-setup/windows-worker/v1'; Schema = 1; InstanceId = $InstanceId
+        AccountDescription = "pcw/v1/$InstanceId"
         UserName = 'pcw-' + $parsed.ToString('N').Substring(0,12)
         DistroName = "pcw-$InstanceId"; MemoryGB = $MemoryGB; Processors = $Processors; SwapGB = 1
     }

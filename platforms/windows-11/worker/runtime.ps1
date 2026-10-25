@@ -89,7 +89,7 @@ function Read-WorkerState([string]$InstanceId) {
     # Also reject stale runtime code after a source update.
     if ((Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'child-probe.ps1')).Hash -cne $state.ProbeHash) { throw 'Installed probe differs from this source; explicit reconciliation required.' }
     $user = Get-LocalUser -Name $state.UserName -ErrorAction Stop
-    if (-not $user.Enabled -or $user.Description -cne "$($state.Owner)/$InstanceId") { throw 'Account ownership/status drift.' }
+    if (-not $user.Enabled -or $user.Description -cne $plan.AccountDescription) { throw 'Account ownership/status drift.' }
     Assert-WorkerIdentity $state.Sid $user.SID.Value @(Get-WorkerGroupSids $user.SID.Value) @() $state.DistroName
     $state
 }
@@ -113,7 +113,7 @@ function New-WindowsWorker([string]$InstanceId, [SecureString]$Password, [string
     Assert-WorkerCapacity $plan ($os.FreePhysicalMemory / 1MB) ($drive.FreeSpace / 1GB)
     if ($drive.FileSystem -ne 'NTFS' -or $Processors -gt [Environment]::ProcessorCount) { throw 'Need local NTFS and a feasible CPU budget.' }
     # Failure after here leaves partial state. No automatic deletion, password reset or adoption.
-    $user = New-LocalUser -Name $plan.UserName -Password $Password -Description "$($plan.Owner)/$InstanceId" -ErrorAction Stop
+    $user = New-LocalUser -Name $plan.UserName -Password $Password -Description $plan.AccountDescription -ErrorAction Stop
     $sid = $user.SID.Value
     $groups = @(Get-WorkerGroupSids $sid)
     if ('S-1-5-32-545' -notin $groups) { Add-LocalGroupMember -SID 'S-1-5-32-545' -Member $user -ErrorAction Stop }

@@ -65,6 +65,49 @@ try {
 } finally { Remove-Item Env:/PC_SETUP_CONTROLLER_CANARY }
 $config = New-WorkerWslConfig $plan
 Check ($config.Contains('memory=4GB') -and $config.Contains('processors=2') -and $config.Contains('localhostForwarding=false')) 'Profile budget differs'
+# Fresh provisioning uses only doubles here, including the real API's 48-char bound.
+# This catches invalid create arguments even on a non-admin/non-Windows test host.
+& {
+    $fixture = [pscustomobject]@{ Manifest=$null; Account=$null; CreateCalls=0 }
+    $base = Join-Path ([IO.Path]::GetTempPath()) ('worker-model-'+[guid]::NewGuid())
+    function Assert-WorkerAdministrator { }
+    function Assert-WorkerPlainPath { }
+    function Get-WorkerPaths { @{Metadata=(Join-Path $base 'meta');Data=(Join-Path $base 'data')} }
+    function Test-Path { $false }
+    function Get-Item { [pscustomobject]@{PSIsContainer=$false} }
+    function Get-FileHash { [pscustomobject]@{Hash=('a'*64)} }
+    function Get-LocalUser { $fixture.Account }
+    function Get-WorkerGroupSids { @('S-1-5-32-545') }
+    function Get-CimInstance {
+        param([string]$ClassName,[string]$Filter)
+        if($ClassName -eq 'Win32_OperatingSystem'){[pscustomobject]@{FreePhysicalMemory=(12*1MB)}}
+        else{[pscustomobject]@{FreeSpace=(100*1GB);FileSystem='NTFS'}}
+    }
+    function New-LocalUser {
+        param([string]$Name,[SecureString]$Password,[ValidateLength(0,48)][string]$Description,[string]$ErrorAction)
+        $fixture.CreateCalls++
+        $fixture.Account=[pscustomobject]@{Enabled=$true;SID=[pscustomobject]@{Value='S-1-5-21-1-2-3-1002'};Description=$Description}
+        $fixture.Account
+    }
+    function Add-LocalGroupMember { throw 'Unexpected group mutation' }
+    function New-Item { }
+    function Set-WorkerResourceAcl { }
+    function Write-WorkerNewFile {
+        param([string]$Path,[string]$Text,[string]$Sid)
+        if($Path.EndsWith('manifest.json')){$fixture.Manifest=$Text|ConvertFrom-Json -AsHashtable}
+    }
+    function Read-WorkerState { $fixture.Manifest }
+    $password=[SecureString]::new();$password.AppendChar([char]120)
+    try {
+        $created=New-WindowsWorker $id $password (Join-Path $base 'image.wsl') 'https://releases.ubuntu.com/resolute/image.wsl' ('a'*64) 4 1
+        Check ($fixture.CreateCalls -eq 1) 'Expected one mock account create'
+        Check ($fixture.Account.Description.Length -le 48) 'Windows API description limit'
+        Check ($fixture.Account.Description -ceq "pcw/v1/$id") 'Full UUID account ownership description'
+        Check ($created.AccountDescription -ceq $fixture.Account.Description) 'Manifest/API description mismatch'
+        Check ($created.Owner -ceq 'pc-setup/windows-worker/v1') 'Manifest namespace changed'
+    } finally {$password.Dispose()}
+}
+Check ($plan.AccountDescription -ceq "pcw/v1/$id" -and $plan.AccountDescription.Length -eq 43) 'Bounded plan account description'
 $childAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'child-probe.ps1'),[ref]$null,[ref]$null)
 $moduleReset = $childAst.EndBlock.Statements | Where-Object { $_ -is [Management.Automation.Language.AssignmentStatementAst] -and $_.Left.Extent.Text -eq '$env:PSModulePath' } | Select-Object -First 1
 Check ($null -ne $moduleReset) 'Child must restrict module lookup before commands'
@@ -90,7 +133,7 @@ if ($IsWindows -and [Environment]::Is64BitProcess) {
                 function Get-WorkerPaths { $testPaths }
                 function Assert-WorkerAdministrator { }
                 function Get-WorkerGroupSids { @('S-1-5-32-545') }
-                function Get-LocalUser { [pscustomobject]@{ Enabled=$true; SID=[pscustomobject]@{Value=$sid}; Description="pc-setup/windows-worker/v1/$id" } }
+                function Get-LocalUser { [pscustomobject]@{ Enabled=$true; SID=[pscustomobject]@{Value=$sid}; Description=$plan.AccountDescription } }
                 $script:workerTestCreationAttempted = $false
                 function New-LocalUser { $script:workerTestCreationAttempted=$true; throw 'TEST ERROR: account creation must never be reached' }
                 foreach ($path in $testPaths.Values) { New-Item -ItemType Directory $path | Out-Null }
@@ -108,12 +151,17 @@ if ($IsWindows -and [Environment]::Is64BitProcess) {
                 Write-WorkerNewFile $manifest ($state | ConvertTo-Json) $sid
                 $valid=Read-WorkerState $id
                 Check ($valid.Sid -ceq $sid) 'Valid owned state refused'
+                function Get-LocalUser { [pscustomobject]@{ Enabled=$true; SID=[pscustomobject]@{Value=$sid}; Description="pc-setup/windows-worker/v1/$id" } }
+                Refuses { Read-WorkerState $id }
+                function Get-LocalUser { [pscustomobject]@{ Enabled=$true; SID=[pscustomobject]@{Value=$sid}; Description="pcw/v1/11111111-2222-4333-8444-555555555555" } }
+                Refuses { Read-WorkerState $id }
+                function Get-LocalUser { [pscustomobject]@{ Enabled=$true; SID=[pscustomobject]@{Value=$sid}; Description=$plan.AccountDescription } }
                 $repeated=New-WindowsWorker $id (ConvertTo-SecureString 'unit-fixture-only' -AsPlainText -Force) $image $state.SourceUri $state.Sha256
                 Check ($repeated.Sid -ceq $sid) 'Idempotent provision changed identity'
                 # Same account name with a new SID is never adopted.
-                function Get-LocalUser { [pscustomobject]@{ Enabled=$true; SID=[pscustomobject]@{Value='S-1-5-21-1-2-3-9999'}; Description="pc-setup/windows-worker/v1/$id" } }
+                function Get-LocalUser { [pscustomobject]@{ Enabled=$true; SID=[pscustomobject]@{Value='S-1-5-21-1-2-3-9999'}; Description=$plan.AccountDescription } }
                 Refuses { Read-WorkerState $id }
-                function Get-LocalUser { [pscustomobject]@{ Enabled=$true; SID=[pscustomobject]@{Value=$sid}; Description="pc-setup/windows-worker/v1/$id" } }
+                function Get-LocalUser { [pscustomobject]@{ Enabled=$true; SID=[pscustomobject]@{Value=$sid}; Description=$plan.AccountDescription } }
                 [IO.File]::AppendAllText($probe,"`n# drift")
                 Refuses { Read-WorkerState $id }
                 [IO.File]::WriteAllText($probe,[IO.File]::ReadAllText("$root/child-probe.ps1"))
