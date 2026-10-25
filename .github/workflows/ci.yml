@@ -17,6 +17,19 @@ permissions:
   contents: read
 
 jobs:
+  windows-worker:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Worker contracts and scratch ACLs (no accounts or WSL changes)
+        shell: pwsh
+        run: ./scripts/test-windows-worker.ps1
+      - name: Non-mutating native process capability
+        shell: pwsh
+        run: ./scripts/probe-windows-worker-host.ps1
+
   shell:
     runs-on: ubuntu-latest
     env:
