@@ -66,6 +66,9 @@ try {
 $config = New-WorkerWslConfig $plan
 Check ($config.Contains('memory=4GB') -and $config.Contains('processors=2') -and $config.Contains('localhostForwarding=false')) 'Profile budget differs'
 $childAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $root 'child-probe.ps1'),[ref]$null,[ref]$null)
+$moduleReset = $childAst.EndBlock.Statements | Where-Object { $_ -is [Management.Automation.Language.AssignmentStatementAst] -and $_.Left.Extent.Text -eq '$env:PSModulePath' } | Select-Object -First 1
+Check ($null -ne $moduleReset) 'Child must restrict module lookup before commands'
+Check (@($moduleReset.Right.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst]},$true)).Count -eq 0) 'Module reset must not autoload a module cmdlet'
 $inventory = $childAst.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-WorkerRegistryDistroNames' },$true)
 Check ($null -ne $inventory) 'Fail-closed registry inventory helper missing'
 . ([scriptblock]::Create($inventory.Extent.Text))

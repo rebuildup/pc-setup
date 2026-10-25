@@ -6,7 +6,7 @@ param(
     [string]$PeerPath
 )
 # Fixed probe imports machine modules only, never a worker-writable user module.
-$env:PSModulePath = Join-Path $PSHOME 'Modules'
+$env:PSModulePath = [IO.Path]::Combine($PSHOME, 'Modules')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 if (-not $IsWindows -or -not [Environment]::Is64BitProcess) { throw 'Native x64 Windows only.' }
