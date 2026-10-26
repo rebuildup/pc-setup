@@ -54,10 +54,20 @@ function Initialize-WorkerWslStage([string]$InstanceId, [string]$ImagePath) {
     Write-WorkerNewFile (Join-Path $root 'manifest.json') ($manifest | ConvertTo-Json -Depth 5) $state.Sid
     Read-WorkerWslStage $InstanceId
 }
-function Invoke-WorkerWslStage([string]$InstanceId, [SecureString]$Password, [ValidateSet('Inventory','Import','Verify')][string]$Mode) {
+function Invoke-WorkerWslStage([string]$InstanceId, [SecureString]$Password, [ValidateSet('Inventory','Import','Verify')][string]$Mode, [string]$ProtectedFile, [string]$ProtectedDirectory) {
     $stage = Read-WorkerWslStage $InstanceId
     $state = Read-WorkerState $InstanceId
     if (-not $Password -or $Password.Length -lt 1) { throw 'Supply an in-memory SecureString.' }
+    if ($Mode -eq 'Inventory') {
+        Assert-WorkerWslProtectedPaths $ProtectedFile $ProtectedDirectory
+        $operatorSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+        if ($operatorSid -ceq $state.Sid) { throw 'Expected a distinct operator.' }
+        foreach ($path in @($ProtectedFile,$ProtectedDirectory)) {
+            Assert-WorkerPlainPath $path
+            if ((Get-Acl -LiteralPath $path).GetOwner([Security.Principal.SecurityIdentifier]).Value -cne $operatorSid) { throw 'Protected target is not owned by this operator.' }
+        }
+        if ((Get-Item -LiteralPath $ProtectedFile).PSIsContainer -or -not (Get-Item -LiteralPath $ProtectedDirectory).PSIsContainer) { throw 'Protected target type mismatch.' }
+    }
     if ($Mode -eq 'Import') {
         $os = Get-CimInstance Win32_OperatingSystem
         $drive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='$([IO.Path]::GetPathRoot($stage.InstallLocation).TrimEnd('\'))'"
@@ -70,6 +80,9 @@ function Invoke-WorkerWslStage([string]$InstanceId, [SecureString]$Password, [Va
     $info.Password = $Password; $info.LoadUserProfile = $true
     $root = Get-WorkerWslStagePath $InstanceId
     foreach ($arg in @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $root 'wsl-child.ps1'),'-Mode',$Mode,'-ManifestPath',(Join-Path $root 'manifest.json'))) { $info.ArgumentList.Add($arg) }
+    if ($Mode -eq 'Inventory') {
+        foreach ($arg in @('-ProtectedFile',$ProtectedFile,'-ProtectedDirectory',$ProtectedDirectory)) { $info.ArgumentList.Add($arg) }
+    }
     $p = $null
     $previousCanary = [Environment]::GetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY')
     try {
@@ -83,6 +96,7 @@ function Invoke-WorkerWslStage([string]$InstanceId, [SecureString]$Password, [Va
         if ($text.Length -gt 16384 -or $stderr.GetAwaiter().GetResult().Length) { throw 'Unexpected WSL stage output.' }
         $report = $text | ConvertFrom-Json
         if ($report.Sid -cne $stage.Sid -or $report.Administrator -isnot [bool] -or $report.Administrator -or $report.CanaryPresent -isnot [bool] -or $report.CanaryPresent -or $report.Mode -cne $Mode) { throw 'Invalid child identity/environment report.' }
+        if ($Mode -eq 'Inventory') { Assert-WorkerWslAccessReport ($text | ConvertFrom-Json -AsHashtable) }
         $report
     } finally {
         [Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',$previousCanary)

@@ -3,10 +3,12 @@ param(
     [Parameter(Mandatory)][ValidateSet('Prepare','Inventory','Import','Verify')][string]$Action,
     [Parameter(Mandatory)][string]$InstanceId,
     [string]$ImagePath,
-    [SecureString]$Password
+    [SecureString]$Password,
+    [string]$ProtectedFile,
+    [string]$ProtectedDirectory
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'wsl-runtime.ps1')
 if ($Action -eq 'Prepare') { Initialize-WorkerWslStage $InstanceId $ImagePath }
-else { Invoke-WorkerWslStage $InstanceId $Password $Action }
+else { Invoke-WorkerWslStage $InstanceId $Password $Action $ProtectedFile $ProtectedDirectory }

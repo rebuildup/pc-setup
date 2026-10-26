@@ -36,4 +36,13 @@ Refuses { ConvertTo-WorkerWslComparablePath 'C:\owned:stream' }
 $args = @(Get-WorkerWslImportArguments $plan $location 'C:\owned\image.wsl')
 Check (($args -join '|') -ceq "--import|$($plan.DistroName)|$location|C:\owned\image.wsl|--version|2") 'Import must target only the exact owned distro/location'
 Check ($args -notcontains '--shutdown' -and $args -notcontains '--unregister') 'Destructive WSL operation'
+$denial = @{ ProtectedFileReadable=$false; ProtectedDirectoryReadable=$false }
+Assert-WorkerWslAccessReport $denial
+Refuses { Assert-WorkerWslAccessReport @{ProtectedFileReadable=$true;ProtectedDirectoryReadable=$false} }
+Refuses { Assert-WorkerWslAccessReport @{ProtectedFileReadable=$false;ProtectedDirectoryReadable=$true} }
+Refuses { Assert-WorkerWslAccessReport @{ProtectedFileReadable='false';ProtectedDirectoryReadable=$false} }
+Refuses { Assert-WorkerWslAccessReport @{ProtectedFileReadable=$false} }
+Assert-WorkerWslProtectedPaths 'C:\operator\key' 'C:\operator\private'
+Refuses { Assert-WorkerWslProtectedPaths 'relative-key' 'C:\operator\private' }
+Refuses { Assert-WorkerWslProtectedPaths 'C:\operator\key' '.\private' }
 Write-Output 'Windows worker WSL contract tests: PASS'

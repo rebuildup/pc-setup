@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('Inventory','Import','Verify')][string]$Mode,
-    [Parameter(Mandatory)][string]$ManifestPath
+    [Parameter(Mandatory)][string]$ManifestPath,
+    [string]$ProtectedFile,
+    [string]$ProtectedDirectory
 )
 $env:PSModulePath = [IO.Path]::Combine($PSHOME, 'Modules')
 Set-StrictMode -Version Latest
@@ -37,6 +39,20 @@ if ($null -ne $lxss) {
     } finally { $lxss.Dispose() }
 }
 Assert-WorkerWslInventory $entries $plan $stage.InstallLocation $Mode
+$denial = @{}
+if ($Mode -eq 'Inventory') {
+    # Only an explicit ACL denial is evidence. Never read any private-key bytes.
+    try {
+        $handle = [IO.File]::Open($ProtectedFile,'Open','Read','ReadWrite')
+        $handle.Dispose(); $denial.ProtectedFileReadable = $true
+    } catch [UnauthorizedAccessException] { $denial.ProtectedFileReadable = $false }
+    try {
+        $iterator = [IO.Directory]::EnumerateFileSystemEntries($ProtectedDirectory).GetEnumerator()
+        try { $null = $iterator.MoveNext() } finally { $iterator.Dispose() }
+        $denial.ProtectedDirectoryReadable = $true
+    } catch [UnauthorizedAccessException] { $denial.ProtectedDirectoryReadable = $false }
+    Assert-WorkerWslAccessReport $denial
+}
 if ($Mode -eq 'Import') {
     if (Test-Path -LiteralPath $stage.InstallLocation) { throw 'Install path already exists; preserve partial state.' }
     if ((Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'image.wsl') -Algorithm SHA256).Hash -ine $stage.ImageSha256) { throw 'Image hash mismatch.' }
@@ -57,10 +73,16 @@ if ($Mode -eq 'Import') {
         $null = $stdout.GetAwaiter().GetResult(); $null = $stderr.GetAwaiter().GetResult()
     } finally { $p.Dispose() }
 }
-@{
+$report = @{
     InstanceId = $plan.InstanceId; Sid = $identity.User.Value; Administrator = $false
     CanaryPresent = $false; NativeProfileLoaded = $true; Mode = $Mode
     DistroName = $plan.DistroName; InstallLocation = $stage.InstallLocation
     RegistryCountBefore = $entries.Count; ImportCommandSucceeded = ($Mode -eq 'Import')
     RegistrationVerified = ($Mode -eq 'Verify'); LinuxBootTested = $false
-} | ConvertTo-Json -Compress
+}
+if ($Mode -eq 'Inventory') {
+    $report.ProtectedFileReadable = $denial.ProtectedFileReadable
+    $report.ProtectedDirectoryReadable = $denial.ProtectedDirectoryReadable
+    $report.DenialScope = 'Existing operator file/directory only; not another standard worker.'
+}
+$report | ConvertTo-Json -Compress

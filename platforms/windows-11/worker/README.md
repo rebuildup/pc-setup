@@ -69,13 +69,14 @@ review済みsourceとpassword配送を固定したnative x64管理者controller�
 ```powershell
 $wslEntry = './platforms/windows-11/worker/wsl-worker.ps1'
 & $wslEntry -Action Prepare -InstanceId $instance -ImagePath $image
-& $wslEntry -Action Inventory -InstanceId $instance -Password $password
+& $wslEntry -Action Inventory -InstanceId $instance -Password $password `
+    -ProtectedFile $managementKeyPath -ProtectedDirectory $operatorPrivateDirectory
 # Inventoryが空で、直前の容量/image検査が成功した場合だけ、一度実行する。
 & $wslEntry -Action Import -InstanceId $instance -Password $password
 & $wslEntry -Action Verify -InstanceId $instance -Password $password
 ```
 
-Inventoryは専用標準user本人のHKCU、SID、native profile、`.wslconfig`、canary不在を検査する。Importは既存distro/install directoryを拒否し、新しいUUID対応distroだけをWSL2として登録する。一度失敗したimportは再試行/adopt/rollbackせず証跡を保って調査する。Verifyはregistryの名前/version/BasePathを別途照合する。import command成功と登録検証、Linux boot、SSH/Herdr疎通を混同しない。
+Inventoryは専用標準user本人のHKCU、SID、native profile、`.wslconfig`、canary不在を検査する。parentは既存の操作者所有file/directoryの存在・型・ownerとreparse不在を確認し、childがfile handle openとdirectory列挙だけを試す。UnauthorizedAccessExceptionだけが拒否proofで、missing/IO errorを拒否扱いにしない。これはoperator資源への拒否であり別standard worker間の拒否とは区別する。Importは既存distro/install directoryを拒否し、新しいUUID対応distroだけをWSL2として登録する。一度失敗したimportは再試行/adopt/rollbackせず証跡を保って調査する。Verifyはregistryの名前/version/BasePathを別途照合する。import command成功と登録検証、Linux boot、SSH/Herdr疎通を混同しない。
 
 LinuxではWindows PATH混入を防ぎ、Linux-native runtimeの実体/versionを確認する。新規distroのinterop/automount抑制は防御補助でありOS権限境界の代替ではない。network公開port/Headscale/Infisical登録は別gate。`terminal.shell_mode=non_login` はPowerShellの `-NoProfile` を意味せず、worker clean environmentの代替にしない。
 

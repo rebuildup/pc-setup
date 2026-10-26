@@ -21,3 +21,14 @@ function Get-WorkerWslImportArguments($Plan, [string]$InstallLocation, [string]$
     $null = ConvertTo-WorkerWslComparablePath $ImagePath
     @('--import', $Plan.DistroName, $InstallLocation, $ImagePath, '--version', '2')
 }
+function Assert-WorkerWslAccessReport($Report) {
+    foreach ($name in @('ProtectedFileReadable','ProtectedDirectoryReadable')) {
+        if ($Report[$name] -isnot [bool] -or $Report[$name]) { throw "Worker access denial not proved: $name" }
+    }
+}
+function Assert-WorkerWslProtectedPaths([string]$File, [string]$Directory) {
+    foreach ($path in @($File,$Directory)) {
+        # Preserve target identity across the controller and worker's different cwd.
+        $null = ConvertTo-WorkerWslComparablePath $path
+    }
+}
