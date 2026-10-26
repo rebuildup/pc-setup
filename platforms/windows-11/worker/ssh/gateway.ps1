@@ -1,4 +1,5 @@
 . (Join-Path $PSScriptRoot 'runtime.ps1')
+. (Join-Path $PSScriptRoot 'firewall-contract.ps1')
 function Get-WorkerGatewayPath([string]$InstanceId) {
     $null=New-WorkerPlan $InstanceId
     Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) "pc-setup-wsl-gateway-$InstanceId"
@@ -36,13 +37,15 @@ function Assert-WorkerGatewayLive($Stage,$Report,[string]$Listen,[string]$Contro
     $vpn=& 'C:/Program Files/Tailscale/tailscale.exe' status --json|ConvertFrom-Json
     if($LASTEXITCODE -ne 0 -or $vpn.BackendState -cne 'Running' -or $vpn.TailscaleIPs -notcontains $Listen -or @($vpn.Peer.PSObject.Properties.Value|Where-Object{$_.TailscaleIPs -contains $Controller -and $_.Online}).Count -ne 1){throw 'Current VPN attributes mismatch.'}
     if((Get-CimInstance Win32_Service -Filter "Name='iphlpsvc'").State -cne 'Running'){throw 'Existing IP Helper must already be running; no service reconfiguration.'}
-    $profiles=@(Get-NetFirewallProfile -PolicyStore ActiveStore)
-    if($profiles.Count -ne 3 -or @($profiles|Where-Object Enabled -ne $true).Count){throw 'All existing Firewall profiles must be enabled; no global policy change.'}
+    $interfaces=@(Get-NetIPAddress -AddressFamily IPv4 -IPAddress $Listen)
+    if($interfaces.Count -ne 1){throw 'Ambiguous VPN interface.'}
+    Assert-WorkerGatewayFirewallProfiles @(Get-NetFirewallProfile -PolicyStore ActiveStore) $interfaces[0].InterfaceAlias
 }
 function Assert-WorkerGatewayRule([string]$Name,[string]$Kind,$Manifest) {
-    $rules=@(Get-NetFirewallRule -Name $Name -ErrorAction SilentlyContinue)
+    $rules=@(Get-NetFirewallRule -PolicyStore ActiveStore -Name $Name -ErrorAction SilentlyContinue)
     if($rules.Count -ne 1){throw 'Owned gateway Firewall rule missing/duplicate.'}
     $r=$rules[0]
+    if([string]$r.PolicyStoreSourceType -cne 'Local' -or [string]$r.PrimaryStatus -cne 'OK' -or @($r.EnforcementStatus) -notcontains 'Enforced'){throw 'Owned local Firewall rule is not effective in ActiveStore.'}
     if($r.Description -cne "$($Manifest.Owner)/$($Manifest.InstanceId)/$Kind" -or $r.Enabled -ne 'True' -or $r.Direction -ne 'Inbound' -or $r.Action -cne $Kind -or $r.Profile -ne 'Any' -or $r.EdgeTraversalPolicy -ne 'Block'){throw 'Firewall identity/policy drift.'}
     $port=$r|Get-NetFirewallPortFilter;$address=$r|Get-NetFirewallAddressFilter
     $expected=if($Kind -eq 'Allow'){@($Manifest.ControllerAddress)}else{@(Get-WorkerGatewayBlockedRanges $Manifest.ControllerAddress)}

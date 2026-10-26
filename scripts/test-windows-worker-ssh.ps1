@@ -3,6 +3,7 @@ Set-StrictMode -Version Latest
 $root=Join-Path $PSScriptRoot '../platforms/windows-11/worker'
 . "$root/contract.ps1"
 . "$root/ssh/contract.ps1"
+. "$root/ssh/firewall-contract.ps1"
 $key='ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIABi+WLmtTWVkJ7Y1o67t1MrDFPuNajIscj0QhDv8KYL devnode-wsl-worker-1'
 $plan=New-WorkerSshPlan '2a1084ec-5389-4b0b-a0f0-9a38fcfaece5' $key
 if($plan.LinuxUser -cne 'worker' -or $plan.Port -ne 22224 -or $plan.ClientFingerprint -cne 'SHA256:5cj3QSTm+WQmCbM8nyzioyceOQxzEXLLnFgsXcQIEQM'){throw 'Invalid SSH plan'}
@@ -26,6 +27,18 @@ $null=ConvertFrom-WorkerGuestReport $text Configure
 Refuses {ConvertFrom-WorkerGuestReport ($text+"action=Configure`n") Configure}
 Refuses {ConvertFrom-WorkerGuestReport ($text.Replace('restart_required=true','restart_required=false')) Configure}
 Refuses {ConvertFrom-WorkerGuestReport ($text+"unexpected=field`n") Configure}
+$profiles=@('Domain','Private','Public')|ForEach-Object{[pscustomobject]@{Name=$_;Enabled=$true;AllowLocalFirewallRules=$true;AllowInboundRules=$true;DisabledInterfaceAliases=@()}}
+Assert-WorkerGatewayFirewallProfiles $profiles Tailscale
+$profiles[0].DisabledInterfaceAliases=@('Tailscale')
+Refuses {Assert-WorkerGatewayFirewallProfiles $profiles Tailscale}
+$profiles[0].DisabledInterfaceAliases=@('*')
+Refuses {Assert-WorkerGatewayFirewallProfiles $profiles Tailscale}
+$profiles[0].DisabledInterfaceAliases=@();$profiles[1].AllowLocalFirewallRules=$false
+Refuses {Assert-WorkerGatewayFirewallProfiles $profiles Tailscale}
+$profiles[1].AllowLocalFirewallRules='NotConfigured'
+Refuses {Assert-WorkerGatewayFirewallProfiles $profiles Tailscale}
+$profiles[1].AllowLocalFirewallRules=$true;$profiles[2].Enabled=$false
+Refuses {Assert-WorkerGatewayFirewallProfiles $profiles Tailscale}
 $errors=$null
 Get-ChildItem "$root/ssh/*.ps1",$PSCommandPath|ForEach-Object{$null=[Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$null,[ref]$errors);if($errors){throw $errors}}
 Write-Output 'Worker SSH/gateway contracts: PASS'

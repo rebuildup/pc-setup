@@ -39,7 +39,7 @@ $live = Invoke-WorkerSshStage $instance $password Verify -ReadOnly
 Repair-WorkerGateway $instance $live
 ```
 
-既存IP HelperがRunning、Windows Firewall全profileがEnabled、VPNの現在属性が一致していることを要求し、global service/policyを変更しない。targetは接続中のWSL仮想NICのprivate subnet内で、Windows自身のinterfaceではないIPv4に限る。全portproxy familyの同portを調べ、foreign mapping/listener/rule名を拒否する。
+既存IP HelperがRunning、VPNの現在属性が一致していることを要求する。FirewallのActiveStoreで三profileがEnabled、AllowInboundRules/AllowLocalFirewallRulesが明示True、VPN interfaceがDisabledInterfaceAliasesに含まれないことを確認する。作成した二つのlocal ruleもActiveStoreのscopeとPrimaryStatus/Enforcedを照合する。無効・未確定のGPO/local mergeをglobal policy変更で緩和しない。targetは接続中のWSL仮想NICのprivate subnet内で、Windows自身のinterfaceではないIPv4に限る。全portproxy familyの同portを調べ、foreign mapping/listener/rule名を拒否する。
 
 今回のVPN IPv4:22224だけをv4tov4でguest IPv4:22224へ転送する。controllerだけのAllowと、それ以外のIPv4 rangeのBlockを同じIP/portに限定して作る。他のbroad Allowによる露出を防ぐためのBlockであり、他port/既存22222/標準sshdを変更しない。実効Firewallと否定接続は別途実測する。共有gateway方式のためWSL独自VPN identityや隣接workerからの完全なnetwork分離を主張しない。
 
