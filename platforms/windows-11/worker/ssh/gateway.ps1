@@ -88,6 +88,7 @@ function Initialize-WorkerGateway([string]$InstanceId,$GuestReport,[string]$List
         $remote=if($kind -eq 'Allow'){@($ControllerAddress)}else{@(Get-WorkerGatewayBlockedRanges $ControllerAddress)}
         $null=New-NetFirewallRule -Name "pc-setup-wsl-$InstanceId-22224-$kind" -DisplayName "Owned WSL SSH $InstanceId $kind" -Description "$($m.Owner)/$InstanceId/$kind" -Direction Inbound -Action $kind -Enabled True -Profile Any -Protocol TCP -LocalAddress $ListenAddress -LocalPort 22224 -RemoteAddress $remote -EdgeTraversalPolicy Block
     }
+    foreach($kind in @('Block','Allow')){Assert-WorkerGatewayRule "pc-setup-wsl-$InstanceId-22224-$kind" $kind $m}
     Invoke-WorkerPortProxy add $ListenAddress $m.GuestAddress
     Move-Item -LiteralPath "$root/pending.json" -Destination "$root/manifest.json" -ErrorAction Stop
     Read-WorkerGateway $InstanceId

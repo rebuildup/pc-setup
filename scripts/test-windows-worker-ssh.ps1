@@ -39,6 +39,42 @@ $profiles[1].AllowLocalFirewallRules='NotConfigured'
 Refuses {Assert-WorkerGatewayFirewallProfiles $profiles Tailscale}
 $profiles[1].AllowLocalFirewallRules=$true;$profiles[2].Enabled=$false
 Refuses {Assert-WorkerGatewayFirewallProfiles $profiles Tailscale}
+# Security regression: an ineffective local rule must fail before port publication.
+& {
+    . "$root/ssh/gateway.ps1"
+    $fixtureBase=Join-Path ([IO.Path]::GetTempPath()) ('pc-setup-gateway-test-'+[guid]::NewGuid().ToString('N'))
+    $fixtureStage=Join-Path $fixtureBase 'stage';$fixtureGateway=Join-Path $fixtureBase 'gateway'
+    $null=New-Item -ItemType Directory -Path $fixtureStage -Force
+    [IO.File]::WriteAllText((Join-Path $fixtureStage 'manifest.json'),'{}')
+    $effects=[Collections.Generic.List[string]]::new()
+    function Assert-WorkerAdministrator {}
+    function Read-WorkerSshStage { @{InstanceId=$plan.InstanceId;Sid='test-sid'} }
+    function Assert-WorkerGatewayLive {}
+    function Get-WorkerGatewayPath { $fixtureGateway }
+    function Get-WorkerSshStagePath { $fixtureStage }
+    function Get-WorkerGatewayMappings { @() }
+    function Get-NetTCPConnection { @() }
+    function Get-NetFirewallRule { @() }
+    function Assert-WorkerPlainPath {}
+    function Set-WorkerResourceAcl {}
+    function Write-WorkerNewFile($Path,$Content) { [IO.File]::WriteAllText($Path,$Content) }
+    function New-NetFirewallRule { $effects.Add('rule-created') }
+    function Assert-WorkerGatewayRule { throw 'test-ineffective-rule' }
+    function Invoke-WorkerPortProxy { $effects.Add('published') }
+    function Read-WorkerGateway { @{Status='unexpected-success'} }
+    $refused=$false
+    try{
+        $guest=[pscustomobject]@{Guest=[pscustomobject]@{address='172.30.1.2';host_fp='test'}}
+        try{Initialize-WorkerGateway $plan.InstanceId $guest '100.118.123.62' '100.83.203.34'|Out-Null}catch{if($_.Exception.Message -cne 'test-ineffective-rule'){throw};$refused=$true}
+        if(-not $refused -or $effects.Contains('published')){throw 'Gateway published before effective Firewall verification'}
+        if(-not(Test-Path (Join-Path $fixtureGateway 'pending.json'))){throw 'Partial gateway state not preserved'}
+    }finally{
+        $resolved=[IO.Path]::GetFullPath($fixtureBase)
+        $expectedParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([char[]]'\/')
+        if([IO.Path]::GetDirectoryName($resolved) -cne $expectedParent -or [IO.Path]::GetFileName($resolved) -cnotmatch '^pc-setup-gateway-test-[a-f0-9]{32}$' -or (Get-Item -LiteralPath $resolved -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Unsafe test cleanup path; preserve fixture'}
+        Remove-Item -LiteralPath $resolved -Recurse -Force
+    }
+}
 $errors=$null
 Get-ChildItem "$root/ssh/*.ps1",$PSCommandPath|ForEach-Object{$null=[Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$null,[ref]$errors);if($errors){throw $errors}}
 Write-Output 'Worker SSH/gateway contracts: PASS'
