@@ -89,3 +89,11 @@ unregister、既存WSL停止/再生成、OS upgrade/reboot、daemon/scheduler追
 `scripts/test-windows-worker-wsl.ps1` はforeign/duplicate/WSL1/path drift/既存importの拒否、registry path正規化、限定import argv、source parserを検査する。native credentialed実行・実WSL登録・bootは別の実機証跡が必要。
 
 一次資料（2026-10-25確認）: [.NET Password](https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.processstartinfo.password)、[LoadUserProfile](https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.processstartinfo.loaduserprofile)、[CreateProcessWithLogonW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-createprocesswithlogonw)。現在userのWindows mountから管理鍵が見えるという実測と、本案の別user拒否proofを混同しない。
+
+## 登録後の最初のLinux起動
+
+`boot-runtime.ps1` は元のworker/WSL stageを変更せず、別の `pc-setup-worker-boot-<UUID>` に本人読取・Administrators/SYSTEM書込だけの固定sourceとmanifestを準備する。レビュー済みcontrollerで `Initialize-WorkerBootStage`、続いてSecureStringを使い `Invoke-WorkerBootStage` を一回だけ呼ぶ。実行直前にCreateNewのattempt markerを作り、失敗時も消さず保持する。
+
+標準Windows SID本人のnative profile/WSL registry照合後、完全名distroだけを `--user root --exec /usr/bin/env -i` で起動し、固定shell probeでLinux/Ubuntu24.04/x86_64/root UIDとnonce往復、CPU数、memory、Windows mount/interopの存在を測る。新しいLinux userの作成・package導入・SSH/Herdr起動・network公開・credential登録は行わない。rootは新規import直後のinventoryだけに使い、常用worker認証の完成とは扱わない。
+
+Windows mount/interopがある場合も隠さず結果へ記録する。これはLinux bootの証拠であり、最終のWindows PATH排除やmount/interop抑制、resource budgetの実効性、SSH/Herdr疎通の合格ではない。first-boot vendor stderrの有無はbooleanだけ記録し、内容はチャットへ出さない。timeoutはプロセス/部分状態を保持し、global shutdownや再importをしない。既存adapter同様にstdout/stderrの取得は終了後size検査であり、streamingの厳密なメモリ上限ではない。
