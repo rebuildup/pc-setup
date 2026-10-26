@@ -33,4 +33,10 @@ Stopも所有権照合後、今回のtaskだけを対象にする。元のSSH en
 
 pure testsはtask XML、SYSTEM/no password、NoProfile、boot trigger、policy/ACL drift拒否を検査する。昇格WindowsではTask SchedulerのTASK_VALIDATE_ONLYを使い、taskを実登録せずOS schemaを検査する。実task起動、SYSTEMでのOpenSSH認証、OS reboot、VPN復帰は別の実機証跡が必要。controller/basic用の管理経路であり、低権限worker自身のSSH境界とは区別する。
 
+Windowsの登録後XMLはschema defaultの一部を省略する。`registered-task-contract.ps1` はAllowHardTerminate/AllowStartOnDemand/EnabledとBootTrigger Enabledのtrue、RunOnlyIfNetworkAvailable/Hidden/RunOnlyIfIdle/DisallowStartOnRemoteAppSession/WakeToRunのfalse、Priority=7だけを欠落時に補完する。明示値・未知要素・重複要素は書き換えず厳格検査へ渡す。Windows 11実測で常にtrueとして返るUnified Scheduling Engineはdesired stateも明示trueとする。旧false要求を黙って無視しない。
+
+Task Scheduler APIのSDDL表現とOS task fileのDACLは別々に検査する。APIがprotected flagを省略しても、task fileにはAdministrators所有・protected DACL・SYSTEM/Administrators各一つのFullControlだけを要求する。API側も同じ二つの明示ACEだけを要求し、重複read ACEや外国principalを拒否する。新規登録はTASK_DONT_ADD_PRINCIPAL_ACEを指定する。OS task fileを直接書き換えない。
+
+過去の部分登録は通常Installで修復しない。修復が必要なら旧runtime/source/元enrollment/実Task XML/実SDDLをhashとACLで照合する独立した一回stageをレビューする。承認したTaskだけへ公式SetSecurityDescriptor APIでACLを設定し、全検査後に初めてStartする。元Installのmarker/失敗結果を保持し、runtime sourceや元の鍵・設定・Firewallを上書きしない。
+
 一次資料（2026-10-26確認）: [Task Scheduler schema](https://learn.microsoft.com/windows/win32/taskschd/task-scheduler-schema)、[RegisterTask](https://learn.microsoft.com/windows/win32/taskschd/taskfolder-registertask)、[task security descriptor](https://learn.microsoft.com/windows/win32/taskschd/registeredtask-setsecuritydescriptor)、[Tailscale Windows MSI](https://tailscale.com/docs/install/windows/msi)。

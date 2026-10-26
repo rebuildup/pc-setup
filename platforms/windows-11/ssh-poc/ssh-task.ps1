@@ -5,6 +5,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 if(-not $IsWindows -or -not [Environment]::Is64BitProcess){throw 'Use native x64 PowerShell.'}
 . (Join-Path $PSScriptRoot 'task-contract.ps1')
+. (Join-Path $PSScriptRoot 'registered-task-contract.ps1')
 $sshd=Join-Path ([Environment]::SystemDirectory) 'OpenSSH/sshd.exe'
 $sshdSignature=Get-AuthenticodeSignature -FilePath $sshd
 Assert-PocSshdSignature ([string]$sshdSignature.Status) $sshdSignature.SignerCertificate.Subject
@@ -13,7 +14,7 @@ $runtimeRoot=Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) '
 $taskName='pc-setup-ssh-poc-22222'
 $taskAcl='O:BAG:BAD:P(A;;FA;;;SY)(A;;FA;;;BA)'
 $pwsh=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell/7/pwsh.exe'
-$taskXml=New-PocTaskXml $state.Id $pwsh (Join-Path $runtimeRoot 'task-worker.ps1')
+$taskXml=New-PocRegisteredTaskXml $state.Id $pwsh (Join-Path $runtimeRoot 'task-worker.ps1')
 $scheduler=New-Object -ComObject 'Schedule.Service'
 $scheduler.Connect()
 $folder=$scheduler.GetFolder('\')
@@ -42,8 +43,9 @@ function Read-PocTaskRuntime {
     Assert-PrivateAcl (Join-Path $logDir 'sshd.log')
     $task=Get-OwnedTaskCandidate
     if($null -eq $task){throw 'Runtime task missing; preserve partial state.'}
-    Assert-PocTaskXml $task.Xml $taskXml
-    Assert-PocTaskAcl ($task.GetSecurityDescriptor(7))
+    Assert-PocRegisteredTaskXml $task.Xml $taskXml
+    Assert-PrivateAcl (Join-Path ([Environment]::SystemDirectory) "Tasks/$taskName")
+    Assert-PocRegisteredTaskApiAcl ($task.GetSecurityDescriptor(7))
     if($task.Definition.Principal.LogonType -ne 5 -or -not $task.Enabled){throw 'Task principal/status drift.'}
     $task
 }
@@ -67,8 +69,8 @@ if($requestedAction -eq 'Install'){
         Write-NewFile (Join-Path $logDir 'sshd.log') ''
         $m=[ordered]@{Owner='pc-setup/ssh-poc-task/v1';EnrollmentId=$state.Id;EnrollmentSid=(Get-LocalUser -Name $state.UserName).SID.Value;EnrollmentManifestHash=(Get-FileHash -LiteralPath $manifestPath).Hash;SourceHashes=$hashes}
         Write-NewFile (Join-Path $runtimeRoot 'manifest.json') ($m|ConvertTo-Json -Depth 5)
-        # TASK_CREATE=2 and TASK_LOGON_SERVICE_ACCOUNT=5. No password is stored.
-        $null=$folder.RegisterTask($taskName,$taskXml,2,'SYSTEM',$null,5,$taskAcl)
+        # TASK_CREATE=2 | TASK_DONT_ADD_PRINCIPAL_ACE=16; service-account logon=5.
+        $null=$folder.RegisterTask($taskName,$taskXml,18,'SYSTEM',$null,5,$taskAcl)
         $null=Read-PocTaskRuntime
     }
 }

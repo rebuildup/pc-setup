@@ -61,4 +61,19 @@ foreach($entry in @('ssh-task.ps1','task-worker.ps1')){
     Check ($signatureAt -ge 0 -and $verifyAt -gt $signatureAt) "Signature must precede enrollment/native verification: $entry"
 }
 
+. (Join-Path $PSScriptRoot '../platforms/windows-11/ssh-poc/registered-task-contract.ps1')
+$registeredExpected=New-PocRegisteredTaskXml $id $pwsh $worker
+$registeredActual=$registeredExpected.Replace('<Enabled>true</Enabled>','').Replace('<AllowHardTerminate>true</AllowHardTerminate>','').Replace('<Priority>7</Priority>','')
+Assert-PocRegisteredTaskXml $registeredActual $registeredExpected
+$registeredFixture=Get-Content (Join-Path $PSScriptRoot 'fixtures/windows-ssh-task-registered.xml') -Raw
+Assert-PocRegisteredTaskXml $registeredFixture $registeredExpected
+Refuses {Assert-PocRegisteredTaskXml ($registeredActual.Replace('<BootTrigger>','<BootTrigger><Enabled>false</Enabled>')) $registeredExpected}
+Refuses {Assert-PocRegisteredTaskXml ($registeredActual.Replace('<Settings>','<Settings><Priority>8</Priority>')) $registeredExpected}
+Refuses {Assert-PocRegisteredTaskXml ($registeredActual.Replace('<Settings>','<Settings><Unknown>true</Unknown>')) $registeredExpected}
+Refuses {Assert-PocRegisteredTaskXml ($registeredActual.Replace('<UseUnifiedSchedulingEngine>true','<UseUnifiedSchedulingEngine>false')) $registeredExpected}
+if($IsWindows){
+    Assert-PocRegisteredTaskApiAcl 'O:BAG:BAD:(A;;FA;;;SY)(A;;FA;;;BA)'
+    Refuses {Assert-PocRegisteredTaskApiAcl 'O:BAG:BAD:(A;;FA;;;SY)(A;;FA;;;BA)(A;;FR;;;SY)'}
+    Refuses {Assert-PocRegisteredTaskApiAcl 'O:BAG:BAD:(A;;FA;;;SY)(A;ID;FA;;;BA)'}
+}
 Write-Output 'Dedicated SSH task contract tests: PASS'
