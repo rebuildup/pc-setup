@@ -1,0 +1,58 @@
+{
+  "checkedAt": "2026-10-26T06:32:13.020247+00:00",
+  "sourceCommit": "7e4fb8d48dce41ba5cc3419d822cb1078aaf97a6",
+  "osVersion": "27.0.1",
+  "herdrVersion": "0.9.5",
+  "status": {
+    "instanceId": "14f29b3f-cda1-4acf-9f18-26d35f8d6074",
+    "owned": true,
+    "jobs": [
+      {
+        "role": "ssh",
+        "loaded": true,
+        "state": "running",
+        "pid": 77271
+      },
+      {
+        "role": "herdr",
+        "loaded": true,
+        "state": "running",
+        "pid": 77274
+      }
+    ]
+  },
+  "processes": [
+    {
+      "role": "ssh",
+      "pid": 77271,
+      "parentPid": 1,
+      "uid": 501
+    },
+    {
+      "role": "herdr",
+      "pid": 77274,
+      "parentPid": 1,
+      "uid": 501
+    }
+  ],
+  "applyStarted": [
+    "ssh",
+    "herdr"
+  ],
+  "secondApplyStarted": [],
+  "sshListener": "100.83.203.34:22223",
+  "hostFingerprint": "SHA256:JxZZce4cTdp9nNOSeqb/xBP955yC/bjIO6h9AfwY5ig",
+  "recovery": {
+    "initialSource": "612ceac",
+    "initialFailure": "nested launchctl coalition state parsed as job state; both workers failed closed",
+    "ownedRemoveSucceeded": true,
+    "logsRetained": true,
+    "reappliedSource": "7e4fb8d"
+  },
+  "notVerified": [
+    "OS reboot",
+    "Logout/login recovery",
+    "Windows-to-Mac SSH/Herdr after LaunchAgent migration",
+    "Hostile same-user process isolation"
+  ]
+}

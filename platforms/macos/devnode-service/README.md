@@ -47,3 +47,11 @@ removeは所有確認済みjobのみをbootoutし、対応plist/worker/config/ma
 statusのloaded/runningはSSH認証やHerdr操作成功を意味しない。既存のpin付きSSH/nonceとHerdr E2Eを実行する。GUIログイン前・ログアウト中は対象外。VPNが遅れて起動した場合は最大60秒程度の再試行間隔がある。ログの自動rotationは実装していないので継続運用時は容量を監視する。
 
 launchctl printは安定APIではないため、認識できない出力や異なるplist pathでは操作を拒否する。macOS更新時に再検証する。同じOSユーザーとrootを信頼する構成であり、同一ユーザー内の悪意あるprocessを隔離するものではない。
+
+### 2026-10-26の実機記録
+
+macOS27.0.1 / Herdr0.9.5で、instance固有のSSH/Herdr両jobを登録し、別の実行processからrunning・parent PID1・同じUIDを確認した。SSHは専用VPN IPv4:22223のみで待受し、元host key指紋を維持。apply再実行はstarted空配列で、両PIDを維持した。[非秘密記録](evidence/2026-10-26.json)を参照。
+
+最初の実機applyではlaunchctlの入れ子coalition stateをjob stateと誤認し、両workerがfail closedで終了した。実測形式の回帰試験を追加してparserを修正し、所有確認付きremoveで失敗時ログを保持してから再登録した。このremoveは専用job/runtimeのみを対象とし、鍵・入力config・Herdr catalogを残した。
+
+LaunchAgent移行後のWindowsからのSSH/Herdr E2E、OS再起動、ログアウト復帰はこの記録では未検証。以前のforeground構成でのE2E成功を移行後の証拠には数えない。
