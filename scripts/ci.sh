@@ -470,3 +470,6 @@ grep -Fq 'source ~/.bashrc' bootstrap.sh
 grep -Fq 'bootstrap.sh | bash && source ~/.bashrc' platforms/ubuntu-wsl/README.md
 
 printf 'All repository checks passed.\n'
+
+printf 'Checking macOS devnode LaunchAgent lifecycle...\n'
+python3 scripts/test-macos-devnode-service.py

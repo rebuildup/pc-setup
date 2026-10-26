@@ -21,4 +21,6 @@
 | [ADR-0013](./ADR-0013.md) | Accepted | macOS のコンテナ実行環境は Colima と Homebrew Docker CLI で管理する |
 | [ADR-0014](./ADR-0014.md) | Accepted | Orca は macOS の任意の worktree frontend とし、設定と Skill stub は Orca 自身が持つ |
 
+| [ADR-0018](./ADR-0018.md) | Accepted | macOS専用開発ノードの待受をユーザーLaunchAgentで管理する |
+
 新しい ADR は `ADR-NNNN.md` の連番で追加します。既存 decision を置換する場合は旧 ADR の status と `Superseded by` も更新します。

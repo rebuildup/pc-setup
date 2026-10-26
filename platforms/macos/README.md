@@ -199,3 +199,7 @@ verify は mise 設定の読み込みと OS 条件、`colima` / `docker` / compo
 ```
 
 GUI application inventoryは実機利用に応じて `plans/macos` から段階的に昇格する。platformがActiveであることはcandidate GUI一覧をすべて採用したことを意味しない。
+
+## 専用開発ノードの待受
+
+SSHとHerdrの専用待受は[devnode-service](devnode-service/README.md)でユーザーLaunchAgentとして管理できる。既存の標準sshdやdefault Herdr sessionは管理対象にしない。
