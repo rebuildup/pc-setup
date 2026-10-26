@@ -253,6 +253,10 @@ actual machineとの差分を調べる場合:
 
 snapshotはevidenceであり、検出した全appを自動的にdesired stateへ昇格させない。
 
+## WSL workerのOS権限分離
+
+新規workerの専用Windows標準ユーザー・所有権・native profile/process境界は[worker手順](worker/README.md)を参照する。現在はsourceと非変更probeの段階で、通常bootstrapからユーザー作成やWSL importを自動実行しない。
+
 ## Secrets / authentication
 
 password / token / API key / cookie / license secret / private keyはrepositoryへ保存しない。
