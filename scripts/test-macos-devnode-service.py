@@ -159,6 +159,28 @@ class ServiceTests(unittest.TestCase):
         with patch.object(self.mod.subprocess, 'run', side_effect=[SimpleNamespace(returncode=0, stdout=settings), SimpleNamespace(returncode=0, stdout='')]):
             self.mod.Manager.preflight(self.manager, self.config)
 
+    def test_launchctl_nested_coalition_states_are_not_job_state(self):
+        job = self.manager.plan(self.config)['jobs'][0]
+        # Selected real-macOS diagnostic shape: coalition blocks have their own state.
+        diagnostic = (f"gui/{os.getuid()}/{job['label']} = {{\n"
+                      f"\tpath = {job['plist']}\n"
+                      "\tstate = spawn scheduled\n"
+                      "\tlast exit code = 1\n"
+                      "\tresource coalition = {\n\t\tstate = active\n\t\tpid = 9999\n\t}\n"
+                      "\tjetsam coalition = {\n\t\tstate = active\n\t}\n}\n")
+        self.manager.launch = lambda args: (0, diagnostic, '')
+        self.assertEqual(self.manager.job_status(job), {'role': 'ssh', 'loaded': True, 'state': 'spawn scheduled', 'pid': None})
+        running = diagnostic.replace('\tstate = spawn scheduled', '\tstate = running\n\tpid = 4321')
+        self.manager.launch = lambda args: (0, running, '')
+        self.assertEqual(self.manager.job_status(job)['pid'], 4321)
+
+    def test_launchctl_duplicate_top_level_fields_still_fail_closed(self):
+        job = self.manager.plan(self.config)['jobs'][0]
+        diagnostic = f"\tpath = {job['plist']}\n\tstate = running\n\tstate = active\n"
+        self.manager.launch = lambda args: (0, diagnostic, '')
+        with self.assertRaisesRegex(ValueError, 'provenance'):
+            self.manager.job_status(job)
+
     def test_unknown_launchctl_error_is_not_absence(self):
         self.manager.launch = lambda args: (5, '', 'Input/output error')
         with self.assertRaisesRegex(ValueError, 'launchctl'):

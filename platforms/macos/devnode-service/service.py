@@ -117,11 +117,13 @@ class Manager:
         if code:
             raise ValueError('launchctl query failed; absence not confirmed')
         # launchctl print is diagnostic, not a stable API. Unknown output fails closed.
-        paths = re.findall(r'^\s*path = (.+)$', out, re.MULTILINE)
-        states = re.findall(r'^\s*state = (.+)$', out, re.MULTILINE)
+        # Current macOS prints job fields at one tab; nested coalition fields
+        # are deeper. Never accept a nested path/state/PID as job provenance.
+        paths = re.findall(r'^\tpath = (.+)$', out, re.MULTILINE)
+        states = re.findall(r'^\tstate = (.+)$', out, re.MULTILINE)
         if paths != [job['plist']] or len(states) != 1:
             raise ValueError('foreign job or unknown launchctl provenance')
-        pids = re.findall(r'^\s*pid = ([0-9]+)$', out, re.MULTILINE)
+        pids = re.findall(r'^\tpid = ([0-9]+)$', out, re.MULTILINE)
         return {'role': job['role'], 'loaded': True, 'state': states[0], 'pid': int(pids[0]) if len(pids) == 1 else None}
 
     def inspect(self, config):
