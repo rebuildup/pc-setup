@@ -54,4 +54,6 @@ macOS27.0.1 / Herdr0.9.5で、instance固有のSSH/Herdr両jobを登録し、別
 
 最初の実機applyではlaunchctlの入れ子coalition stateをjob stateと誤認し、両workerがfail closedで終了した。実測形式の回帰試験を追加してparserを修正し、所有確認付きremoveで失敗時ログを保持してから再登録した。このremoveは専用job/runtimeのみを対象とし、鍵・入力config・Herdr catalogを残した。
 
-LaunchAgent移行後のWindowsからのSSH/Herdr E2E、OS再起動、ログアウト復帰はこの記録では未検証。以前のforeground構成でのE2E成功を移行後の証拠には数えない。
+LaunchAgent配下の専用sessionへ実際のTUI clientを接続し、Herdrが生成したpaneでHERDR_ENV=1を確認してCLIを実行した。Codex0.164.0の起動、prompt送信、assistantのnonce応答を確認。clientをdetachして別processでattach後、同じagent session/paneへの別nonce応答も一致した。外側でHERDR_ENVを設定していない。狭いterminalでassistant出力がhard wrapされた箇所は継続行を結合して比較し、prompt echoは受け入れていない。
+
+これはローカルの常駐server/agent/client再接続の証拠。WindowsからのSSH/Herdr E2E、OS再起動、ログアウト復帰はこの記録では未検証。以前のforeground構成でのE2E成功を移行後の証拠には数えない。

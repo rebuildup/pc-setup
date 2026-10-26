@@ -54,5 +54,27 @@
     "Logout/login recovery",
     "Windows-to-Mac SSH/Herdr after LaunchAgent migration",
     "Hostile same-user process isolation"
-  ]
+  ],
+  "localHerdrE2E": {
+    "managedPaneEnvironmentChecked": true,
+    "environmentFlagForged": false,
+    "workspace": "launchagent-local-verification",
+    "pane": "w4:p1",
+    "agent": "launchagent_check",
+    "kind": "codex",
+    "codexVersion": "0.164.0",
+    "startInteractiveReady": true,
+    "firstPromptDone": true,
+    "firstAssistantNonce": "LAUNCHAGENT_E2E_72c91e613de74a5c8bd7d93e8504ff2c",
+    "clientDetachedAndNewClientAttached": true,
+    "sameAgentSessionAndPane": true,
+    "reconnectPromptDone": true,
+    "reconnectAssistantNonce": "LAUNCHAGENT_RECONNECT_faa726dfc30b469098308f2c85aef98f",
+    "comparison": "Exact assistant paragraph after joining renderer hard-wrap continuation lines; prompt echo not accepted",
+    "daemonStoppedForTest": false,
+    "rawReadSHA256": {
+      "launchagent-read.json": "8a6f61d35ceb062dd138f92a6606121480903e3d818e7d20d59aec502026df64",
+      "launchagent-reconnect-read.txt": "c672967f850a40bc56087b905cc51ef67ebef07a13881883cb878902d94326d5"
+    }
+  }
 }
