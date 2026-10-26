@@ -8,12 +8,15 @@ backend = "aqua:aws/aws-cli"
 specifiers = ["latest"]
 
 [tools.aws-cli."platforms.linux-x64"]
+checksum = "sha256:5def7d1b7e55d892f9a381bb2cb2081a685712464be0d36d5d706af0ac48d0d3"
 url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.38.5.zip"
 
 [tools.aws-cli."platforms.macos-arm64"]
+checksum = "sha256:4cb957d1f79c7264ef5a0f3a509ce477bbfd23c91eee888493a9dfff445a8d7c"
 url = "https://awscli.amazonaws.com/AWSCLIV2-2.38.5.pkg"
 
 [tools.aws-cli."platforms.macos-x64"]
+checksum = "sha256:4cb957d1f79c7264ef5a0f3a509ce477bbfd23c91eee888493a9dfff445a8d7c"
 url = "https://awscli.amazonaws.com/AWSCLIV2-2.38.5.pkg"
 
 [[tools.bat]]
@@ -193,15 +196,19 @@ backend = "vfox:jdx/vfox-gcloud"
 specifiers = ["latest"]
 
 [tools.gcloud."platforms.linux-x64"]
+checksum = "sha256:f1f479b82db2350daf0b4db861da2c6931ac9741585db1c8abbf67f4a56e0b98"
 url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-590.0.1-linux-x86_64.tar.gz"
 
 [tools.gcloud."platforms.macos-arm64"]
+checksum = "sha256:135283328de833a70456aff1a86a602834429735ee945d3e55e528ba8fc50e3b"
 url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-590.0.1-darwin-arm.tar.gz"
 
 [tools.gcloud."platforms.macos-x64"]
+checksum = "sha256:bb74f8168f41f8d638a0b8ecb9d645748512803be258f68e7c472e3dadf94433"
 url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-590.0.1-darwin-x86_64.tar.gz"
 
 [tools.gcloud."platforms.windows-x64"]
+checksum = "sha256:38dad2c60c8507a2042e419ac9293e66b9f96156226c6cda92dcb1c4e8c65cf2"
 url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-590.0.1-windows-x86_64-bundled-python.zip"
 
 [[tools.gdu]]
@@ -292,20 +299,6 @@ backend = "github:alibaba/open-code-review"
 specifiers = ["latest"]
 
 [tools."github:alibaba/open-code-review".options]
-asset_pattern = "opencodereview-windows-amd64.exe"
-
-[tools."github:alibaba/open-code-review"."platforms.windows-x64"]
-checksum = "sha256:09bf6d1b8a24859fcc88f7bab1576a290a074f147655b860be4e766b568c3809"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.3/opencodereview-windows-amd64.exe"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/664671428"
-provenance = "github-attestations"
-
-[[tools."github:alibaba/open-code-review"]]
-version = "1.13.3"
-backend = "github:alibaba/open-code-review"
-specifiers = ["latest"]
-
-[tools."github:alibaba/open-code-review".options]
 asset_pattern = "opencodereview-darwin-amd64"
 
 [tools."github:alibaba/open-code-review"."platforms.macos-x64"]
@@ -314,18 +307,18 @@ url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.3/ope
 url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/664671426"
 provenance = "github-attestations"
 
-[[tools."github:herdrdev/herdr"]]
-version = "0.9.5"
-backend = "github:herdrdev/herdr"
+[[tools."github:alibaba/open-code-review"]]
+version = "1.13.3"
+backend = "github:alibaba/open-code-review"
 specifiers = ["latest"]
 
-[tools."github:herdrdev/herdr".options]
-asset_pattern = "herdr-windows-x86_64.zip"
+[tools."github:alibaba/open-code-review".options]
+asset_pattern = "opencodereview-windows-amd64.exe"
 
-[tools."github:herdrdev/herdr"."platforms.windows-x64"]
-checksum = "sha256:d2c6c9c971c43a0bfdde8c692a9a1a7a45c3e4807cd01ae45662b4734fac1cbf"
-url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-windows-x86_64.zip"
-url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898234"
+[tools."github:alibaba/open-code-review"."platforms.windows-x64"]
+checksum = "sha256:09bf6d1b8a24859fcc88f7bab1576a290a074f147655b860be4e766b568c3809"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.13.3/opencodereview-windows-amd64.exe"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/664671428"
 provenance = "github-attestations"
 
 [[tools."github:herdrdev/herdr"]]
@@ -349,6 +342,20 @@ provenance = "github-attestations"
 checksum = "sha256:5fb0a908ec7f6745e3e245738b06bfad56c46391c391ab3c0955fbead01f1369"
 url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-x86_64"
 url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898229"
+provenance = "github-attestations"
+
+[[tools."github:herdrdev/herdr"]]
+version = "0.9.5"
+backend = "github:herdrdev/herdr"
+specifiers = ["latest"]
+
+[tools."github:herdrdev/herdr".options]
+asset_pattern = "herdr-windows-x86_64.zip"
+
+[tools."github:herdrdev/herdr"."platforms.windows-x64"]
+checksum = "sha256:d2c6c9c971c43a0bfdde8c692a9a1a7a45c3e4807cd01ae45662b4734fac1cbf"
+url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-windows-x86_64.zip"
+url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898234"
 provenance = "github-attestations"
 
 [[tools.herdr]]
@@ -439,15 +446,19 @@ backend = "vfox:jdx/vfox-neovim"
 specifiers = ["latest"]
 
 [tools.neovim."platforms.linux-x64"]
+checksum = "sha256:474430d53e6264f6d6dd18db42d6dc9df3a1b56ca9e88a325bbf860e1a811d87"
 url = "https://github.com/neovim/neovim/releases/download/v0.12.6/nvim-linux-x86_64.tar.gz"
 
 [tools.neovim."platforms.macos-arm64"]
+checksum = "sha256:1dbd148222b051ba6c307c4d17a318ed083df018a4f6a5a0ce46955ffc9ab87b"
 url = "https://github.com/neovim/neovim/releases/download/v0.12.6/nvim-macos-arm64.tar.gz"
 
 [tools.neovim."platforms.macos-x64"]
+checksum = "sha256:481424f1dbc85f637d57e47d27d042aa9c883e5a4fe9ee64fc4ee9573b221998"
 url = "https://github.com/neovim/neovim/releases/download/v0.12.6/nvim-macos-x86_64.tar.gz"
 
 [tools.neovim."platforms.windows-x64"]
+checksum = "sha256:4e12b7103b601ffc8f25954b4da100f339faa73dccb69a5b135e897fa3d893ed"
 url = "https://github.com/neovim/neovim/releases/download/v0.12.6/nvim-win64.zip"
 
 [[tools.node]]
@@ -473,7 +484,7 @@ url = "https://nodejs.org/dist/v26.12.1/node-v26.12.1-win-x64.zip"
 
 [[tools."npm:@mariozechner/pi-coding-agent"]]
 version = "0.73.1"
-aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:7c0fec9f947c7cab455e05224de8474dfb6d4eed51e24b7e34be9cb21b2e0e6f" }
+aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:561fb4d84069c87ea2d0c268cfa8a516c4bceaee005668417ed5a2b90a367c81" }
 backend = "npm:@mariozechner/pi-coding-agent"
 specifiers = ["latest"]
 
@@ -693,7 +704,7 @@ url_api = "https://api.github.com/repos/supabase/cli/releases/assets/668850578"
 
 [[tools.vercel]]
 version = "65.2.0"
-aube = { path = ".mise/locks/mise.global/vercel/65.2.0~a6545071", digest = "sha256:abc3217f8cdebdae72da74084eca3f77deaa9fc46740f331ee1b3001aef4d5c3" }
+aube = { path = ".mise/locks/mise.global/vercel/65.2.0~a6545071", digest = "sha256:357595cc409e964c95404a61fbaa50de9410a26cb3563ca96ca8ccf9a71df799" }
 backend = "npm:vercel"
 specifiers = ["latest"]
 
@@ -710,18 +721,22 @@ specifiers = ["latest"]
 checksum = "sha256:0c253f216985ce9cd7b202a11606b5ce6aa934b1019fd1fbb9b7ce2b47b1c74a"
 url = "https://github.com/max-sixty/worktrunk/releases/download/v0.81.0/worktrunk-x86_64-unknown-linux-musl.tar.xz"
 signer = "sigstore-oidc:https://github.com/max-sixty/worktrunk/.github/workflows/release.yaml"
+repository_ids = { repository = "1078528927" }
 
 [tools.worktrunk."platforms.macos-arm64"]
 checksum = "sha256:b9c3f2f8071554cf88500466d65d35e18ad5edad5762479a1f14bcddd5ab7882"
 url = "https://github.com/max-sixty/worktrunk/releases/download/v0.81.0/worktrunk-aarch64-apple-darwin.tar.xz"
 signer = "sigstore-oidc:https://github.com/max-sixty/worktrunk/.github/workflows/release.yaml"
+repository_ids = { repository = "1078528927" }
 
 [tools.worktrunk."platforms.macos-x64"]
 checksum = "sha256:211fa3585afa0ce243de0f007fbe2d8b86c5c88c85eda17d09311b32e8533714"
 url = "https://github.com/max-sixty/worktrunk/releases/download/v0.81.0/worktrunk-x86_64-apple-darwin.tar.xz"
 signer = "sigstore-oidc:https://github.com/max-sixty/worktrunk/.github/workflows/release.yaml"
+repository_ids = { repository = "1078528927" }
 
 [tools.worktrunk."platforms.windows-x64"]
 checksum = "sha256:389b595cb67482085419968939e329d61901cca9e959e4b6c288f01387b768b8"
 url = "https://github.com/max-sixty/worktrunk/releases/download/v0.81.0/worktrunk-x86_64-pc-windows-msvc.zip"
 signer = "sigstore-oidc:https://github.com/max-sixty/worktrunk/.github/workflows/release.yaml"
+repository_ids = { repository = "1078528927" }
