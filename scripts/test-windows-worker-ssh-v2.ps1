@@ -12,7 +12,7 @@ foreach($bad in @($valid.Replace('config_disabled=true','config_disabled=false')
 $savedCanary=[Environment]::GetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY')
 try{
     $canary=[guid]::NewGuid().ToString('N');[Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',$canary)
-    $clean=New-CleanWorkerStartInfo (Join-Path $PSHOME 'pwsh') ([IO.Path]::GetTempPath()) 'C:/Windows'
+    $clean=New-CleanWorkerStartInfo (Join-Path $PSHOME 'pwsh') ([IO.Path]::GetTempPath()) ([IO.Path]::GetTempPath())
     if([Environment]::GetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY') -cne $canary -or $clean.Environment.ContainsKey('PC_SETUP_CONTROLLER_CANARY')){throw 'Parent canary leaked into child environment.'}
 }finally{[Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',$savedCanary)}
 $stage=[pscustomobject]@{InstanceId=$instance;Sid='test-sid';SetupManifestHash='setup-hash';ManifestHash='verifier-hash';HostFingerprint=$fp}
