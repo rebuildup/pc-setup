@@ -4,10 +4,17 @@ $root=Join-Path $PSScriptRoot '../platforms/windows-11/worker/ssh/verification-v
 function Refuses([scriptblock]$Body){$denied=$false;try{& $Body|Out-Null}catch{$denied=$true};if(-not $denied){throw 'Expected refusal.'}}
 $instance='2a1084ec-5389-4b0b-a0f0-9a38fcfaece5'
 $fp='SHA256:FoPMohEbvfyo3e1b+Zjj8BO2stEFh7HfP38rLV27f6U'
-$valid="action=VerifyV2`naddress=172.22.157.236`nport=22224`nlinux_user=worker`nuid=1000`nhost_fp=$fp`ninterop_config_disabled=true`nbinfmt_registration=present`nwindows_drive_mount=false`nservice_active=true`n"
+$valid="action=VerifyV2`naddress=172.22.157.236`nport=22224`nlinux_user=worker`nuid=1000`nhost_fp=$fp`ninterop_config_disabled=true`nbinfmt_registration=present`nstandard_drive_mount_absent=true`nservice_active=true`n"
 $guest=ConvertFrom-WorkerGuestV2 $valid
 $null=ConvertFrom-WorkerGuestV2 ($valid.Replace('registration=present','registration=absent'))
-foreach($bad in @($valid.Replace('config_disabled=true','config_disabled=false'),$valid.Replace('uid=1000','uid=0'),$valid.Replace('linux_user=worker','linux_user=root'),$valid.Replace('mount=false','mount=true'),$valid.Replace('service_active=true','service_active=false'),$valid.Replace('registration=present','registration=disabled'),$valid.Replace('172.22.157.236','172.999.1.1'),($valid+"action=VerifyV2`n"),($valid+"interop=false`n"))){Refuses {ConvertFrom-WorkerGuestV2 $bad}}
+foreach($bad in @($valid.Replace('config_disabled=true','config_disabled=false'),$valid.Replace('uid=1000','uid=0'),$valid.Replace('linux_user=worker','linux_user=root'),$valid.Replace('mount_absent=true','mount_absent=false'),$valid.Replace('service_active=true','service_active=false'),$valid.Replace('registration=present','registration=disabled'),$valid.Replace('172.22.157.236','172.999.1.1'),($valid+"action=VerifyV2`n"),($valid+"interop=false`n"))){Refuses {ConvertFrom-WorkerGuestV2 $bad}}
+. (Join-Path $root '../../contract.ps1')
+$savedCanary=[Environment]::GetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY')
+try{
+    $canary=[guid]::NewGuid().ToString('N');[Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',$canary)
+    $clean=New-CleanWorkerStartInfo (Join-Path $PSHOME 'pwsh') ([IO.Path]::GetTempPath()) 'C:/Windows'
+    if([Environment]::GetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY') -cne $canary -or $clean.Environment.ContainsKey('PC_SETUP_CONTROLLER_CANARY')){throw 'Parent canary leaked into child environment.'}
+}finally{[Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',$savedCanary)}
 $stage=[pscustomobject]@{InstanceId=$instance;Sid='test-sid';SetupManifestHash='setup-hash';ManifestHash='verifier-hash';HostFingerprint=$fp}
 $report=[pscustomobject]@{VerificationOwner='pc-setup/windows-worker-ssh-verification/v2';InstanceId=$instance;Sid='test-sid';Action='VerifyV2';Administrator=$false;CanaryPresent=$false;DiagnosticPresent=$false;DistroName="pcw-$instance";SetupManifestHash='setup-hash';VerifierManifestHash='verifier-hash';SafetyScope='authenticated-single-controller-poc';Guest=($guest|ConvertTo-Json|ConvertFrom-Json)}
 Assert-WorkerV2Report $report $stage

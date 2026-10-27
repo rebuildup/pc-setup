@@ -8,12 +8,12 @@ function Read-WorkerVerificationV2([string]$InstanceId) {
     $setup=Read-WorkerSshStage $InstanceId
     $root=Get-WorkerVerificationV2Path $InstanceId
     Assert-WorkerResourceAcl $root $setup.Sid Metadata
-    $allowed=@('manifest.json','child.ps1','contract.ps1','guest.sh','attempt-VerifyV2.marker','result-VerifyV2.json','attempt-HoldV2.marker','result-HoldV2.json')
+    $allowed=@('manifest.json','child.ps1','contract.ps1','guest.sh','sshd-checks.sh','attempt-VerifyV2.marker','result-VerifyV2.json','attempt-HoldV2.marker','result-HoldV2.json')
     foreach($file in @(Get-ChildItem $root -Force)){if($file.Name -cnotin $allowed){throw 'Unknown v2 verification state.'};Assert-WorkerResourceAcl $file.FullName $setup.Sid Metadata}
     Assert-WorkerResourceAcl "$root/manifest.json" $setup.Sid Metadata
     $m=Get-Content "$root/manifest.json" -Raw|ConvertFrom-Json
-    if($m.Owner -cne 'pc-setup/windows-worker-ssh-verification/v2' -or $m.InstanceId -cne $InstanceId -or $m.Sid -cne $setup.Sid -or $m.SetupManifestHash -cne (Get-FileHash "$(Get-WorkerSshStagePath $InstanceId)/manifest.json").Hash -or $m.SetupGuestScriptSha256 -cne $setup.GuestScriptSha256 -or $m.RuntimeHash -cne (Get-FileHash "$PSScriptRoot/runtime.ps1").Hash -or @($m.SourceHashes.PSObject.Properties).Count -ne 3){throw 'V2 verification source/identity drift.'}
-    foreach($name in @('child.ps1','contract.ps1','guest.sh')){
+    if($m.Owner -cne 'pc-setup/windows-worker-ssh-verification/v2' -or $m.InstanceId -cne $InstanceId -or $m.Sid -cne $setup.Sid -or $m.SetupManifestHash -cne (Get-FileHash "$(Get-WorkerSshStagePath $InstanceId)/manifest.json").Hash -or $m.SetupGuestScriptSha256 -cne $setup.GuestScriptSha256 -or $m.RuntimeHash -cne (Get-FileHash "$PSScriptRoot/runtime.ps1").Hash -or @($m.SourceHashes.PSObject.Properties).Count -ne 4){throw 'V2 verification source/identity drift.'}
+    foreach($name in @('child.ps1','contract.ps1','guest.sh','sshd-checks.sh')){
         Assert-WorkerResourceAcl "$root/$name" $setup.Sid Metadata
         if((Get-FileHash "$root/$name").Hash -cne $m.SourceHashes.$name -or (Get-FileHash "$PSScriptRoot/$name").Hash -cne $m.SourceHashes.$name){throw 'V2 verifier source drift.'}
     }
@@ -35,7 +35,7 @@ function Initialize-WorkerVerificationV2([string]$InstanceId) {
     Assert-WorkerPlainPath $root;$null=New-Item -ItemType Directory -Path $root -ErrorAction Stop
     Set-WorkerResourceAcl $root $setup.Sid Metadata
     $hashes=[ordered]@{}
-    foreach($name in @('child.ps1','contract.ps1','guest.sh')){Write-WorkerNewFile "$root/$name" ([IO.File]::ReadAllText("$PSScriptRoot/$name")) $setup.Sid;$hashes[$name]=(Get-FileHash "$root/$name").Hash}
+    foreach($name in @('child.ps1','contract.ps1','guest.sh','sshd-checks.sh')){Write-WorkerNewFile "$root/$name" ([IO.File]::ReadAllText("$PSScriptRoot/$name")) $setup.Sid;$hashes[$name]=(Get-FileHash "$root/$name").Hash}
     $m=[ordered]@{Owner='pc-setup/windows-worker-ssh-verification/v2';InstanceId=$InstanceId;Sid=$setup.Sid;SetupManifestHash=(Get-FileHash "$old/manifest.json").Hash;SetupGuestScriptSha256=$setup.GuestScriptSha256;HostFingerprint=$configured.Guest.host_fp;SourceHashes=$hashes;RuntimeHash=(Get-FileHash "$PSScriptRoot/runtime.ps1").Hash}
     Write-WorkerNewFile "$root/manifest.json" ($m|ConvertTo-Json -Depth 5) $setup.Sid
     Read-WorkerVerificationV2 $InstanceId
@@ -46,11 +46,12 @@ function Invoke-WorkerVerificationV2([string]$InstanceId,[SecureString]$Password
     if(-not $Password -or $Password.Length -lt 1){throw 'Supply an in-memory credential.'}
     if(-not $ReadOnly){Write-WorkerNewFile "$root/attempt-VerifyV2.marker" '' $m.Sid}
     $exe=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell/7/pwsh.exe'
-    $info=New-CleanWorkerStartInfo $exe (Get-WorkerPaths $InstanceId).Data ([Environment]::GetFolderPath('Windows'))
-    $info.UserName=$state.UserName;$info.Domain=[Environment]::MachineName;$info.Password=$Password;$info.LoadUserProfile=$true
-    foreach($arg in @('-NoLogo','-NoProfile','-NonInteractive','-File',"$root/child.ps1",'-InstanceId',$InstanceId)){$info.ArgumentList.Add($arg)}
-    $p=$null
+    $p=$null;$info=$null;$canary=[Environment]::GetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY')
     try{
+        [Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',[guid]::NewGuid().ToString('N'))
+        $info=New-CleanWorkerStartInfo $exe (Get-WorkerPaths $InstanceId).Data ([Environment]::GetFolderPath('Windows'))
+        $info.UserName=$state.UserName;$info.Domain=[Environment]::MachineName;$info.Password=$Password;$info.LoadUserProfile=$true
+        foreach($arg in @('-NoLogo','-NoProfile','-NonInteractive','-File',"$root/child.ps1",'-InstanceId',$InstanceId)){$info.ArgumentList.Add($arg)}
         $p=[Diagnostics.Process]::Start($info);$info.Password=$null;$p.StandardInput.Close()
         $out=$p.StandardOutput.ReadToEndAsync();$err=$p.StandardError.ReadToEndAsync()
         if(-not $p.WaitForExit(120000) -or $p.ExitCode -ne 0){throw 'V2 verification failed; preserve partial state, no retry.'}
@@ -59,7 +60,7 @@ function Invoke-WorkerVerificationV2([string]$InstanceId,[SecureString]$Password
         Assert-WorkerV2Report $report $m
         if(-not $ReadOnly){Write-WorkerNewFile "$root/result-VerifyV2.json" ($report|ConvertTo-Json -Depth 6) $m.Sid}
         $report
-    }finally{$info.Password=$null;if($p){$p.Dispose()}}
+    }finally{[Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',$canary);if($info){$info.Password=$null};if($p){$p.Dispose()}}
 }
 function Start-WorkerSshHoldV2([string]$InstanceId,[SecureString]$Password) {
     Assert-WorkerAdministrator

@@ -24,6 +24,7 @@ for name in host_ed25519.pub sshd.template runner wsl.conf.desired; do
   grep -Fxq "$name=$(sha256sum "$root/$name" | cut -d' ' -f1)" "$root/manifest"
 done
 private_file "$root/host_ed25519"
+matches_worker_hostkey_pair "$root/host_ed25519" "$root/host_ed25519.pub"
 [[ ! -L "/etc/systemd/system/$unit" && "$(stat -c '%u:%g:%a' "/etc/systemd/system/$unit")" = '0:0:644' ]]
 grep -Fxq "unit=$(sha256sum "/etc/systemd/system/$unit" | cut -d' ' -f1)" "$root/manifest"
 [[ -f /etc/wsl.conf && ! -L /etc/wsl.conf && "$(stat -c '%u:%g:%a' /etc/wsl.conf)" = '0:0:644' ]]
@@ -46,8 +47,12 @@ for ((i=0;i<30;i++)); do
   sleep 1
 done
 [[ "$(ss -H -ltn 'sport = :22224' | awk '{print $4}')" = "$address:22224" ]]
+private_file "$root/sshd.runtime"
+matches_worker_sshd_runtime "$root/sshd.template" "$root/sshd.runtime" "$root" "$auth_root" "$address"
 /usr/sbin/sshd -t -f "$root/sshd.runtime"
+# File checks do not prove which configuration an already-running daemon loaded.
+# The later pinned SSH handshake is separate evidence of its presented host key.
 # WSL's binfmt registration is shared. Presence is an observation, not execution permission.
 registration=absent
 if [[ -e /proc/sys/fs/binfmt_misc/WSLInterop ]]; then registration=present; fi
-printf 'action=VerifyV2\naddress=%s\nport=22224\nlinux_user=worker\nuid=%s\nhost_fp=%s\ninterop_config_disabled=true\nbinfmt_registration=%s\nwindows_drive_mount=false\nservice_active=true\n' "$address" "$(id -u worker)" "$(ssh-keygen -lf "$root/host_ed25519.pub" -E sha256 | awk '{print $2}')" "$registration"
+printf 'action=VerifyV2\naddress=%s\nport=22224\nlinux_user=worker\nuid=%s\nhost_fp=%s\ninterop_config_disabled=true\nbinfmt_registration=%s\nstandard_drive_mount_absent=true\nservice_active=true\n' "$address" "$(id -u worker)" "$(ssh-keygen -lf "$root/host_ed25519.pub" -E sha256 | awk '{print $2}')" "$registration"

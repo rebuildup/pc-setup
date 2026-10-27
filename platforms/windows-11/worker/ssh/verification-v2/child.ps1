@@ -22,8 +22,8 @@ $root=Join-Path $common "pc-setup-worker-ssh-verification-v2-$InstanceId"
 if($PSScriptRoot -cne $root){throw 'Unexpected verifier location.'}
 Assert-Metadata $root;Assert-Metadata "$root/manifest.json"
 $v=Get-Content "$root/manifest.json" -Raw|ConvertFrom-Json
-if($v.Owner -cne 'pc-setup/windows-worker-ssh-verification/v2' -or $v.InstanceId -cne $InstanceId -or $v.Sid -cne $sid -or @($v.SourceHashes.PSObject.Properties).Count -ne 3){throw 'Verifier enrollment mismatch.'}
-foreach($name in @('child.ps1','contract.ps1','guest.sh')){Assert-Metadata "$root/$name";if((Get-FileHash "$root/$name").Hash -cne $v.SourceHashes.$name){throw 'Verifier source drift.'}}
+if($v.Owner -cne 'pc-setup/windows-worker-ssh-verification/v2' -or $v.InstanceId -cne $InstanceId -or $v.Sid -cne $sid -or @($v.SourceHashes.PSObject.Properties).Count -ne 4){throw 'Verifier enrollment mismatch.'}
+foreach($name in @('child.ps1','contract.ps1','guest.sh','sshd-checks.sh')){Assert-Metadata "$root/$name";if((Get-FileHash "$root/$name").Hash -cne $v.SourceHashes.$name){throw 'Verifier source drift.'}}
 . "$root/contract.ps1"
 $setupRoot=Join-Path $common "pc-setup-worker-ssh-$InstanceId"
 Assert-Metadata $setupRoot;Assert-Metadata "$setupRoot/manifest.json"
@@ -46,7 +46,9 @@ foreach($arg in @('--distribution',$registration.DistroName,'--user','root','--e
 $p=[Diagnostics.Process]::Start($info)
 try{
     $out=$p.StandardOutput.ReadToEndAsync();$err=$p.StandardError.ReadToEndAsync()
-    $p.StandardInput.Write([IO.File]::ReadAllText("$root/guest.sh").Replace("`r`n","`n"));$p.StandardInput.Close()
+    $checks=[IO.File]::ReadAllText("$root/sshd-checks.sh").Replace("`r`n","`n")
+    $guestScript=[IO.File]::ReadAllText("$root/guest.sh").Replace("`r`n","`n")
+    $p.StandardInput.Write($checks+"`n"+$guestScript);$p.StandardInput.Close()
     if(-not $p.WaitForExit(90000) -or $p.ExitCode -ne 0){throw 'Read-only guest verifier failed; preserve state.'}
     $text=$out.GetAwaiter().GetResult();$errorText=$err.GetAwaiter().GetResult()
     if($text.Length -gt 8192 -or $errorText.Length){throw 'Unexpected verifier diagnostics.'}

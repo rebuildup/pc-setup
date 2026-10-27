@@ -42,7 +42,7 @@ $gateway = Initialize-WorkerGatewayV2 $instance $password '<現在のWindows VPN
 Test-WorkerGatewayV2 $instance $password
 ```
 
-guest v2はLinux設定を変更しない。`interop_config_disabled=true`はwsl.confの実内容、`binfmt_registration=present|absent`は共有登録の観測であり、全経路でWindows PE実行を拒否できるという意味ではない。2026-10-27の専用worker UID1000によるMicrosoft署名whoami.exeの実測では、通常環境・env-iとも`UtilAcceptVsock / accept4 failed 110`で失敗した。同一digestのコピーは同じWindows標準SIDからUNC経由で実行できた。これは当該経路の実測であり、timeoutの原因や完全な隔離の証明ではない。WSLのinterop/automount設定は封じ込め境界として扱わず、Windows標準SID/ACLとLinux非sudo権限を基礎にする。
+guest v2はLinux設定を変更しない。現在addressからtemplateを展開した内容とroot所有privateなsshd.runtimeの完全一致、private host keyから導出した公開鍵と保存public keyの一致を確認する。ファイル検査だけでは稼働中daemonが既に読み込んだ設定を証明できず、提示host keyは後続のpin付きSSH handshakeで確認する。`interop_config_disabled=true`はwsl.confの実内容、`binfmt_registration=present|absent`は共有登録の観測であり、全経路でWindows PE実行を拒否できるという意味ではない。2026-10-27の専用worker UID1000によるMicrosoft署名whoami.exeの実測では、通常環境・env-iとも`UtilAcceptVsock / accept4 failed 110`で失敗した。同一digestのコピーは同じWindows標準SIDからUNC経由で実行できた。これは当該経路の実測であり、timeoutの原因や完全な隔離の証明ではない。WSLのinterop/automount設定は封じ込め境界として扱わず、Windows標準SID/ACLとLinux非sudo権限を基礎にする。
 
 gateway v2は別manifest `%ProgramData%/pc-setup-wsl-gateway-v2-<UUID>` を使用し、v1 gatewayを移行・adoptしない。v1 sourceは保持し、共有helperのhashもv2 manifestにbindする。初回proof hash、同じSID/instance/hostpin、新verifier hash、foreground holdのPID/owner/path/argv/start timeを検査する。portproxy公開直前にcredentialed guest再検査・現在VPN/route/ActiveStore policy・二つの実効rule・foreign mapping/listener不在を再検査する。途中失敗のpending/rulesは残して自動retryしない。
 
