@@ -26,7 +26,29 @@ guest scriptは固定sourceをstdinで、専用Windows本人から完全名distr
 
 host秘密鍵・manifest・設定・private logはroot所有0700の専用directoryに置く。sshdは対象userの権限でauthorized_keysを読むため、公開鍵だけは別のroot所有0755 directory/0644 fileに分離する。workerは公開鍵を読めるが変更できない。固有hostkeyはguest内で生成し秘密部分を外へ出さない。unitはeth0の現在IPv4だけに22224をbindし、0.0.0.0/IPv6/port22へlistenしない。
 
-`wsl.conf` でこのdistroのautomount/interop/Windows PATH追加を無効にし、systemdとdefault user=workerを設定する。Verifyは実interop不在、Windows driveの `/mnt/<letter>` mount不在、非sudo user、所有ファイル/hash、専用unit、guest listenerと同一host fingerprintを検査する。WSLg/driver等の補助mountの完全不在や、他worker/管理socketの拒否を証明するものではない。SSH loginのPATHと非root UIDはMacの実接続で別検証する。
+`wsl.conf` でこのdistroのautomount/interop/Windows PATH追加を無効にし、systemdとdefault user=workerを設定する。旧Verifyは共有binfmt登録の不在を要求するため、登録が残る現行WSLでは失敗する。この判定をinterop実行権限の証明に使わず、下記v2で設定・所有ファイル/hash・Windows driveの `/mnt/<letter>` mount不在・非sudo user・専用unit/listener/host fingerprintを検査する。WSLg/driver等の補助mountの完全不在や、他worker/管理socketの拒否を証明するものではない。SSH loginのPATHと非root UIDはMacの実接続で別検証する。
+
+## 既存setupを保持する検証v2
+
+Configure/対象distroのRestartまで完了したstageが対象。旧4 source・manifest・Verify失敗markerは変更しない。`verification-v2/runtime.ps1` は別のAdmin所有stage `%ProgramData%/pc-setup-worker-ssh-verification-v2-<UUID>` を作り、元setupのmanifest/guest source hashと新verifier source/manifest hashを分離して保持する。元Linux manifestの`source_hash`を新verifierへ付け替えない。初回VerifyV2/HoldV2のCreateNew marker/resultと後日のread-only再検査を分ける。
+
+```powershell
+. ./platforms/windows-11/worker/ssh/verification-v2/runtime.ps1
+$null = Initialize-WorkerVerificationV2 $instance
+$proof = Invoke-WorkerVerificationV2 $instance $password
+$hold = Start-WorkerSshHoldV2 $instance $password
+. ./platforms/windows-11/worker/ssh/verification-v2/gateway.ps1
+$gateway = Initialize-WorkerGatewayV2 $instance $password '<現在のWindows VPN IPv4>' '<現在のMac VPN IPv4>'
+Test-WorkerGatewayV2 $instance $password
+```
+
+guest v2はLinux設定を変更しない。`interop_config_disabled=true`はwsl.confの実内容、`binfmt_registration=present|absent`は共有登録の観測であり、全経路でWindows PE実行を拒否できるという意味ではない。2026-10-27の専用worker UID1000によるMicrosoft署名whoami.exeの実測では、通常環境・env-iとも`UtilAcceptVsock / accept4 failed 110`で失敗した。同一digestのコピーは同じWindows標準SIDからUNC経由で実行できた。これは当該経路の実測であり、timeoutの原因や完全な隔離の証明ではない。WSLのinterop/automount設定は封じ込め境界として扱わず、Windows標準SID/ACLとLinux非sudo権限を基礎にする。
+
+gateway v2は別manifest `%ProgramData%/pc-setup-wsl-gateway-v2-<UUID>` を使用し、v1 gatewayを移行・adoptしない。v1 sourceは保持し、共有helperのhashもv2 manifestにbindする。初回proof hash、同じSID/instance/hostpin、新verifier hash、foreground holdのPID/owner/path/argv/start timeを検査する。portproxy公開直前にcredentialed guest再検査・現在VPN/route/ActiveStore policy・二つの実効rule・foreign mapping/listener不在を再検査する。途中失敗のpending/rulesは残して自動retryしない。
+
+これは認証済みcontroller一台に限定したPoC。固定22224はWSL一台専用であり、複数WSLのport割当、常用join/active、再起動/idle後の復帰は未達。v2はIP変更の自動repairや常駐taskを追加しない。IP変更時は公開中mappingを無断で更新せず、明示的な所有資源の再調整を行う。SSH nonce、SSH login内からのUID/PATH/Windows PE実行、Herdr、個別Codex認証は後続の実測で確認する。
+
+一次資料: [Ubuntuの共有binfmt登録](https://ubuntu.com/wsl/docs/stable/explanation/binfmt/)、[Microsoft WSLのsecurity boundary](https://github.com/microsoft/WSL/blob/master/doc/docs/technical-documentation/security.md)。
 
 ## VPN限定gateway
 
