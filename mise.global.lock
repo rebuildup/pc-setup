@@ -86,7 +86,7 @@ checksum = "sha256:0f20ce6674d4f2dbcc8c5d59fdf99f7ba45f8c3b367e0f5781cbfa30a1c78
 url = "https://github.com/oven-sh/bun/releases/download/bun-v1.4.4/bun-windows-x64-baseline.zip"
 
 [[tools."cargo:cargo-clean-all"]]
-version = "0.6.5"
+version = "0.6.6"
 backend = "cargo:cargo-clean-all"
 specifiers = ["latest"]
 
@@ -704,7 +704,7 @@ url_api = "https://api.github.com/repos/supabase/cli/releases/assets/668850578"
 
 [[tools.vercel]]
 version = "65.2.0"
-aube = { path = ".mise/locks/mise.global/vercel/65.2.0~a6545071", digest = "sha256:357595cc409e964c95404a61fbaa50de9410a26cb3563ca96ca8ccf9a71df799" }
+aube = { path = ".mise/locks/mise.global/vercel/65.2.0~a6545071", digest = "sha256:7ce979146c2f61284236347b691bb93b2dd45ff17fca743c4eee2ca259984a52" }
 backend = "npm:vercel"
 specifiers = ["latest"]
 
