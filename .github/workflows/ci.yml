@@ -425,6 +425,9 @@ jobs:
           jq -e 'type == "array"' "$RUNNER_TEMP/mise-update-dry-run.json" >/dev/null
 
       - name: Validate Open Code Review install channel
+        # Validate the adopted lock; avoid regenerating unrelated tool locks.
+        env:
+          MISE_LOCKED: "true"
         run: |
           MISE_GLOBAL_CONFIG_FILE="$PWD/mise.global.toml" \
             "$HOME/.local/bin/mise" -C "$HOME" install github:alibaba/open-code-review
