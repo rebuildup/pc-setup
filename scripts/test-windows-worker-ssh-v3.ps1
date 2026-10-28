@@ -22,6 +22,14 @@ try{
 $stage=[pscustomobject]@{InstanceId=$instance;Sid='test-sid';SetupManifestHash='setup-hash';ManifestHash='verifier-hash';HostFingerprint=$fp}
 $report=[pscustomobject]@{VerificationOwner='pc-setup/windows-worker-ssh-verification/v3';InstanceId=$instance;Sid='test-sid';Action='VerifyV3';Administrator=$false;CanaryPresent=$false;DiagnosticPresent=$false;DistroName="pcw-$instance";SetupManifestHash='setup-hash';VerifierManifestHash='verifier-hash';SafetyScope='authenticated-single-controller-poc';Guest=($guest|ConvertTo-Json|ConvertFrom-Json)}
 Assert-WorkerV3Report $report $stage
+& {
+    . "$root/gateway.ps1"
+    $stamp='2026-10-28T04:14:47.5247931Z'
+    $json="{`"start`":`"$stamp`"}"|ConvertFrom-Json
+    $actual=[datetime]::ParseExact($stamp,'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind)
+    if(-not(Test-WorkerHoldStartTime $actual $stamp) -or -not(Test-WorkerHoldStartTime $actual $json.start)){throw 'Valid hold timestamp was rejected.'}
+    if((Test-WorkerHoldStartTime $actual.AddTicks(1) $stamp) -or (Test-WorkerHoldStartTime $actual '2026-10-28T04:14:47') -or (Test-WorkerHoldStartTime $actual ([datetime]::SpecifyKind($actual,[DateTimeKind]::Unspecified))) -or (Test-WorkerHoldStartTime $actual $null)){throw 'Changed or ambiguous hold timestamp was accepted.'}
+}
 foreach($entry in @(@('Sid','foreign-sid'),@('InstanceId',[guid]::NewGuid().ToString()),@('VerifierManifestHash','stale'),@('SetupManifestHash','verifier-hash'),@('Action','Verify'),@('Administrator',$true),@('Administrator','false'),@('DiagnosticPresent',$true),@('SafetyScope','fully-isolated'))){$bad=$report|ConvertTo-Json -Depth 5|ConvertFrom-Json;$bad.($entry[0])=$entry[1];Refuses {Assert-WorkerV3Report $bad $stage}}
 # Integration regression: changed guest or ineffective rules must prevent publication.
 foreach($scenario in @('guest-changed','rule-ineffective','success')){

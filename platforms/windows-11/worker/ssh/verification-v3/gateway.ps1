@@ -1,6 +1,15 @@
 # V1 helpers are read-only definitions; its manifest/source and entry points remain unchanged.
 . (Join-Path $PSScriptRoot '../gateway.ps1')
 . (Join-Path $PSScriptRoot 'runtime.ps1')
+function Test-WorkerHoldStartTime([datetime]$Actual,$Recorded) {
+    $expected=[datetime]::MinValue
+    if($Recorded -is [datetime]){$expected=$Recorded}
+    elseif($Recorded -is [string]){
+        if(-not [datetime]::TryParseExact($Recorded,'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$expected)){return $false}
+    }else{return $false}
+    if($expected.Kind -ne [DateTimeKind]::Utc){return $false}
+    $Actual.ToUniversalTime().Ticks -eq $expected.Ticks
+}
 function Get-WorkerGatewayV3Path([string]$InstanceId) {
     $null=New-WorkerPlan $InstanceId
     Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) "pc-setup-wsl-gateway-v3-$InstanceId"
@@ -29,7 +38,7 @@ function Assert-WorkerGatewayV3Live($Stage,$Report,[string]$Listen,[string]$Cont
     $native=Get-CimInstance Win32_Process -Filter "ProcessId=$($hold.PID)"
     $owner=Invoke-CimMethod $native -MethodName GetOwnerSid
     $process=Get-Process -Id $hold.PID
-    if($hold.InstanceId -cne $Stage.InstanceId -or $hold.Sid -cne $Stage.Sid -or $hold.VerifierManifestHash -cne $Stage.ManifestHash -or $hold.ProofHash -cne (Get-FileHash "$root/result-VerifyV3.json").Hash -or $hold.Executable -ine $exe -or $owner.Sid -cne $Stage.Sid -or $native.ExecutablePath -ine $exe -or $native.CommandLine -cne $hold.CommandLine -or -not $native.CommandLine.EndsWith(($args -join ' '),[StringComparison]::Ordinal) -or $process.StartTime.ToUniversalTime().ToString('o') -cne $hold.StartTimeUtc){throw 'Owned foreground hold is absent or changed.'}
+    if($hold.InstanceId -cne $Stage.InstanceId -or $hold.Sid -cne $Stage.Sid -or $hold.VerifierManifestHash -cne $Stage.ManifestHash -or $hold.ProofHash -cne (Get-FileHash "$root/result-VerifyV3.json").Hash -or $hold.Executable -ine $exe -or $owner.Sid -cne $Stage.Sid -or $native.ExecutablePath -ine $exe -or $native.CommandLine -cne $hold.CommandLine -or -not $native.CommandLine.EndsWith(($args -join ' '),[StringComparison]::Ordinal) -or -not(Test-WorkerHoldStartTime $process.StartTime $hold.StartTimeUtc)){throw 'Owned foreground hold is absent or changed.'}
 }
 function Read-WorkerGatewayV3([string]$InstanceId) {
     $v=Read-WorkerVerificationV3 $InstanceId;$root=Get-WorkerGatewayV3Path $InstanceId
