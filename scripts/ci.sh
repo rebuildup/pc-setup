@@ -479,6 +479,7 @@ if command -v pwsh >/dev/null 2>&1; then
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-boot.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh-v2.ps1
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh-v3.ps1
 else
   printf 'Skipping Windows worker contracts: pwsh is unavailable.\n'
 fi

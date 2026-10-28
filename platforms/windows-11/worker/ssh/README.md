@@ -30,6 +30,8 @@ host秘密鍵・manifest・設定・private logはroot所有0700の専用directo
 
 ## 既存setupを保持する検証v2
 
+実機でv2の子processが `CommonApplicationData` を取得できず、再起動前検査が失敗した。v2 stageと失敗記録を保持し、再試行には後述のv3を使う。
+
 Configure/対象distroのRestartまで完了したstageが対象。旧4 source・manifest・Verify失敗markerは変更しない。`verification-v2/runtime.ps1` は別のAdmin所有stage `%ProgramData%/pc-setup-worker-ssh-verification-v2-<UUID>` を作り、元setupのmanifest/guest source hashと新verifier source/manifest hashを分離して保持する。元Linux manifestの`source_hash`を新verifierへ付け替えない。初回VerifyV2/HoldV2のCreateNew marker/resultと後日のread-only再検査を分ける。
 
 ```powershell
@@ -49,6 +51,22 @@ gateway v2は別manifest `%ProgramData%/pc-setup-wsl-gateway-v2-<UUID>` を使�
 これは認証済みcontroller一台に限定したPoC。固定22224はWSL一台専用であり、複数WSLのport割当、常用join/active、再起動/idle後の復帰は未達。v2はIP変更の自動repairや常駐taskを追加しない。IP変更時は公開中mappingを無断で更新せず、明示的な所有資源の再調整を行う。SSH nonce、SSH login内からのUID/PATH/Windows PE実行、Herdr、個別Codex認証は後続の実測で確認する。
 
 一次資料: [Ubuntuの共有binfmt登録](https://ubuntu.com/wsl/docs/stable/explanation/binfmt/)、[Microsoft WSLのsecurity boundary](https://github.com/microsoft/WSL/blob/master/doc/docs/technical-documentation/security.md)。
+
+## 検証v3: 共通データパスの伝達
+
+v3はv1 setupとv2 stageを保持した別のverification stageを作り、検査済みのWindows共通データdirectoryだけを、環境をクリアした専用標準ユーザーの子processへ `ProgramData` として渡す。秘密情報や親の任意環境変数は継承しない。v2のsource/manifest/失敗記録は変更せず、v3 sourceとproofをそれぞれ別hashに結合する。
+
+```powershell
+. ./platforms/windows-11/worker/ssh/verification-v3/runtime.ps1
+$null = Initialize-WorkerVerificationV3 $instance
+$proof = Invoke-WorkerVerificationV3 $instance $password
+$hold = Start-WorkerSshHoldV3 $instance $password
+. ./platforms/windows-11/worker/ssh/verification-v3/gateway.ps1
+$gateway = Initialize-WorkerGatewayV3 $instance $password '<現在のWindows VPN IPv4>' '<現在のMac VPN IPv4>'
+Test-WorkerGatewayV3 $instance $password
+```
+
+v3 gatewayはv1/v2の所有状態をadoptせず、別manifestを使用する。上記は再現手順であり実機成功の証拠ではない。serviceの稼働を保持するだけで再起動・idle後の自動復帰は保証しない。
 
 ## VPN限定gateway
 
