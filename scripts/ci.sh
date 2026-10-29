@@ -471,6 +471,7 @@ grep -Fq 'bootstrap.sh | bash && source ~/.bashrc' platforms/ubuntu-wsl/README.m
 
 printf 'Checking WSL SSH runtime and host identity...\n'
 bash scripts/test-windows-worker-ssh-runtime.sh
+bash scripts/test-windows-worker-key-transaction.sh
 
 if command -v pwsh >/dev/null 2>&1; then
   printf 'Checking Windows worker contracts...\n'
@@ -478,6 +479,7 @@ if command -v pwsh >/dev/null 2>&1; then
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-wsl.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-boot.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh.ps1
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh-keys.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh-v2.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh-v3.ps1
 else

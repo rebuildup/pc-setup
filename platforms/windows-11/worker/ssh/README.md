@@ -68,6 +68,24 @@ Test-WorkerGatewayV3 $instance $password
 
 v3 gatewayはv1/v2の所有状態をadoptせず、別manifestを使用する。上記は再現手順であり実機成功の証拠ではない。serviceの稼働を保持するだけで再起動・idle後の自動復帰は保証しない。
 
+## 公開鍵の追加・失効
+
+初回VerifyV3が成功した後の公開鍵変更は、`key-stage/runtime.ps1` の世代付きkey ledgerを使う。既存のsetup manifest、v3 verifier manifest、Linuxのroot所有setup manifestは書き換えず、鍵stageごとにsource/hash/ACL・対象SID・前世代のVerifyAfter proofをbindする。`Add` は既存公開鍵を残して追加し、`Revoke` は同じ公開鍵fingerprintの鍵だけを除く。失効済みfingerprintの再追加、重複鍵、古いgeneration、既存attemptの再利用を拒否する。
+
+```powershell
+. ./platforms/windows-11/worker/ssh/verification-v3/runtime.ps1
+. ./platforms/windows-11/worker/ssh/key-stage/runtime.ps1
+$operation = [guid]::NewGuid().ToString()
+$keyStage = Initialize-WorkerKeyStage $instance $operation $password Add $publicKey
+$before = Invoke-WorkerKeyStage $instance $operation $password VerifyBefore
+$update = Invoke-WorkerKeyStage $instance $operation $password Update
+$after = Invoke-WorkerKeyStage $instance $operation $password VerifyAfter
+```
+
+実行はnative x64管理者PowerShell 7.3+から行い、`$password` は既に承認されたprocess-scoped credential helperが返すmemory `SecureString` とする。公開鍵だけを `Add` し、秘密鍵・passwordをargv/env/file/terminalへ出さない。`VerifyBefore` は現在のauthorized_keys・hostkey・service/listenerとbaseline manifestを照合する。`Update` は前検査resultを必須とし、guest内の排他lock、before/after hash、一時fileと同一filesystemのrenameでauthorized_keysを置換する。失敗時はmarker/partial stateを残し、自動rollback・再試行をしない。結果不明なら新しいoperationを開始せず、保存resultと実guest状態を確認する。
+
+後世代の変更には直前operationの `VerifyAfter` proofを `PreviousOperationId` として渡す。Add後のgateway検査には `key-stage/runtime.ps1` の `Test-WorkerKeyStageGateway` を使う。旧v3 gateway検査は初期authorized_keys hashを検査するため、key-stage更新後の再検査・修復には使用しない。SSH clientからの鍵認証成功はこのstageとは別に実接続で確認する。
+
 ## VPN限定gateway
 
 ```powershell
