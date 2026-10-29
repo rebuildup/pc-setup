@@ -22,5 +22,6 @@
 | [ADR-0014](./ADR-0014.md) | Accepted | Orca は macOS の任意の worktree frontend とし、設定と Skill stub は Orca 自身が持つ |
 | [ADR-0016](./ADR-0016.md) | Accepted | 新規WSL workerをWindows標準ユーザーごとに分離する |
 | [ADR-0019](./ADR-0019.md) | Accepted | 専用WSLは非root SSHとWindows gatewayで接続する |
+| [ADR-0020](./ADR-0020.md) | Accepted | WSL gatewayは対話ログオン後に安全に再調整する |
 
 新しい ADR は `ADR-NNNN.md` の連番で追加します。既存 decision を置換する場合は旧 ADR の status と `Superseded by` も更新します。

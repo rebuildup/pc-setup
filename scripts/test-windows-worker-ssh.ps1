@@ -198,5 +198,16 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
     $script:repairFixture=$null
 }
 $errors=$null
-Get-ChildItem "$root/ssh/*.ps1",$PSCommandPath|ForEach-Object{$null=[Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$null,[ref]$errors);if($errors){throw $errors}}
+. (Join-Path $root 'ssh/lifecycle-v1/contract.ps1')
+$operator=[Security.Principal.WindowsIdentity]::GetCurrent()
+$workerSid=if($operator.User.Value -ceq 'S-1-5-21-111-222-333-444'){ 'S-1-5-21-111-222-333-445' } else { 'S-1-5-21-111-222-333-444' }
+$lifecyclePlan=New-WorkerGatewayLifecycleV1TaskPlan '2a1084ec-5389-4b0b-a0f0-9a38fcfaece5' $operator.User.Value $workerSid $operator.Name 'C:\Program Files\PowerShell\7\pwsh.exe' 'C:\ProgramData\pc-setup-wsl-gateway-lifecycle-v1-2a1084ec-5389-4b0b-a0f0-9a38fcfaece5\bundle\run.ps1'
+if($lifecyclePlan.LogonType -cne 'Interactive' -or $lifecyclePlan.RunLevel -cne 'Highest' -or $lifecyclePlan.Trigger -cne 'Logon' -or $lifecyclePlan.RestartCount -ne 0 -or $lifecyclePlan.Arguments -notmatch '^-NoLogo -NoProfile -NonInteractive -File "C:\\ProgramData\\.*" -InstanceId '){throw 'Lifecycle task plan does not use the reviewed interactive elevated logon contract.'}
+$lifecycleRuntime=Get-Content (Join-Path $root 'ssh/lifecycle-v1/runtime.ps1') -Raw
+$lifecycleContract=Get-Content (Join-Path $root 'ssh/lifecycle-v1/contract.ps1') -Raw
+$lifecycleRunner=Get-Content (Join-Path $root 'ssh/lifecycle-v1/run.ps1') -Raw
+foreach($required in @('Install-WorkerGatewayLifecycleV1','Assert-WorkerGatewayLifecycleV1Task','PasswordStored=$false','StartupBeforeInteractiveLogon=$false','infisical.exe','SecretCapture.cs','WorkerGatewayLifecycleSecretCaptureHash','SourceCommit')){if($lifecycleRuntime -cnotmatch [regex]::Escape($required)){throw "Lifecycle contract missing: $required"}}
+foreach($required in @("LogonType = 'Interactive'","RunLevel = 'Highest'",'RestartCount = 0')){if($lifecycleContract -cnotmatch [regex]::Escape($required)){throw "Lifecycle task plan missing: $required"}}
+foreach($required in @('[WorkerSecretCapture]::Capture($info,15000)','Invoke-WorkerGatewayRepairV1','HostFingerprint','Status=''pass''','Status=''fail''')){if($lifecycleRunner -cnotmatch [regex]::Escape($required)){throw "Lifecycle runner missing: $required"}}
+Get-ChildItem "$root/ssh/*.ps1","$root/ssh/lifecycle-v1/*.ps1",$PSCommandPath|ForEach-Object{$null=[Management.Automation.Language.Parser]::ParseFile($_.FullName,[ref]$null,[ref]$errors);if($errors){throw $errors}}
 Write-Output 'Worker SSH/gateway contracts: PASS'
