@@ -104,6 +104,7 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 # exists and makes every `docker pull` fail. This formula provides the same
 # Keychain-backed helper without Docker Desktop.
 "brew:docker-credential-helper" = { version = "latest", os = "macos" }
+"brew-cask:tailscale" = { version = "latest", os = "macos" }
 
 [settings.github]
 # mise resolves a GitHub token from this command when no MISE_GITHUB_TOKEN /
