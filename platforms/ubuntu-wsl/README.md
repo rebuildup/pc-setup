@@ -144,6 +144,10 @@ source ~/.bashrc
 
 Do not reconstruct the old package-by-package installation procedure manually.
 
+## 分離workerの限定runtime
+
+人間用の全bootstrapを流用せず、[worker runtime手順](worker-runtime.md)でcanonical mise設定から必要なCodex/Herdrだけを導入できる。OS分離・認証・ネットワーク登録は別の操作として維持する。
+
 ## WSL boundary
 
 The WSL distribution is treated as its own development machine. Windows-side installations and authentication do not imply the same tool/auth state inside WSL.
