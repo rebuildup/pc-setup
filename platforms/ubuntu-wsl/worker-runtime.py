@@ -36,7 +36,7 @@ def digest(path):
 
 def regular(path, executable=False):
     info = path.lstat()
-    if not stat.S_ISREG(info.st_mode) or info.st_uid not in (0, os.getuid()) or info.st_mode & 0o022:
+    if not stat.S_ISREG(info.st_mode) or info.st_uid not in (0, os.getuid()) or info.st_mode & 0o7022:
         raise ValueError(f'unsafe regular file: {path}')
     if executable and not os.access(path, os.X_OK):
         raise ValueError(f'package executable is missing: {path}')
@@ -186,6 +186,35 @@ class Runtime:
             raise ValueError(f'mise {args[0]} failed (exit {result.returncode}); inspect it locally without exposing credentials')
         return result.stdout.strip()
 
+    def normalize_new_package_permissions(self, executables):
+        # mise has just completed the locked install. Its vendor archives may
+        # carry group-write bits; restrict only files in this private inventory.
+        codex = Path(executables['codex'])
+        if codex.parent.name != 'bin':
+            raise ValueError('Codex package layout is incomplete')
+        paths = [Path(executables[t]) for t in TOOLS]
+        paths.extend(codex.parent.parent / relative for relative in
+                     ('codex-package.json', 'bin/codex-code-mode-host', 'codex-resources/bwrap', 'codex-path/rg'))
+        for path in paths:
+            if not path.is_absolute() or not path.is_relative_to(self.state/'data/installs') or path.is_symlink():
+                raise ValueError('package permission normalization refused an external path or symlink')
+            try:
+                if path.resolve(strict=True) != path:
+                    raise ValueError('package permission normalization refused a symlink ancestor')
+                fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+            except OSError as error:
+                raise ValueError('package permission normalization could not open its regular file') from error
+            try:
+                info = os.fstat(fd)
+                if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
+                    raise ValueError('package permission normalization requires a worker-owned regular file')
+                if info.st_mode & 0o7000:
+                    raise ValueError('package has unexpected special permissions')
+                if info.st_mode & 0o022:
+                    os.fchmod(fd, stat.S_IMODE(info.st_mode) & ~0o022)
+            finally:
+                os.close(fd)
+
     def package_files(self, executables, versions):
         files = []
         for tool in TOOLS:
@@ -251,6 +280,7 @@ class Runtime:
             new_file(generation/'system.toml', b'')
             self.call_mise(generation, ['install', '--locked', *TOOLS])
             executables = {tool: str(Path(self.call_mise(generation, ['which', tool])).resolve(strict=True)) for tool in TOOLS}
+            self.normalize_new_package_permissions(executables)
             files = self.package_files(executables, versions)
             record = {'owner': OWNER, 'uid': os.getuid(), 'generation': name, 'target': self.target,
                       'versions': versions, 'executables': executables, 'files': {str(p): digest(p) for p in files}}

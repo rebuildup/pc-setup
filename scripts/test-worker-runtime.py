@@ -122,6 +122,40 @@ url = "https://github.com/herdrdev/herdr/releases/download/v{herdr}/herdr-linux-
         with self.assertRaisesRegex(ValueError,'absolute mise'):
             self.mod.Runtime(self.repo,self.state,Path('mise'),{'codex':'0.165.0','herdr':'0.9.5'},home=self.home,target='linux-x64')
 
+    def test_new_vendor_executable_permissions_are_restricted_before_publication(self):
+        binary=self.herdr_root/'herdr'
+        binary.chmod(0o775)
+        self.runtime().install()
+        self.assertEqual(binary.stat().st_mode & 0o777,0o755)
+        self.assertEqual(self.runtime().verify()['versions']['herdr'],'0.9.5')
+
+    def test_existing_current_permission_drift_is_not_normalized(self):
+        self.runtime().install()
+        binary=self.herdr_root/'herdr'
+        binary.chmod(0o775)
+        with self.assertRaisesRegex(ValueError,'unsafe regular file'):
+            self.runtime().install()
+        self.assertEqual(binary.stat().st_mode & 0o777,0o775)
+
+    def test_new_package_special_bits_are_rejected(self):
+        binary=self.herdr_root/'herdr'
+        binary.chmod(0o4775)
+        with self.assertRaisesRegex(ValueError,'special permissions'):
+            self.runtime().install()
+        self.assertFalse((self.state/'current').exists())
+
+    def test_new_package_symlink_does_not_chmod_an_external_file(self):
+        external=self.root/'external-helper'
+        self.exe(external,'external')
+        external.chmod(0o775)
+        helper=self.codex_root/'bin/codex-code-mode-host'
+        helper.unlink()
+        helper.symlink_to(external)
+        with self.assertRaisesRegex(ValueError,'package'):
+            self.runtime().install()
+        self.assertEqual(external.stat().st_mode & 0o777,0o775)
+        self.assertFalse((self.state/'current').exists())
+
     def test_missing_helper_refuses_publication(self):
         (self.codex_root/'bin/codex-code-mode-host').unlink()
         with self.assertRaisesRegex(ValueError, 'package'):

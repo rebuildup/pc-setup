@@ -26,7 +26,7 @@ python3 platforms/ubuntu-wsl/worker-runtime.py verify \
 
 stateは本人所有0700のcanonical pathを使う。symlinkを含むpathや第三者が書換可能なdirectoryは拒否する。sourceからCodex/Herdrだけのmise設定を生成し、canonical lockを保持して`mise install --locked codex herdr`を実行する。config/data/cache/stateはこのworker runtime専用で、人間用のglobal設定や既存mise install inventoryを操作しない。installer失敗はexit codeを返し、credentialを含む可能性のあるprovider出力をログへ転送しない。
 
-Codexの公式full package（`bin/codex`、`bin/codex-code-mode-host`、`codex-resources/bwrap`、`codex-path/rg`、`codex-package.json`）を保持する。package構造、owner/mode、metadata、versionを検証し、file hashを記録する。片方だけ導入できた場合やhelper欠落時はcurrentへ公開しない。検証済みgenerationのcurrent symlinkを最後に原子的に切り替える。同じstateへの並行操作は拒否する。
+Codexの公式full package（`bin/codex`、`bin/codex-code-mode-host`、`codex-resources/bwrap`、`codex-path/rg`、`codex-package.json`）を保持する。locked install直後の新candidateについてだけ、専用inventory内の本人所有regular fileをno-followで開き、vendor展開由来のgroup/other writeを除去する。special bitやsymlinkは拒否する。その後package構造、owner/mode、metadata、versionを検証し、file hashを記録する。既存currentのpermission/hash driftは正規化せず停止する。片方だけ導入できた場合やhelper欠落時はcurrentへ公開しない。検証済みgenerationのcurrent symlinkを最後に原子的に切り替える。同じstateへの並行操作は拒否する。
 
 返却する絶対pathはシェル初期化を必要としない。
 
