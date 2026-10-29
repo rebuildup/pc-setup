@@ -54,7 +54,8 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
         Port = 22224
         SafetyScope = $gateway.SafetyScope
     }
-    foreach ($name in $expected.Keys) { if ($m.$name -cne $expected[$name]) { throw 'Repair-stage identity/source drift.' } }
+    foreach ($name in $expected.Keys) { if ($name -cne 'SourceHash' -and $m.$name -cne $expected[$name]) { throw 'Repair-stage identity/source drift.' } }
+    if ($m.SourceHash -cnotin @($expected.SourceHash,'1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A')) { throw 'Repair-stage source is not an explicitly reviewed version.' }
     $journal = Join-Path $root 'journal'
     $mappingSet = @(Get-WorkerGatewayMappings)
     $mappingChecked = $false
@@ -277,6 +278,7 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     if ($listeners.Count -ne 1 -or $listeners[0].LocalAddress -cne $m.ListenAddress -or $listeners[0].OwningProcess -notin @(4,[int]$helper.ProcessId)) { throw 'Gateway listener scope/process mismatch.' }
     $m.GuestAddress = $fresh.Guest.address
     $m.Hold = $hold
+    $m.SourceHash = (Get-FileHash (Join-Path $PSScriptRoot 'runtime.ps1')).Hash
     $m.UpdatedAtUtc = [DateTime]::UtcNow.ToString('o')
     $global:PCSetupWorkerGatewayRepairStep = 'manifest-commit'
     $pending = Join-Path $root "$change.pending.json"
