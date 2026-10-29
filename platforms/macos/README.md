@@ -105,7 +105,9 @@ Orca の設定は Orca 自身の profile state に保存され、pc-setup は書
 ## Containers (Colima)
 
 コンテナ実行は Docker Desktop ではなく [Colima](https://github.com/abiosoft/colima) で構成する ([ADR-0013](../../docs/adr/ADR-0013.md))。
-`colima` / `docker` / `docker-compose` / `docker-buildx` / `docker-credential-helper` / `ffmpeg` と GUI アプリは `mise.global.toml` の `[bootstrap.packages]` に `os = "macos"` 付きで宣言され、`mise bootstrap packages apply` が導入する。OS 条件がないと Windows / Linux の bootstrap まで Homebrew cask を解こうとするため、条件は必須である。
+`colima` / `docker` / `docker-compose` / `docker-buildx` / `docker-credential-helper` / `ffmpeg` と GUI アプリは `mise.global.toml` の `[bootstrap.packages]` に `os = "macos"` 付きで宣言され、`mise bootstrap packages apply` が導入する。Tailscaleも`brew-cask:tailscale`としてmise管理する。OS 条件がないと Windows / Linux の bootstrap まで Homebrew cask を解こうとするため、条件は必須である。
+
+Tailscale caskの更新は、アプリを終了してから`mise bootstrap packages upgrade brew-cask:tailscale`で適用する。起動中はmiseが自動更新アプリとしてupgradeをskipする。macOS installerが管理者認証を要求する場合は、対話端末で承認する。
 
 Docker Desktop は使用しない。GUI と常駐サービスが不要で、エージェントは CLI だけで完結でき、コンテナのデータは Apple Virtualization.framework 上の仮想機に分離される。registry 認証も Docker Desktop に依存しない。Docker Desktop は `docker-credential-osxkeychain` を同梱し、アンインストールで消えても `~/.docker/config.json` の `credsStore` は残すため、その状態では `docker pull` が credential helper の不足で失敗する。`brew:docker-credential-helper` が同じ Keychain backed helper を提供する。
 
@@ -199,3 +201,7 @@ verify は mise 設定の読み込みと OS 条件、`colima` / `docker` / compo
 ```
 
 GUI application inventoryは実機利用に応じて `plans/macos` から段階的に昇格する。platformがActiveであることはcandidate GUI一覧をすべて採用したことを意味しない。
+
+## 専用開発ノードの待受
+
+SSHとHerdrの専用待受は[devnode-service](devnode-service/README.md)でユーザーLaunchAgentとして管理できる。既存の標準sshdやdefault Herdr sessionは管理対象にしない。
