@@ -70,7 +70,7 @@ v3 gatewayはv1/v2の所有状態をadoptせず、別manifestを使用する。�
 
 ## V3 gatewayの復旧とIP追従
 
-`repair-v1/runtime.ps1` は既存V3のVerify/Hold証跡を変更せず、独立したAdmin所有manifestを作る。初回修復時は専用workerのWindowsアカウントとしてforegound WSL holdを起動し、資格情報は呼び出し元から受けるin-memory `SecureString`だけを使う。credentialed Verifyで既存host fingerprintを再確認し、現在のWSL IPv4が同じ仮想subnetに属することを確かめる。portproxyは既存のV3所有mappingと一致した場合に限って現在IPへ更新する。Firewall rule、通常のsshd、他WSL、既存V3証跡は変更しない。
+`repair-v1/runtime.ps1` は既存V3のVerify/Hold証跡を変更せず、独立したAdmin所有manifestを作る。初回修復時は専用workerのWindowsアカウントとしてforeground WSL holdを起動し、資格情報は呼び出し元から受けるin-memory `SecureString`だけを使う。credentialed Verifyで既存host fingerprintを再確認し、現在のWSL IPv4が同じ仮想subnetに属することを確かめる。portproxyは既存のV3所有mappingと一致した場合に限って現在IPへ更新する。Firewall rule、通常のsshd、他WSL、既存V3証跡は変更しない。
 
 ```powershell
 . ./platforms/windows-11/worker/ssh/repair-v1/runtime.ps1
@@ -78,7 +78,7 @@ $repair = Initialize-WorkerGatewayRepairV1 $instance
 $repair = Invoke-WorkerGatewayRepairV1 $instance $password
 ```
 
-`$password`はdotfiles側のprocess-scoped Infisical wrapperから渡し、terminal、argv、task definition、manifest、logへ出さない。毎回の実行は既存holdのPID/SID/path/argv/start timeを照合し、消失していれば同じ専用workerだけを再起動する。repair manifestはV3 base manifest hashとhost pinを保持し、V3の履歴証跡を上書きしない。V3の古いhold receiptに依存しない鍵stage後検査には、`Test-WorkerKeyStageGatewayRepairV1 $instance $operation $password`を使う。これは明示実行用の修復stageであり、Windows再ログイン時の自動起動・常時monitor taskは別途実機検証が必要である。
+`$password`はdotfiles側のprocess-scoped Infisical wrapperから渡し、terminal、argv、task definition、manifest、logへ出さない。毎回の実行は既存holdのPID/SID/path/argv/start timeを照合し、消失していれば同じ専用workerだけを再起動する。Admin所有journalには起動意図を先に記録し、起動後の完全なprocess identityを別記録へ保存する。中断後はその記録または一意に対応する起動意図があるprocessだけを再開し、曖昧な場合は停止して人の確認を求める。mapping更新前のjournalとmanifestを照合し、失敗後もmanifestまたは最新記録済みの新mappingだけを受け入れる。repair manifestはV3 base manifest hashとhost pinを保持し、V3の履歴証跡を上書きしない。V3の古いhold receiptに依存しない鍵stage後検査には、`Test-WorkerKeyStageGatewayRepairV1 $instance $operation $password`を使う。これは明示実行用の修復stageであり、Windows再ログイン時の自動起動・常時monitor taskは別途実機検証が必要である。
 
 ## 公開鍵の追加・失効
 

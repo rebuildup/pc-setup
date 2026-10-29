@@ -32,8 +32,10 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
     Assert-WorkerResourceAcl (Join-Path $root 'instance.lock') $gateway.Sid Metadata
     Assert-WorkerResourceAcl (Join-Path $root 'journal') $gateway.Sid Metadata
     foreach ($entry in @(Get-ChildItem -LiteralPath (Join-Path $root 'journal') -Force)) {
-        if ($entry.Name -cnotmatch '^[a-f0-9]{32}\.before\.json$') { throw 'Partial repair journal; preserve and inspect.' }
+        if ($entry.Name -cnotmatch '^[a-f0-9]{32}\.(before|intent|hold)\.json$') { throw 'Partial repair journal; preserve and inspect.' }
         Assert-WorkerResourceAcl $entry.FullName $gateway.Sid Metadata
+        $record = Get-Content -LiteralPath $entry.FullName -Raw | ConvertFrom-Json
+        if ($record.InstanceId -cne $InstanceId -or $record.Sid -cne $gateway.Sid -or $record.Owner -cne 'pc-setup/windows-worker-gateway-repair/v1') { throw 'Repair journal identity drift.' }
     }
     $path = Join-Path $root 'manifest.json'
     Assert-WorkerResourceAcl $path $gateway.Sid Metadata
@@ -53,7 +55,25 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
         SafetyScope = $gateway.SafetyScope
     }
     foreach ($name in $expected.Keys) { if ($m.$name -cne $expected[$name]) { throw 'Repair-stage identity/source drift.' } }
-    Assert-WorkerGatewayMapping @(Get-WorkerGatewayMappings) $m.ListenAddress $m.GuestAddress
+    $journal = Join-Path $root 'journal'
+    $mappingSet = @(Get-WorkerGatewayMappings)
+    $mappingChecked = $false
+    $mappingTargets = @($m.GuestAddress)
+    $lastChange = @(Get-ChildItem -LiteralPath $journal -Filter '*.before.json' -Force | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1)
+    if ($lastChange.Count -eq 1) {
+        $transition = Get-Content -LiteralPath $lastChange[0].FullName -Raw | ConvertFrom-Json
+        if ($transition.Current -match '^(?:\d{1,3}\.){3}\d{1,3}$') { $mappingTargets += $transition.Current }
+    }
+    foreach ($target in @($mappingTargets | Select-Object -Unique)) {
+        try { Assert-WorkerGatewayMapping $mappingSet $m.ListenAddress $target; $mappingChecked=$true; break } catch { }
+    }
+    if (-not $mappingChecked) { throw 'Gateway mapping is outside the manifest and latest journaled transition.' }
+    $holdRecords = @(Get-ChildItem -LiteralPath $journal -Filter '*.hold.json' -Force)
+    if ($holdRecords.Count -gt 1) { throw 'Multiple repair hold records; preserve and inspect.' }
+    if ($holdRecords.Count -eq 1) {
+        $record = Get-Content -LiteralPath $holdRecords[0].FullName -Raw | ConvertFrom-Json
+        foreach ($field in @('PID','Executable','CommandLine','StartTimeUtc')) { if (-not $record.Hold.$field) { throw 'Incomplete repair hold record.' } }
+    }
     $m
 }
 
@@ -117,6 +137,48 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
         }
     }
     if (-not $process) {
+        $journal = Join-Path (Get-WorkerGatewayRepairV1Path $InstanceId) 'journal'
+        $receipts = @(Get-ChildItem -LiteralPath $journal -Filter '*.hold.json' -Force)
+        if ($receipts.Count -gt 1) { throw 'Multiple repair hold records; preserve and inspect.' }
+        if ($receipts.Count -eq 1) {
+            $receipt = Get-Content -LiteralPath $receipts[0].FullName -Raw | ConvertFrom-Json
+            $saved = $receipt.Hold
+            $native = Get-CimInstance Win32_Process -Filter "ProcessId=$($saved.PID)" -ErrorAction SilentlyContinue
+            if (-not $native) { throw 'Recorded repair hold is no longer running; preserve journal for operator review.' }
+            $owner = Invoke-CimMethod $native -MethodName GetOwnerSid
+            $proc = Get-Process -Id $saved.PID -ErrorAction Stop
+            $expectedArgs = @(Get-WorkerSshHoldArguments (New-WorkerSshPlan $InstanceId $ssh.PublicKey))
+            if ($owner.Sid -cne $m.Sid -or $native.ExecutablePath -ine $exe -or $native.CommandLine -cne $saved.CommandLine -or -not $native.CommandLine.EndsWith(($expectedArgs -join ' '),[StringComparison]::Ordinal) -or -not (Test-WorkerHoldStartTime $proc.StartTime $saved.StartTimeUtc)) { throw 'Recorded repair hold identity drift.' }
+            $hold = $saved
+            $process = $proc
+        }
+        if (-not $process) {
+            $intents = @(Get-ChildItem -LiteralPath $journal -Filter '*.intent.json' -Force | Sort-Object LastWriteTimeUtc -Descending)
+            if ($intents.Count -gt 0) {
+                $intentPath = $intents[0].FullName
+                $intent = Get-Content -LiteralPath $intentPath -Raw | ConvertFrom-Json
+                $expectedArgs = @(Get-WorkerSshHoldArguments (New-WorkerSshPlan $InstanceId $ssh.PublicKey))
+                if ($intent.Executable -ine $exe -or ($intent.Arguments -join ' ') -cne ($expectedArgs -join ' ')) { throw 'Pending launch intent command drift.' }
+                $cutoff = [DateTime]::Parse($intent.CreatedAtUtc).ToUniversalTime()
+                $candidates = [Collections.Generic.List[object]]::new()
+                foreach ($nativeCandidate in @(Get-CimInstance Win32_Process -Filter "Name='wsl.exe'")) {
+                    if ($nativeCandidate.ExecutablePath -ine $exe -or -not $nativeCandidate.CommandLine.EndsWith(($expectedArgs -join ' '),[StringComparison]::Ordinal)) { continue }
+                    $candidateOwner = Invoke-CimMethod $nativeCandidate -MethodName GetOwnerSid
+                    if ($candidateOwner.Sid -cne $m.Sid) { continue }
+                    $candidateProcess = Get-Process -Id $nativeCandidate.ProcessId -ErrorAction Stop
+                    if ($candidateProcess.StartTime.ToUniversalTime() -ge $cutoff) { $candidates.Add([pscustomobject]@{ Native=$nativeCandidate; Owner=$candidateOwner; Process=$candidateProcess }) }
+                }
+                if ($candidates.Count -ne 1) { throw 'Pending launch intent has no unique matching hold; preserve journal for operator review.' }
+                $candidate = $candidates[0]
+                $hold = [ordered]@{ PID=$candidate.Process.Id; Sid=$candidate.Owner.Sid; Executable=$candidate.Native.ExecutablePath; CommandLine=$candidate.Native.CommandLine; StartTimeUtc=$candidate.Process.StartTime.ToUniversalTime().ToString('o') }
+                $intentId = [IO.Path]::GetFileNameWithoutExtension([IO.Path]::GetFileNameWithoutExtension($intentPath))
+                $receipt = [ordered]@{ Owner='pc-setup/windows-worker-gateway-repair/v1'; InstanceId=$InstanceId; Sid=$m.Sid; Hold=$hold; IntentId=$intentId; RecordedAtUtc=[DateTime]::UtcNow.ToString('o') }
+                Write-WorkerNewFile (Join-Path $journal "$intentId.hold.json") ($receipt | ConvertTo-Json -Depth 6) $m.Sid
+                $process = $candidate.Process
+            }
+        }
+    }
+    if (-not $process) {
         $name = (New-WorkerPlan $InstanceId).DistroName
         $foreign = @(Get-CimInstance Win32_Process -Filter "Name='wsl.exe'" | Where-Object { $_.CommandLine -like "*$name*" })
         if ($foreign.Count) { throw 'Unrecorded WSL hold exists; refusing adoption.' }
@@ -129,6 +191,9 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
         $info.RedirectStandardOutput = $false
         $info.RedirectStandardError = $false
         $args = @(Get-WorkerSshHoldArguments (New-WorkerSshPlan $InstanceId $ssh.PublicKey))
+        $change = [guid]::NewGuid().ToString('N')
+        $intent = [ordered]@{ Owner='pc-setup/windows-worker-gateway-repair/v1'; InstanceId=$InstanceId; Sid=$m.Sid; Executable=$exe; Arguments=$args; CreatedAtUtc=[DateTime]::UtcNow.ToString('o') }
+        Write-WorkerNewFile (Join-Path (Get-WorkerGatewayRepairV1Path $InstanceId) "journal\$change.intent.json") ($intent | ConvertTo-Json -Depth 5) $m.Sid
         foreach ($arg in $args) { $info.ArgumentList.Add($arg) }
         try {
             $process = [Diagnostics.Process]::Start($info)
@@ -140,6 +205,8 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
             $owner = Invoke-CimMethod $native -MethodName GetOwnerSid
             if ($owner.Sid -cne $m.Sid -or $native.ExecutablePath -ine $exe -or -not $native.CommandLine.EndsWith(($args -join ' '),[StringComparison]::Ordinal)) { throw 'New hold identity/command mismatch.' }
             $hold = [ordered]@{ PID=$process.Id; Sid=$owner.Sid; Executable=$native.ExecutablePath; CommandLine=$native.CommandLine; StartTimeUtc=$process.StartTime.ToUniversalTime().ToString('o') }
+            $receipt = [ordered]@{ Owner='pc-setup/windows-worker-gateway-repair/v1'; InstanceId=$InstanceId; Sid=$m.Sid; Hold=$hold; IntentId=$change; RecordedAtUtc=[DateTime]::UtcNow.ToString('o') }
+            Write-WorkerNewFile (Join-Path (Get-WorkerGatewayRepairV1Path $InstanceId) "journal\$change.hold.json") ($receipt | ConvertTo-Json -Depth 6) $m.Sid
         } finally { $info.Password = $null }
     }
 
@@ -155,7 +222,8 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     $mappingChanged = $fresh.Guest.address -cne $m.GuestAddress
     $holdChanged = -not $m.Hold -or $m.Hold.PID -ne $hold.PID
     if ($mappingChanged -or $holdChanged) {
-        $before = [ordered]@{ Previous=$m.GuestAddress; Current=$fresh.Guest.address; PreviousHoldPID=if($m.Hold){$m.Hold.PID}else{$null}; CurrentHoldPID=$hold.PID; CapturedAtUtc=[DateTime]::UtcNow.ToString('o') }
+        $change = [guid]::NewGuid().ToString('N')
+        $before = [ordered]@{ Owner='pc-setup/windows-worker-gateway-repair/v1'; InstanceId=$InstanceId; Sid=$m.Sid; Previous=$m.GuestAddress; Current=$fresh.Guest.address; PreviousHoldPID=if($m.Hold){$m.Hold.PID}else{$null}; CurrentHoldPID=$hold.PID; CapturedAtUtc=[DateTime]::UtcNow.ToString('o') }
         Write-WorkerNewFile (Join-Path $journal "$change.before.json") ($before | ConvertTo-Json) $m.Sid
     }
     if ($mappingChanged) {
@@ -172,6 +240,14 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     Write-WorkerNewFile $pending ($m | ConvertTo-Json -Depth 6) $m.Sid
     [IO.File]::Replace($pending,(Join-Path $root 'manifest.json'),$null)
     Set-WorkerResourceAcl (Join-Path $root 'manifest.json') $m.Sid Metadata
+    foreach ($receipt in @(Get-ChildItem -LiteralPath $journal -Filter '*.hold.json' -Force)) {
+        $record = Get-Content -LiteralPath $receipt.FullName -Raw | ConvertFrom-Json
+        if ($record.Hold.PID -eq $hold.PID) {
+            $intentPath = Join-Path $journal "$($record.IntentId).intent.json"
+            Remove-Item -LiteralPath $receipt.FullName -Force
+            if (Test-Path -LiteralPath $intentPath) { Remove-Item -LiteralPath $intentPath -Force }
+        }
+    }
     Read-WorkerGatewayRepairV1 $InstanceId
 }
 
