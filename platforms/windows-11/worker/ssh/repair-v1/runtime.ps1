@@ -77,6 +77,44 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
     $m
 }
 
+function Invoke-WorkerGatewayRepairV3ReadOnly([string]$InstanceId,[SecureString]$Password) {
+    if (-not $Password -or $Password.Length -lt 1) { throw 'Supply an in-memory credential.' }
+    $m = Read-WorkerVerificationV3 $InstanceId
+    $state = Read-WorkerState $InstanceId
+    $root = Get-WorkerVerificationV3Path $InstanceId
+    $exe = Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell/7/pwsh.exe'
+    $p = $null
+    $info = $null
+    $canary = [Environment]::GetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY')
+    try {
+        [Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',[guid]::NewGuid().ToString('N'))
+        $info = New-CleanWorkerStartInfo $exe (Get-WorkerPaths $InstanceId).Data ([Environment]::GetFolderPath('Windows'))
+        Set-WorkerVerificationV3Environment $info ([Environment]::GetFolderPath('CommonApplicationData'))
+        $info.UserName = $state.UserName
+        $info.Domain = [Environment]::MachineName
+        $info.Password = $Password
+        $info.LoadUserProfile = $true
+        foreach ($arg in @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $root 'child.ps1'),'-InstanceId',$InstanceId)) { $info.ArgumentList.Add($arg) }
+        $p = [Diagnostics.Process]::Start($info)
+        $info.Password = $null
+        $p.StandardInput.Close()
+        $stdout = $p.StandardOutput.ReadToEndAsync()
+        $stderr = $p.StandardError.ReadToEndAsync()
+        if (-not $p.WaitForExit(120000)) { throw "Repair verifier child timeout; pid=$($p.Id)." }
+        $out = $stdout.GetAwaiter().GetResult()
+        $err = $stderr.GetAwaiter().GetResult()
+        if ($p.ExitCode -ne 0) { throw "Repair verifier child exited; code=$($p.ExitCode); stdoutLength=$($out.Length); stderrLength=$($err.Length)." }
+        if ($out.Length -gt 16384 -or $err.Length) { throw 'Repair verifier child returned unexpected output lengths.' }
+        $report = $out | ConvertFrom-Json
+        Assert-WorkerV3Report $report $m
+        $report
+    } finally {
+        [Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',$canary)
+        if ($info) { $info.Password = $null }
+        if ($p) { $p.Dispose() }
+    }
+}
+
 function Initialize-WorkerGatewayRepairV1([string]$InstanceId) {
     Assert-WorkerAdministrator
     $gateway = Read-WorkerGatewayRepairBaseV3 $InstanceId
@@ -112,6 +150,7 @@ function Initialize-WorkerGatewayRepairV1([string]$InstanceId) {
 
 function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]$Password) {
     Assert-WorkerAdministrator
+    $global:PCSetupWorkerGatewayRepairStep = 'read-only-v3-verification'
     if (-not $Password -or $Password.Length -lt 1) { throw 'Supply an in-memory credential.' }
     $m = Read-WorkerGatewayRepairV1 $InstanceId
     $v = Read-WorkerVerificationV3 $InstanceId
@@ -119,10 +158,11 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     $ssh = Read-WorkerSshStage $InstanceId
     if ($state.Sid -cne $m.Sid -or $v.HostFingerprint -cne $m.HostFingerprint) { throw 'Worker or host identity changed.' }
 
-    $live = Invoke-WorkerVerificationV3 $InstanceId $Password -ReadOnly
+    $live = Invoke-WorkerGatewayRepairV3ReadOnly $InstanceId $Password
     Assert-WorkerGatewayLive $ssh $live $m.ListenAddress $m.ControllerAddress
     if ($live.Guest.host_fp -cne $m.HostFingerprint) { throw 'Live host key changed.' }
 
+    $global:PCSetupWorkerGatewayRepairStep = 'hold-process-resume-or-start'
     $exe = Join-Path ([Environment]::SystemDirectory) 'wsl.exe'
     $hold = $m.Hold
     $process = $null
@@ -210,6 +250,7 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
         } finally { $info.Password = $null }
     }
 
+    $global:PCSetupWorkerGatewayRepairStep = 'read-only-post-hold-verification'
     $fresh = Invoke-WorkerVerificationV3 $InstanceId $Password -ReadOnly
     Assert-WorkerGatewayLive $ssh $fresh $m.ListenAddress $m.ControllerAddress
     if ($fresh.Guest.host_fp -cne $m.HostFingerprint) { throw 'Live host key changed after hold.' }
@@ -227,6 +268,7 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
         Write-WorkerNewFile (Join-Path $journal "$change.before.json") ($before | ConvertTo-Json) $m.Sid
     }
     if ($mappingChanged) {
+        $global:PCSetupWorkerGatewayRepairStep = 'owned-portproxy-update'
         Invoke-WorkerPortProxy set $m.ListenAddress $fresh.Guest.address
         Assert-WorkerGatewayMapping @(Get-WorkerGatewayMappings) $m.ListenAddress $fresh.Guest.address
     }
@@ -236,6 +278,7 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     $m.GuestAddress = $fresh.Guest.address
     $m.Hold = $hold
     $m.UpdatedAtUtc = [DateTime]::UtcNow.ToString('o')
+    $global:PCSetupWorkerGatewayRepairStep = 'manifest-commit'
     $pending = Join-Path $root "$change.pending.json"
     Write-WorkerNewFile $pending ($m | ConvertTo-Json -Depth 6) $m.Sid
     [IO.File]::Replace($pending,(Join-Path $root 'manifest.json'),$null)
@@ -249,10 +292,12 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
         }
     }
     Read-WorkerGatewayRepairV1 $InstanceId
+    $global:PCSetupWorkerGatewayRepairStep = 'complete'
 }
 
 function Invoke-WorkerGatewayRepairV1([string]$InstanceId,[SecureString]$Password) {
     Assert-WorkerAdministrator
+    $global:PCSetupWorkerGatewayRepairStep = 'acquire-instance-lock'
     $root = Get-WorkerGatewayRepairV1Path $InstanceId
     $lockPath = Join-Path $root 'instance.lock'
     Assert-WorkerResourceAcl $lockPath (Read-WorkerVerificationV3 $InstanceId).Sid Metadata
