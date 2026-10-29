@@ -104,10 +104,11 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
     }
     if (-not $mappingChecked) { throw 'Gateway mapping is outside the manifest and latest journaled transition.' }
     $holdRecords = @(Get-ChildItem -LiteralPath $journal -Filter '*.hold.json' -Force)
-    if ($holdRecords.Count -gt 1) { throw 'Multiple repair hold records; preserve and inspect.' }
-    if ($holdRecords.Count -eq 1) {
-        $record = Get-Content -LiteralPath $holdRecords[0].FullName -Raw | ConvertFrom-Json
+    foreach ($holdRecord in $holdRecords) {
+        $record = Get-Content -LiteralPath $holdRecord.FullName -Raw | ConvertFrom-Json
+        if ($record.IntentId -cnotmatch '^[a-f0-9]{32}$' -or $holdRecord.BaseName -cne "$($record.IntentId).hold") { throw 'Repair hold receipt name/intent mismatch.' }
         foreach ($field in @('PID','Executable','CommandLine','StartTimeUtc')) { if (-not $record.Hold.$field) { throw 'Incomplete repair hold record.' } }
+        if ($record.Hold.Sid -cne $gateway.Sid -or $record.Hold.Executable -ine (Get-WorkerGatewayRepairWslExecutable)) { throw 'Repair hold receipt identity drift.' }
     }
     if ($pendingFiles.Count -eq 1) {
         Assert-WorkerResourceAcl $pendingFiles[0].FullName $gateway.Sid Metadata
@@ -120,8 +121,13 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
             if ($candidate.$name -cne $m.$name) { throw 'Pending repair manifest identity drift.' }
         }
         if ($candidate.SourceHash -cnotin @($expected.SourceHash,'404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A') -or $candidate.GuestAddress -cne $transition.Current -or $candidate.Hold.PID -ne $transition.CurrentHoldPID) { throw 'Pending repair manifest does not match its journaled transition.' }
-        if ($holdRecords.Count -eq 1) { $recordedHold = $record.Hold }
-        elseif ($holdRecords.Count -eq 0 -and $m.Hold -and $m.Hold.PID) { $recordedHold = $m.Hold }
+        $matchingReceipts = @($holdRecords | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json } | Where-Object {
+            $match = $true
+            foreach ($field in @('PID','Sid','Executable','CommandLine','StartTimeUtc')) { if ($candidate.Hold.$field -cne $_.Hold.$field) { $match = $false } }
+            $match
+        })
+        if ($matchingReceipts.Count -eq 1) { $recordedHold = $matchingReceipts[0].Hold }
+        elseif ($matchingReceipts.Count -eq 0 -and $m.Hold -and $m.Hold.PID) { $recordedHold = $m.Hold }
         else { throw 'Pending repair manifest has no unique recorded hold identity.' }
         foreach ($field in @('PID','Sid','Executable','CommandLine','StartTimeUtc')) {
             if ($candidate.Hold.$field -cne $recordedHold.$field) { throw 'Pending repair hold differs from the recorded live hold.' }
@@ -250,26 +256,27 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
             $owner = Invoke-CimMethod $native -MethodName GetOwnerSid
             $proc = Get-Process -Id $hold.PID -ErrorAction Stop
             $expectedArgs = @(Get-WorkerSshHoldArguments (New-WorkerSshPlan $InstanceId $ssh.PublicKey))
-            if ($owner.Sid -cne $m.Sid -or $native.ExecutablePath -ine $exe -or $native.CommandLine -cne $hold.CommandLine -or -not $native.CommandLine.EndsWith(($expectedArgs -join ' '),[StringComparison]::Ordinal) -or -not (Test-WorkerHoldStartTime $proc.StartTime $hold.StartTimeUtc)) { throw 'Recorded hold identity drift.' }
-            $process = $proc
+            if ($owner.Sid -ceq $m.Sid -and $native.ExecutablePath -ieq $exe -and $native.CommandLine -ceq $hold.CommandLine -and $native.CommandLine.EndsWith(($expectedArgs -join ' '),[StringComparison]::Ordinal) -and (Test-WorkerHoldStartTime $proc.StartTime $hold.StartTimeUtc)) { $process = $proc }
         }
     }
     if (-not $process) {
         $journal = Join-Path (Get-WorkerGatewayRepairV1Path $InstanceId) 'journal'
         $receipts = @(Get-ChildItem -LiteralPath $journal -Filter '*.hold.json' -Force)
-        if ($receipts.Count -gt 1) { throw 'Multiple repair hold records; preserve and inspect.' }
-        if ($receipts.Count -eq 1) {
-            $receipt = Get-Content -LiteralPath $receipts[0].FullName -Raw | ConvertFrom-Json
+        $expectedArgs = @(Get-WorkerSshHoldArguments (New-WorkerSshPlan $InstanceId $ssh.PublicKey))
+        $matchingHolds = [Collections.Generic.List[object]]::new()
+        foreach ($receiptPath in $receipts) {
+            $receipt = Get-Content -LiteralPath $receiptPath.FullName -Raw | ConvertFrom-Json
             $saved = $receipt.Hold
             $native = Get-CimInstance Win32_Process -Filter "ProcessId=$($saved.PID)" -ErrorAction SilentlyContinue
-            if (-not $native) { throw 'Recorded repair hold is no longer running; preserve journal for operator review.' }
+            if (-not $native) { continue }
             $owner = Invoke-CimMethod $native -MethodName GetOwnerSid
+            if ($owner.Sid -cne $m.Sid -or $native.ExecutablePath -ine $exe -or $native.CommandLine -cne $saved.CommandLine -or -not $native.CommandLine.EndsWith(($expectedArgs -join ' '),[StringComparison]::Ordinal)) { continue }
             $proc = Get-Process -Id $saved.PID -ErrorAction Stop
-            $expectedArgs = @(Get-WorkerSshHoldArguments (New-WorkerSshPlan $InstanceId $ssh.PublicKey))
-            if ($owner.Sid -cne $m.Sid -or $native.ExecutablePath -ine $exe -or $native.CommandLine -cne $saved.CommandLine -or -not $native.CommandLine.EndsWith(($expectedArgs -join ' '),[StringComparison]::Ordinal) -or -not (Test-WorkerHoldStartTime $proc.StartTime $saved.StartTimeUtc)) { throw 'Recorded repair hold identity drift.' }
-            $hold = $saved
-            $process = $proc
+            if (-not (Test-WorkerHoldStartTime $proc.StartTime $saved.StartTimeUtc)) { continue }
+            $matchingHolds.Add([pscustomobject]@{ Hold=$saved; Process=$proc })
         }
+        if ($matchingHolds.Count -gt 1) { throw 'Multiple live processes match recorded repair holds; preserve and inspect.' }
+        if ($matchingHolds.Count -eq 1) { $hold = $matchingHolds[0].Hold; $process = $matchingHolds[0].Process }
         if (-not $process) {
             $intents = @(Get-ChildItem -LiteralPath $journal -Filter '*.intent.json' -Force | Sort-Object LastWriteTimeUtc -Descending)
             if ($intents.Count -gt 0) {

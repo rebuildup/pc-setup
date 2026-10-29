@@ -119,7 +119,9 @@ gatewayは別のAdmin所有manifestで所有mapping/rules/guest hostpin/SSH stag
 
 systemdのserviceだけではWSL自体の稼働を保持できない。static portproxyも停止したdistroを起動しない。初期PoCは同じ標準SID本人/profileのnative foreground wsl.exeを一回だけ起動し、完全名distroの `worker` / `env -i` / `sleep infinity` を維持する。owner SID・native path・固定argv・PID/start timeを記録する。起動後はSecureStringをdisposeでき、provider sessionや親readerへの継続依存を作らない。自動停止せず、停止が必要なら記録したPIDだけでなくowner/path/argv/start timeを再照合し、この一回の所有processだけを対象にする。
 
-このPoCで「常時接続可能」とは表示しない。SID本人のOS managed lifetime・GUI login後の復帰・reboot・idle後再接続は別source/gateで検証する。初期SSH nonceと一時foreground保持に成功してもこれらは未達のままである。guest lifecycle設計が確定するまで、無断でTask/S4U/password保存を追加しない。
+ログオン後の復帰は `lifecycle-v1` のInteractive/Highest Task Scheduler taskで実装する。専用operator本人が対話ログオンした時だけ、保護されたProgramData bundleからtaskを実行し、operatorのInfisical user cacheをプロセス内で使って専用worker credentialを取得し、SecureStringのままrepair runtimeへ渡す。資格情報をtask definition・argv・environment・ファイル・resultへ書かない。bundle、task definition、result directoryはSYSTEM/Administratorsが変更でき、operatorは実行と結果読取りだけ可能。起動triggerはログオン時のみで、S4U、保存password、自動retry、自動WSL停止を使わない。
+
+この方式はoperatorがログインする前の起動・headless reboot recoveryを保証しない。対話セッションとInfisical login cacheが利用できない場合は失敗結果を残して停止し、ログを出さず、自動再試行しない。Windowsの再ログイン後とidle/reboot後のSSH再接続は別々に実測する。Installはcommit固定・clean checkout・installer hash・CLI hashを要求し、登録済taskとProgramData資源のowner/ACL/source driftを拒否する。Removeは今回所有するtaskだけを外し、worker、hold、gateway、firewallを停止・削除しない。タスクの登録・実機ACLとログオントリガーはまだ実測証拠が必要である。
 
 停止・撤去を疎通直後に自動実行しない。撤去が必要な場合は、所有manifestと実mapping/rule/hostpinを照合してこのIP:portのmappingと今回二つのruleだけを対象にする。guest側も専用unitを停止してからroot-owned資源を別レビューする。既存Ubuntu・VPN登録・共有IP Helper・他worker・標準SSHの資源を削除しない。
 
