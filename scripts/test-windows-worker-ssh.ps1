@@ -182,9 +182,13 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
         if(-not $afterReplaceFailed -or $backupFiles.Count -ne 1 -or @(Get-ChildItem -LiteralPath $fixtureRoot -Filter '*.pending.json' -Force).Count -ne 0){throw 'Fixture did not preserve the ambiguous post-replace state.'}
         $result=Invoke-WorkerGatewayRepairV1 $fixtureId $password
         if($result.GuestAddress -cne $script:repairFixture.CurrentGuest -or $result.Hold.PID -ne $hold.PID -or $script:repairFixture.StartCalls -ne 0 -or @(Get-ChildItem -LiteralPath $journal -Filter '*.manifest-backup.json' -Force).Count -ne 0){throw 'Fixture did not resume and clean an already-committed manifest safely.'}
-        $nullFailure=$false;$src=Join-Path $fixtureBase 'null-source';$dst=Join-Path $fixtureBase 'null-destination';[IO.File]::WriteAllText($src,'new');[IO.File]::WriteAllText($dst,'old')
-        try{[IO.File]::Replace($src,$dst,$null)}catch{$nullFailure=$_.Exception.InnerException.Message -match 'path is empty'}
-        if(-not $nullFailure -or [IO.File]::ReadAllText($dst) -cne 'old' -or -not[IO.File]::Exists($src)){throw 'File.Replace null binder regression was not reproduced.'}
+        $src=Join-Path $fixtureBase 'null-source';$dst=Join-Path $fixtureBase 'null-destination';[IO.File]::WriteAllText($src,'new');[IO.File]::WriteAllText($dst,'old')
+        if($IsWindows){
+            $nullFailure=$false
+            try{[IO.File]::Replace($src,$dst,$null)}catch{$nullFailure=$_.Exception.InnerException.Message -match 'path is empty'}
+            if(-not $nullFailure -or [IO.File]::ReadAllText($dst) -cne 'old' -or -not[IO.File]::Exists($src)){throw 'File.Replace null binder regression was not reproduced.'}
+        }
+        [IO.File]::WriteAllText($src,'new');[IO.File]::WriteAllText($dst,'old')
         $backup=Join-Path $fixtureBase 'null-backup';$expectedBackupHash=(Get-FileHash $dst).Hash;& $atomicRepairReplace $src $dst $backup $script:repairFixture.Sid $expectedBackupHash
         if([IO.File]::ReadAllText($dst) -cne 'new' -or [IO.File]::Exists($src) -or [IO.File]::ReadAllText($backup) -cne 'old'){throw 'Explicit-backup atomic file replacement failed.'}
     } finally { $password.Dispose() }
