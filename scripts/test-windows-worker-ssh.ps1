@@ -101,7 +101,7 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
     $fixtureId=$plan.InstanceId;$currentSource=(Get-FileHash $repairRuntimePath).Hash
     $sshHash=(Get-FileHash (Join-Path $fixtureSsh 'manifest.json')).Hash;$baseHash=(Get-FileHash (Join-Path $fixtureBaseV3 'manifest.json')).Hash
     $intentId='159f5b48b4534c14bc701466d22eaf92';$changeId='eb92f556c9ed43f1b79c3807a5390af7'
-    $holdArgs=@(Get-WorkerSshHoldArguments (New-WorkerSshPlan $fixtureId $key));$holdExe=Join-Path ([Environment]::GetFolderPath('System')) 'wsl.exe';$holdStart=[DateTime]::UtcNow.AddMinutes(-5).ToString('o')
+    $holdArgs=@(Get-WorkerSshHoldArguments (New-WorkerSshPlan $fixtureId $key));$systemDirectory=[Environment]::GetFolderPath('System');if([string]::IsNullOrWhiteSpace($systemDirectory)){$systemDirectory=[IO.Path]::GetTempPath()};$holdExe=Join-Path $systemDirectory 'wsl.exe';$holdStart=[DateTime]::UtcNow.AddMinutes(-5).ToString('o')
     $hold=[ordered]@{PID=21964;Sid=$script:repairFixture.Sid;Executable=$holdExe;CommandLine="$holdExe $($holdArgs -join ' ')";StartTimeUtc=$holdStart}
     $script:repairFixture.Hold=$hold
     $gateway=[pscustomobject]@{InstanceId=$fixtureId;Sid=$script:repairFixture.Sid;ListenAddress=$script:repairFixture.Listen;ControllerAddress=$script:repairFixture.Controller;GuestAddress=$script:repairFixture.OldGuest;HostFingerprint=$script:repairFixture.HostFingerprint;Port=22224;VerifierManifestHash='fixture-verifier-hash';SafetyScope='controller-only'}
