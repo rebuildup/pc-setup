@@ -93,7 +93,7 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
     $fixtureBase=Join-Path ([IO.Path]::GetTempPath()) ('pc-setup-repair-test-'+[guid]::NewGuid().ToString('N'))
     $fixtureRoot=Join-Path $fixtureBase 'repair';$fixtureBaseV3=Join-Path $fixtureBase 'base';$fixtureSsh=Join-Path $fixtureBase 'ssh';$fixtureVerification=Join-Path $fixtureBase 'verification'
     foreach($directory in @($fixtureRoot,$fixtureBaseV3,$fixtureSsh,$fixtureVerification)){[void](New-Item -ItemType Directory -Path $directory -Force)}
-    $script:repairFixture=[pscustomobject]@{Root=$fixtureRoot;Base=$fixtureBaseV3;Ssh=$fixtureSsh;Verification=$fixtureVerification;Sid='S-1-5-21-1-2-3-1001';Listen='100.118.123.62';Controller='100.83.203.34';OldGuest='172.30.1.2';CurrentGuest='172.30.1.3';HostFingerprint='SHA256:fixture-host-pin';CurrentTarget='172.30.1.3';Hold=$null;StartCalls=0;MappingCalls=0;ReplaceCalls=0;FailBeforeManifestReplace=$true;FailAfterBackupCreation=$false;FailAfterManifestReplace=$false}
+    $script:repairFixture=[pscustomobject]@{Root=$fixtureRoot;Base=$fixtureBaseV3;Ssh=$fixtureSsh;Verification=$fixtureVerification;Sid='S-1-5-21-1-2-3-1001';Listen='100.118.123.62';Controller='100.83.203.34';OldGuest='172.30.1.2';CurrentGuest='172.30.1.3';HostFingerprint='SHA256:fixture-host-pin';CurrentTarget='172.30.1.3';Hold=$null;StartCalls=0;MappingCalls=0;ReplaceCalls=0;FailBeforeManifestReplace=$true;FailAfterBackupCreation=$false;FailAfterManifestReplace=$false;ForceHoldStartMismatch=$false}
     $journal=Join-Path $fixtureRoot 'journal';[void](New-Item -ItemType Directory -Path $journal -Force)
     [IO.File]::WriteAllText((Join-Path $fixtureRoot 'instance.lock'),'')
     [IO.File]::WriteAllText((Join-Path $fixtureBaseV3 'manifest.json'),'{}')
@@ -147,7 +147,7 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
     function Get-CimInstance([string]$ClassName,[string]$Filter,[string]$ErrorAction) { if($ClassName -eq 'Win32_Service'){[pscustomobject]@{State='Running';ProcessId=4}}else{[pscustomobject]@{ProcessId=$script:repairFixture.Hold.PID;ExecutablePath=$script:repairFixture.Hold.Executable;CommandLine=$script:repairFixture.Hold.CommandLine}} }
     function Invoke-CimMethod($InputObject,[string]$MethodName) { [pscustomobject]@{Sid=$script:repairFixture.Sid} }
     function Get-Process([int]$Id) { [pscustomobject]@{Id=$script:repairFixture.Hold.PID;StartTime=[DateTime]::UtcNow.AddMinutes(-5)} }
-    function Test-WorkerHoldStartTime($Process,[string]$StartTimeUtc) { $true }
+    function Test-WorkerHoldStartTime($Process,[string]$StartTimeUtc) { -not $script:repairFixture.ForceHoldStartMismatch }
     function New-CleanWorkerStartInfo([string]$FileName,[string]$WorkingDirectory,[string]$SystemRoot) { $script:repairFixture.StartCalls++;throw 'fixture must resume recorded hold, not start another' }
     function Replace-WorkerGatewayRepairManifest([string]$Pending,[string]$Manifest,[string]$Backup,[string]$Sid,[string]$ExpectedBackupHash) {
         $script:repairFixture.ReplaceCalls++
@@ -182,6 +182,14 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
         if(-not $afterReplaceFailed -or $backupFiles.Count -ne 1 -or @(Get-ChildItem -LiteralPath $fixtureRoot -Filter '*.pending.json' -Force).Count -ne 0){throw 'Fixture did not preserve the ambiguous post-replace state.'}
         $result=Invoke-WorkerGatewayRepairV1 $fixtureId $password
         if($result.GuestAddress -cne $script:repairFixture.CurrentGuest -or $result.Hold.PID -ne $hold.PID -or $script:repairFixture.StartCalls -ne 0 -or @(Get-ChildItem -LiteralPath $journal -Filter '*.manifest-backup.json' -Force).Count -ne 0){throw 'Fixture did not resume and clean an already-committed manifest safely.'}
+        $staleId='c773e9f7b1b94df3a62a32a8a4be817a';$staleHold=[ordered]@{PID=$hold.PID;Sid=$hold.Sid;Executable=$hold.Executable;CommandLine=$hold.CommandLine;StartTimeUtc=[DateTime]::UtcNow.AddDays(-1).ToString('o')}
+        $staleReceipt=[ordered]@{Owner='pc-setup/windows-worker-gateway-repair/v1';InstanceId=$fixtureId;Sid=$gateway.Sid;Hold=$staleHold;IntentId=$staleId;RecordedAtUtc=[DateTime]::UtcNow.AddDays(-1).ToString('o')}
+        [IO.File]::WriteAllText((Join-Path $journal "$staleId.hold.json"),($staleReceipt|ConvertTo-Json -Depth 6));$script:repairFixture.ForceHoldStartMismatch=$true;$script:repairFixture.Hold.CommandLine="$holdExe --version"
+        $stalePidRecovered=$false
+        $staleFailure='none';try{Invoke-WorkerGatewayRepairV1 $fixtureId $password|Out-Null}catch{$staleFailure=$_.Exception.Message;$stalePidRecovered=$staleFailure -ceq 'fixture must resume recorded hold, not start another'}
+        $holdReceiptCount=@(Get-ChildItem -LiteralPath $journal -Filter '*.hold.json' -Force).Count
+        if(-not $stalePidRecovered -or $script:repairFixture.StartCalls -ne 1 -or $holdReceiptCount -ne 1){throw "Reused PID fixture mismatch: recovered=$stalePidRecovered startCalls=$($script:repairFixture.StartCalls) receipts=$holdReceiptCount error=$staleFailure"}
+        $script:repairFixture.ForceHoldStartMismatch=$false
         $src=Join-Path $fixtureBase 'null-source';$dst=Join-Path $fixtureBase 'null-destination';[IO.File]::WriteAllText($src,'new');[IO.File]::WriteAllText($dst,'old')
         if($IsWindows){
             $nullFailure=$false
