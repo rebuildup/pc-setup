@@ -7,6 +7,20 @@ function Get-WorkerGatewayRepairV1Path([string]$InstanceId) {
     Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) "pc-setup-wsl-gateway-repair-v1-$InstanceId"
 }
 
+function Replace-WorkerGatewayRepairManifest([string]$Pending,[string]$Manifest,[string]$Backup,[string]$Sid,[string]$ExpectedBackupHash) {
+    $pendingVolume = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Pending))
+    $manifestVolume = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Manifest))
+    $backupVolume = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Backup))
+    if ($pendingVolume -ine $manifestVolume -or $manifestVolume -ine $backupVolume) { throw 'Atomic repair manifest replacement must stay on one volume.' }
+    if ([IO.File]::Exists($Backup)) { throw 'Repair manifest backup already exists; preserve and inspect.' }
+    # PowerShell binds File.Replace(..., $null) as an empty path. Supply a
+    # same-volume backup so ReplaceFile performs the manifest swap atomically.
+    [IO.File]::Replace($Pending,$Manifest,$Backup)
+    Set-WorkerResourceAcl $Manifest $Sid Metadata
+    Set-WorkerResourceAcl $Backup $Sid Metadata
+    if ((Get-FileHash -LiteralPath $Backup).Hash -cne $ExpectedBackupHash) { throw 'Replaced manifest backup differs from its journaled before hash.' }
+}
+
 function Read-WorkerGatewayRepairBaseV3([string]$InstanceId) {
     $v = Read-WorkerVerificationV3 $InstanceId
     $root = Get-WorkerGatewayV3Path $InstanceId
@@ -28,14 +42,17 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
     $root = Get-WorkerGatewayRepairV1Path $InstanceId
     Assert-WorkerResourceAcl $root $gateway.Sid Metadata
     $files = @(Get-ChildItem -LiteralPath $root -Force)
-    if ($files.Count -ne 3 -or @($files | Where-Object Name -cnotin @('manifest.json','journal','instance.lock')).Count) { throw 'Unknown repair-stage state.' }
+    $pendingFiles = @($files | Where-Object Name -cmatch '^[a-f0-9]{32}\.pending\.json$')
+    if ($pendingFiles.Count -gt 1 -or $files.Count -ne (3 + $pendingFiles.Count) -or @($files | Where-Object { $_.Name -cnotin @('manifest.json','journal','instance.lock') -and $_.Name -cnotmatch '^[a-f0-9]{32}\.pending\.json$' }).Count) { throw 'Unknown repair-stage state.' }
     Assert-WorkerResourceAcl (Join-Path $root 'instance.lock') $gateway.Sid Metadata
     Assert-WorkerResourceAcl (Join-Path $root 'journal') $gateway.Sid Metadata
+    $journalRecords = @{}
     foreach ($entry in @(Get-ChildItem -LiteralPath (Join-Path $root 'journal') -Force)) {
-        if ($entry.Name -cnotmatch '^[a-f0-9]{32}\.(before|intent|hold)\.json$') { throw 'Partial repair journal; preserve and inspect.' }
+        if ($entry.Name -cnotmatch '^[a-f0-9]{32}\.(before|intent|hold|manifest-backup)\.json$') { throw 'Partial repair journal; preserve and inspect.' }
         Assert-WorkerResourceAcl $entry.FullName $gateway.Sid Metadata
         $record = Get-Content -LiteralPath $entry.FullName -Raw | ConvertFrom-Json
         if ($record.InstanceId -cne $InstanceId -or $record.Sid -cne $gateway.Sid -or $record.Owner -cne 'pc-setup/windows-worker-gateway-repair/v1') { throw 'Repair journal identity drift.' }
+        $journalRecords[$entry.Name] = $record
     }
     $path = Join-Path $root 'manifest.json'
     Assert-WorkerResourceAcl $path $gateway.Sid Metadata
@@ -55,7 +72,18 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
         SafetyScope = $gateway.SafetyScope
     }
     foreach ($name in $expected.Keys) { if ($name -cne 'SourceHash' -and $m.$name -cne $expected[$name]) { throw 'Repair-stage identity/source drift.' } }
-    if ($m.SourceHash -cnotin @($expected.SourceHash,'1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A')) { throw 'Repair-stage source is not an explicitly reviewed version.' }
+    if ($m.SourceHash -cnotin @($expected.SourceHash,'404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A')) { throw 'Repair-stage source is not an explicitly reviewed version.' }
+    foreach ($backupName in @($journalRecords.Keys | Where-Object { $_ -match '^[a-f0-9]{32}\.manifest-backup\.json$' })) {
+        $backupRecord = $journalRecords[$backupName]
+        foreach ($name in @('Owner','InstanceId','Sid','SshManifestHash','VerifierManifestHash','BaseGatewayManifestHash','HostFingerprint','ListenAddress','ControllerAddress','Port','SafetyScope')) {
+            if ($backupRecord.$name -cne $m.$name) { throw 'Repair manifest backup identity drift.' }
+        }
+        if ($backupRecord.SourceHash -cnotin @($expected.SourceHash,'404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A')) { throw 'Repair manifest backup source is not an explicitly reviewed version.' }
+        $backupId = [IO.Path]::GetFileNameWithoutExtension([IO.Path]::GetFileNameWithoutExtension($backupName))
+        $beforeRecord = $journalRecords["$backupId.before.json"]
+        $backupPath = Join-Path $journal $backupName
+        if (-not $beforeRecord.PreviousManifestHash -or (Get-FileHash -LiteralPath $backupPath).Hash -cne $beforeRecord.PreviousManifestHash) { throw 'Repair manifest backup differs from its journaled before hash.' }
+    }
     $journal = Join-Path $root 'journal'
     $mappingSet = @(Get-WorkerGatewayMappings)
     $mappingChecked = $false
@@ -74,6 +102,24 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
     if ($holdRecords.Count -eq 1) {
         $record = Get-Content -LiteralPath $holdRecords[0].FullName -Raw | ConvertFrom-Json
         foreach ($field in @('PID','Executable','CommandLine','StartTimeUtc')) { if (-not $record.Hold.$field) { throw 'Incomplete repair hold record.' } }
+    }
+    if ($pendingFiles.Count -eq 1) {
+        Assert-WorkerResourceAcl $pendingFiles[0].FullName $gateway.Sid Metadata
+        $pendingName = $pendingFiles[0].Name
+        $changeId = [IO.Path]::GetFileNameWithoutExtension([IO.Path]::GetFileNameWithoutExtension($pendingName))
+        $transition = $journalRecords["$changeId.before.json"]
+        if (-not $transition) { throw 'Pending repair manifest has no matching before journal.' }
+        $candidate = Get-Content -LiteralPath $pendingFiles[0].FullName -Raw | ConvertFrom-Json
+        foreach ($name in @('Owner','InstanceId','Sid','SshManifestHash','VerifierManifestHash','BaseGatewayManifestHash','HostFingerprint','ListenAddress','ControllerAddress','Port','SafetyScope')) {
+            if ($candidate.$name -cne $m.$name) { throw 'Pending repair manifest identity drift.' }
+        }
+        if ($candidate.SourceHash -cnotin @($expected.SourceHash,'404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A') -or $candidate.GuestAddress -cne $transition.Current -or $candidate.Hold.PID -ne $transition.CurrentHoldPID) { throw 'Pending repair manifest does not match its journaled transition.' }
+        if ($holdRecords.Count -eq 1) { $recordedHold = $record.Hold }
+        elseif ($holdRecords.Count -eq 0 -and $m.Hold -and $m.Hold.PID) { $recordedHold = $m.Hold }
+        else { throw 'Pending repair manifest has no unique recorded hold identity.' }
+        foreach ($field in @('PID','Sid','Executable','CommandLine','StartTimeUtc')) {
+            if ($candidate.Hold.$field -cne $recordedHold.$field) { throw 'Pending repair hold differs from the recorded live hold.' }
+        }
     }
     $m
 }
@@ -286,12 +332,14 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
 
     $root = Get-WorkerGatewayRepairV1Path $InstanceId
     $journal = Join-Path $root 'journal'
+    $manifestPath = Join-Path $root 'manifest.json'
     $change = [guid]::NewGuid().ToString('N')
     $mappingChanged = $fresh.Guest.address -cne $m.GuestAddress
     $holdChanged = -not $m.Hold -or $m.Hold.PID -ne $hold.PID
+    $commitBeforeHash = (Get-FileHash -LiteralPath $manifestPath).Hash
     if ($mappingChanged -or $holdChanged) {
         $change = [guid]::NewGuid().ToString('N')
-        $before = [ordered]@{ Owner='pc-setup/windows-worker-gateway-repair/v1'; InstanceId=$InstanceId; Sid=$m.Sid; Previous=$m.GuestAddress; Current=$fresh.Guest.address; PreviousHoldPID=if($m.Hold){$m.Hold.PID}else{$null}; CurrentHoldPID=$hold.PID; CapturedAtUtc=[DateTime]::UtcNow.ToString('o') }
+        $before = [ordered]@{ Owner='pc-setup/windows-worker-gateway-repair/v1'; InstanceId=$InstanceId; Sid=$m.Sid; Previous=$m.GuestAddress; Current=$fresh.Guest.address; PreviousHoldPID=if($m.Hold){$m.Hold.PID}else{$null}; CurrentHoldPID=$hold.PID; PreviousManifestHash=$commitBeforeHash; CapturedAtUtc=[DateTime]::UtcNow.ToString('o') }
         Write-WorkerNewFile (Join-Path $journal "$change.before.json") ($before | ConvertTo-Json) $m.Sid
     }
     if ($mappingChanged) {
@@ -307,10 +355,37 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     $m.SourceHash = (Get-FileHash (Join-Path $PSScriptRoot 'runtime.ps1')).Hash
     $m.UpdatedAtUtc = [DateTime]::UtcNow.ToString('o')
     $global:PCSetupWorkerGatewayRepairStep = 'manifest-commit'
-    $pending = Join-Path $root "$change.pending.json"
-    Write-WorkerNewFile $pending ($m | ConvertTo-Json -Depth 6) $m.Sid
-    [IO.File]::Replace($pending,(Join-Path $root 'manifest.json'),$null)
-    Set-WorkerResourceAcl (Join-Path $root 'manifest.json') $m.Sid Metadata
+    if (-not $mappingChanged -and -not $holdChanged) {
+        $before = [ordered]@{ Owner='pc-setup/windows-worker-gateway-repair/v1'; InstanceId=$InstanceId; Sid=$m.Sid; Previous=$m.GuestAddress; Current=$m.GuestAddress; PreviousHoldPID=$hold.PID; CurrentHoldPID=$hold.PID; PreviousManifestHash=$commitBeforeHash; CapturedAtUtc=[DateTime]::UtcNow.ToString('o') }
+        Write-WorkerNewFile (Join-Path $journal "$change.before.json") ($before | ConvertTo-Json) $m.Sid
+    }
+    $pendingFiles = @(Get-ChildItem -LiteralPath $root -Filter '*.pending.json' -Force)
+    if ($pendingFiles.Count -gt 1) { throw 'Multiple pending repair manifests; preserve and inspect.' }
+    if ($pendingFiles.Count -eq 1) {
+        $pending = $pendingFiles[0].FullName
+        $candidate = Get-Content -LiteralPath $pending -Raw | ConvertFrom-Json
+        foreach ($field in @('Owner','InstanceId','Sid','SshManifestHash','VerifierManifestHash','BaseGatewayManifestHash','HostFingerprint','ListenAddress','ControllerAddress','GuestAddress','Port','SafetyScope')) {
+            if ($candidate.$field -cne $m.$field) { throw 'Pending repair manifest does not match the freshly verified repair state.' }
+        }
+        foreach ($field in @('PID','Sid','Executable','CommandLine','StartTimeUtc')) { if ($candidate.Hold.$field -cne $m.Hold.$field) { throw 'Pending repair hold differs from the freshly verified hold.' } }
+        if ($candidate.SourceHash -cnotin @((Get-FileHash (Join-Path $PSScriptRoot 'runtime.ps1')).Hash,'404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A')) { throw 'Pending repair manifest source is not an explicitly reviewed version.' }
+        $backupPath = Join-Path $journal "$change.manifest-backup.json"
+        Replace-WorkerGatewayRepairManifest $pending $manifestPath $backupPath $m.Sid $commitBeforeHash
+        if ($candidate.SourceHash -cne $m.SourceHash) {
+            $upgradeId = [guid]::NewGuid().ToString('N')
+            $upgradeBefore = [ordered]@{ Owner='pc-setup/windows-worker-gateway-repair/v1'; InstanceId=$InstanceId; Sid=$m.Sid; Previous=$m.GuestAddress; Current=$m.GuestAddress; PreviousHoldPID=$hold.PID; CurrentHoldPID=$hold.PID; PreviousManifestHash=(Get-FileHash -LiteralPath $manifestPath).Hash; CapturedAtUtc=[DateTime]::UtcNow.ToString('o') }
+            Write-WorkerNewFile (Join-Path $journal "$upgradeId.before.json") ($upgradeBefore | ConvertTo-Json) $m.Sid
+            $pending = Join-Path $root "$upgradeId.pending.json"
+            Write-WorkerNewFile $pending ($m | ConvertTo-Json -Depth 6) $m.Sid
+            $backupPath = Join-Path $journal "$upgradeId.manifest-backup.json"
+            Replace-WorkerGatewayRepairManifest $pending $manifestPath $backupPath $m.Sid $upgradeBefore.PreviousManifestHash
+        }
+    } else {
+        $pending = Join-Path $root "$change.pending.json"
+        Write-WorkerNewFile $pending ($m | ConvertTo-Json -Depth 6) $m.Sid
+        $backupPath = Join-Path $journal "$change.manifest-backup.json"
+        Replace-WorkerGatewayRepairManifest $pending $manifestPath $backupPath $m.Sid $commitBeforeHash
+    }
     foreach ($receipt in @(Get-ChildItem -LiteralPath $journal -Filter '*.hold.json' -Force)) {
         $record = Get-Content -LiteralPath $receipt.FullName -Raw | ConvertFrom-Json
         if ($record.Hold.PID -eq $hold.PID) {
@@ -319,7 +394,12 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
             if (Test-Path -LiteralPath $intentPath) { Remove-Item -LiteralPath $intentPath -Force }
         }
     }
-    Read-WorkerGatewayRepairV1 $InstanceId
+    $verified = Read-WorkerGatewayRepairV1 $InstanceId
+    foreach ($backup in @(Get-ChildItem -LiteralPath $journal -Filter '*.manifest-backup.json' -Force)) {
+        Assert-WorkerResourceAcl $backup.FullName $m.Sid Metadata
+        Remove-Item -LiteralPath $backup.FullName -Force
+    }
+    $verified
     $global:PCSetupWorkerGatewayRepairStep = 'complete'
 }
 
