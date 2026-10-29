@@ -32,7 +32,6 @@ function Invoke-WorkerGatewayLifecycleV1([string]$InstanceId) {
     try {
         $password = [WorkerSecretCapture]::Capture($info,15000)
         if (-not $password -or $password.Length -lt 1) { throw 'Infisical did not provide the required worker credential.' }
-        . (Join-Path (Join-Path $root 'bundle/platforms/windows-11/worker') 'ssh/repair-v1/runtime.ps1')
         $null = Invoke-WorkerGatewayRepairV1 $InstanceId $password
         $verified = Read-WorkerGatewayRepairV1 $InstanceId
         if ($verified.ListenAddress -cne $manifest.ListenAddress -or $verified.ControllerAddress -cne $manifest.ControllerAddress -or $verified.HostFingerprint -cne $manifest.HostFingerprint -or $verified.Port -ne 22224) { throw 'Post-repair gateway scope or host pin drift.' }

@@ -2,6 +2,19 @@
 . (Join-Path $PSScriptRoot '../verification-v3/gateway.ps1')
 . (Join-Path $PSScriptRoot '../key-stage/runtime.ps1')
 
+function Get-WorkerGatewayRepairAcceptedSourceHashes {
+    @(
+        (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'runtime.ps1') -Algorithm SHA256).Hash
+        '77C209A4BE06B8F0275292556852BDA6BDF9C5D0E9D62D0F0DED1769024A6004'
+        '404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2'
+        '1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A'
+    )
+}
+
+function Test-WorkerGatewayRepairAcceptedSourceHash([string]$SourceHash) {
+    $SourceHash -cin @(Get-WorkerGatewayRepairAcceptedSourceHashes)
+}
+
 function Get-WorkerGatewayRepairV1Path([string]$InstanceId) {
     $null = New-WorkerPlan $InstanceId
     Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) "pc-setup-wsl-gateway-repair-v1-$InstanceId"
@@ -78,13 +91,13 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
         SafetyScope = $gateway.SafetyScope
     }
     foreach ($name in $expected.Keys) { if ($name -cne 'SourceHash' -and $m.$name -cne $expected[$name]) { throw 'Repair-stage identity/source drift.' } }
-    if ($m.SourceHash -cnotin @($expected.SourceHash,'404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A')) { throw 'Repair-stage source is not an explicitly reviewed version.' }
+    if (-not (Test-WorkerGatewayRepairAcceptedSourceHash $m.SourceHash)) { throw 'Repair-stage source is not an explicitly reviewed version.' }
     foreach ($backupName in @($journalRecords.Keys | Where-Object { $_ -match '^[a-f0-9]{32}\.manifest-backup\.json$' })) {
         $backupRecord = $journalRecords[$backupName]
         foreach ($name in @('Owner','InstanceId','Sid','SshManifestHash','VerifierManifestHash','BaseGatewayManifestHash','HostFingerprint','ListenAddress','ControllerAddress','Port','SafetyScope')) {
             if ($backupRecord.$name -cne $m.$name) { throw 'Repair manifest backup identity drift.' }
         }
-        if ($backupRecord.SourceHash -cnotin @($expected.SourceHash,'404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A')) { throw 'Repair manifest backup source is not an explicitly reviewed version.' }
+        if (-not (Test-WorkerGatewayRepairAcceptedSourceHash $backupRecord.SourceHash)) { throw 'Repair manifest backup source is not an explicitly reviewed version.' }
         $backupId = [IO.Path]::GetFileNameWithoutExtension([IO.Path]::GetFileNameWithoutExtension($backupName))
         $beforeRecord = $journalRecords["$backupId.before.json"]
         $backupPath = Join-Path $journal $backupName
@@ -120,7 +133,7 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
         foreach ($name in @('Owner','InstanceId','Sid','SshManifestHash','VerifierManifestHash','BaseGatewayManifestHash','HostFingerprint','ListenAddress','ControllerAddress','Port','SafetyScope')) {
             if ($candidate.$name -cne $m.$name) { throw 'Pending repair manifest identity drift.' }
         }
-        if ($candidate.SourceHash -cnotin @($expected.SourceHash,'404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A') -or $candidate.GuestAddress -cne $transition.Current -or $candidate.Hold.PID -ne $transition.CurrentHoldPID) { throw 'Pending repair manifest does not match its journaled transition.' }
+        if (-not (Test-WorkerGatewayRepairAcceptedSourceHash $candidate.SourceHash) -or $candidate.GuestAddress -cne $transition.Current -or $candidate.Hold.PID -ne $transition.CurrentHoldPID) { throw 'Pending repair manifest does not match its journaled transition.' }
         $matchingReceipts = @($holdRecords | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json } | Where-Object {
             $match = $true
             foreach ($field in @('PID','Sid','Executable','CommandLine','StartTimeUtc')) { if ($candidate.Hold.$field -cne $_.Hold.$field) { $match = $false } }
@@ -381,7 +394,7 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
             if ($candidate.$field -cne $m.$field) { throw 'Pending repair manifest does not match the freshly verified repair state.' }
         }
         foreach ($field in @('PID','Sid','Executable','CommandLine','StartTimeUtc')) { if ($candidate.Hold.$field -cne $m.Hold.$field) { throw 'Pending repair hold differs from the freshly verified hold.' } }
-        if ($candidate.SourceHash -cnotin @((Get-FileHash (Join-Path $PSScriptRoot 'runtime.ps1')).Hash,'404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A')) { throw 'Pending repair manifest source is not an explicitly reviewed version.' }
+        if (-not (Test-WorkerGatewayRepairAcceptedSourceHash $candidate.SourceHash)) { throw 'Pending repair manifest source is not an explicitly reviewed version.' }
         $backupPath = Join-Path $journal "$change.manifest-backup.json"
         Replace-WorkerGatewayRepairManifest $pending $manifestPath $backupPath $m.Sid $commitBeforeHash
         if ($candidate.SourceHash -cne $m.SourceHash) {

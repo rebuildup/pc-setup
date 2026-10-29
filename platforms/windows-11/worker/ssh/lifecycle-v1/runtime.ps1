@@ -1,4 +1,5 @@
-. (Join-Path $PSScriptRoot 'contract.ps1')
+. (Join-Path $PSScriptRoot '../../runtime.ps1')
+. (Join-Path $PSScriptRoot '../repair-v1/runtime.ps1')
 
 $script:WorkerGatewayLifecycleOwner = 'pc-setup/windows-worker-gateway-lifecycle/v1'
 $script:WorkerGatewayLifecycleInfisicalHash = 'E840DDA7C58586559F82D364DEA5FDB3DFFF61C28E32E6E2F59715FC7A565305'

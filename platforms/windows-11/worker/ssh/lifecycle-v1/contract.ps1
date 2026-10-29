@@ -16,6 +16,10 @@ function Resolve-WorkerGatewayLifecycleSid([string]$Identity) {
     catch { throw 'Scheduled task identity cannot be resolved to a local SID.' }
 }
 
+function Test-WorkerGatewayLifecycleAbsolutePath([string]$Path) {
+    [IO.Path]::IsPathRooted($Path) -or $Path -match '^[A-Za-z]:[\\/]'
+}
+
 function New-WorkerGatewayLifecycleV1TaskPlan(
     [string]$InstanceId,
     [string]$OperatorSid,
@@ -31,7 +35,7 @@ function New-WorkerGatewayLifecycleV1TaskPlan(
     if ($OperatorSid -ceq $WorkerSid) { throw 'The lifecycle task must run as the distinct logged-in operator.' }
     if ((Resolve-WorkerGatewayLifecycleSid $OperatorName) -cne $OperatorSid) { throw 'Operator name and SID differ.' }
     foreach ($path in @($PowerShellPath,$RunnerPath)) {
-        if (-not [IO.Path]::IsPathRooted($path) -or $path.Contains('"') -or $path.Contains("`r") -or $path.Contains("`n")) { throw 'Task executable and runner must be absolute paths without command-line metacharacters.' }
+        if (-not (Test-WorkerGatewayLifecycleAbsolutePath $path) -or $path.Contains('"') -or $path.Contains("`r") -or $path.Contains("`n")) { throw 'Task executable and runner must be absolute paths without command-line metacharacters.' }
     }
     if ($RunnerPath -match '\s' -and $RunnerPath -notmatch '^".+"$') { throw 'Runner path with spaces must be quoted.' }
     [pscustomobject][ordered]@{
