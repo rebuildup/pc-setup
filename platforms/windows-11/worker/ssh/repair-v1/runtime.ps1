@@ -116,6 +116,31 @@ function Invoke-WorkerGatewayRepairV3ReadOnly([string]$InstanceId,[SecureString]
     }
 }
 
+function Assert-WorkerGatewayRepairV3Live($Stage,$Report,[string]$Listen,[string]$Controller) {
+    Assert-WorkerV3Report $Report $Stage
+    Assert-WorkerVpnAddress $Listen
+    Assert-WorkerVpnAddress $Controller
+    if ($Listen -ceq $Controller) { throw 'Controller and gateway must differ.' }
+    $routes = @(Get-NetRoute -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -like 'vEthernet (WSL*' -and $_.NextHop -eq '0.0.0.0' })
+    if (-not @($routes | Where-Object { Test-WorkerGatewaySubnet $Report.Guest.address $_.DestinationPrefix }).Count -or @(Get-NetIPAddress -AddressFamily IPv4 | Where-Object IPAddress -eq $Report.Guest.address).Count) { throw 'Guest must be on the connected WSL subnet, not a Windows address.' }
+    $vpn = & 'C:/Program Files/Tailscale/tailscale.exe' status --json | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or $vpn.BackendState -cne 'Running' -or $vpn.TailscaleIPs -notcontains $Listen -or @($vpn.Peer.PSObject.Properties.Value | Where-Object { $_.TailscaleIPs -contains $Controller -and $_.Online }).Count -ne 1) { throw 'Current VPN attributes mismatch.' }
+    if ((Get-CimInstance Win32_Service -Filter "Name='iphlpsvc'").State -cne 'Running') { throw 'Existing IP Helper must already be running.' }
+    $interfaces = @(Get-NetIPAddress -AddressFamily IPv4 -IPAddress $Listen)
+    if ($interfaces.Count -ne 1) { throw 'Ambiguous VPN interface.' }
+    Assert-WorkerGatewayFirewallProfiles @(Get-NetFirewallProfile -PolicyStore ActiveStore) $interfaces[0].InterfaceAlias
+}
+
+function Assert-WorkerGatewayRepairHold([string]$InstanceId,[string]$Sid,$Hold,[string]$PublicKey) {
+    $exe = Join-Path ([Environment]::SystemDirectory) 'wsl.exe'
+    $native = Get-CimInstance Win32_Process -Filter "ProcessId=$($Hold.PID)" -ErrorAction SilentlyContinue
+    if (-not $native) { throw 'Recorded repair hold is no longer running.' }
+    $owner = Invoke-CimMethod $native -MethodName GetOwnerSid
+    $process = Get-Process -Id $Hold.PID -ErrorAction Stop
+    $args = @(Get-WorkerSshHoldArguments (New-WorkerSshPlan $InstanceId $PublicKey))
+    if ($owner.Sid -cne $Sid -or $native.ExecutablePath -ine $exe -or $native.CommandLine -cne $Hold.CommandLine -or -not $native.CommandLine.EndsWith(($args -join ' '),[StringComparison]::Ordinal) -or -not (Test-WorkerHoldStartTime $process.StartTime $Hold.StartTimeUtc)) { throw 'Recorded repair hold identity drift.' }
+}
+
 function Initialize-WorkerGatewayRepairV1([string]$InstanceId) {
     Assert-WorkerAdministrator
     $gateway = Read-WorkerGatewayRepairBaseV3 $InstanceId
@@ -160,7 +185,7 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     if ($state.Sid -cne $m.Sid -or $v.HostFingerprint -cne $m.HostFingerprint) { throw 'Worker or host identity changed.' }
 
     $live = Invoke-WorkerGatewayRepairV3ReadOnly $InstanceId $Password
-    Assert-WorkerGatewayLive $ssh $live $m.ListenAddress $m.ControllerAddress
+    Assert-WorkerGatewayRepairV3Live $v $live $m.ListenAddress $m.ControllerAddress
     if ($live.Guest.host_fp -cne $m.HostFingerprint) { throw 'Live host key changed.' }
 
     $global:PCSetupWorkerGatewayRepairStep = 'hold-process-resume-or-start'
@@ -253,8 +278,9 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
 
     $global:PCSetupWorkerGatewayRepairStep = 'read-only-post-hold-verification'
     $fresh = Invoke-WorkerVerificationV3 $InstanceId $Password -ReadOnly
-    Assert-WorkerGatewayLive $ssh $fresh $m.ListenAddress $m.ControllerAddress
+    Assert-WorkerGatewayRepairV3Live $v $fresh $m.ListenAddress $m.ControllerAddress
     if ($fresh.Guest.host_fp -cne $m.HostFingerprint) { throw 'Live host key changed after hold.' }
+    Assert-WorkerGatewayRepairHold $InstanceId $m.Sid $hold $ssh.PublicKey
     $routes = @(Get-NetRoute -AddressFamily IPv4 | Where-Object { $_.InterfaceAlias -like 'vEthernet (WSL*' -and $_.NextHop -eq '0.0.0.0' })
     if (-not @($routes | Where-Object { Test-WorkerGatewaySubnet $fresh.Guest.address $_.DestinationPrefix }).Count -or @(Get-NetIPAddress -AddressFamily IPv4 | Where-Object IPAddress -eq $fresh.Guest.address).Count) { throw 'Guest address is outside the connected WSL subnet.' }
 
@@ -321,8 +347,9 @@ function Test-WorkerKeyStageGatewayRepairV1([string]$InstanceId,[string]$Operati
     $fresh = Invoke-WorkerKeyStage $InstanceId $OperationId $Password 'VerifyAfter' -ReadOnly
     Assert-WorkerKeyGatewayBinding $InstanceId $repair $fresh.Guest $stage.AfterSha256
     $ssh = Read-WorkerSshStage $InstanceId
-    $live = Invoke-WorkerVerificationV3 $InstanceId $Password -ReadOnly
-    Assert-WorkerGatewayLive $ssh $live $repair.ListenAddress $repair.ControllerAddress
+    $live = Invoke-WorkerGatewayRepairV3ReadOnly $InstanceId $Password
+    $v = Read-WorkerVerificationV3 $InstanceId
+    Assert-WorkerGatewayRepairV3Live $v $live $repair.ListenAddress $repair.ControllerAddress
     if ($live.Guest.address -cne $repair.GuestAddress -or $live.Guest.host_fp -cne $repair.HostFingerprint) { throw 'Live guest/gateway binding drift.' }
     $helper = Get-CimInstance Win32_Service -Filter "Name='iphlpsvc'"
     $listeners = @(Get-NetTCPConnection -State Listen -LocalPort 22224 -ErrorAction SilentlyContinue)
