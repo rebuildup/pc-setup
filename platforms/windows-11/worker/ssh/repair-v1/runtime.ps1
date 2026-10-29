@@ -21,6 +21,12 @@ function Replace-WorkerGatewayRepairManifest([string]$Pending,[string]$Manifest,
     if ((Get-FileHash -LiteralPath $Backup).Hash -cne $ExpectedBackupHash) { throw 'Replaced manifest backup differs from its journaled before hash.' }
 }
 
+function Get-WorkerGatewayRepairWslExecutable {
+    $systemDirectory = [Environment]::SystemDirectory
+    if ([string]::IsNullOrWhiteSpace($systemDirectory)) { throw 'Windows system directory is unavailable.' }
+    Join-Path $systemDirectory 'wsl.exe'
+}
+
 function Read-WorkerGatewayRepairBaseV3([string]$InstanceId) {
     $v = Read-WorkerVerificationV3 $InstanceId
     $root = Get-WorkerGatewayV3Path $InstanceId
@@ -178,7 +184,7 @@ function Assert-WorkerGatewayRepairV3Live($Stage,$Report,[string]$Listen,[string
 }
 
 function Assert-WorkerGatewayRepairHold([string]$InstanceId,[string]$Sid,$Hold,[string]$PublicKey) {
-    $exe = Join-Path ([Environment]::SystemDirectory) 'wsl.exe'
+    $exe = Get-WorkerGatewayRepairWslExecutable
     $native = Get-CimInstance Win32_Process -Filter "ProcessId=$($Hold.PID)" -ErrorAction SilentlyContinue
     if (-not $native) { throw 'Recorded repair hold is no longer running.' }
     $owner = Invoke-CimMethod $native -MethodName GetOwnerSid
@@ -235,7 +241,7 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     if ($live.Guest.host_fp -cne $m.HostFingerprint) { throw 'Live host key changed.' }
 
     $global:PCSetupWorkerGatewayRepairStep = 'hold-process-resume-or-start'
-    $exe = Join-Path ([Environment]::SystemDirectory) 'wsl.exe'
+            $exe = Get-WorkerGatewayRepairWslExecutable
     $hold = $m.Hold
     $process = $null
     if ($hold) {
