@@ -39,6 +39,14 @@ $profiles[1].AllowLocalFirewallRules='NotConfigured'
 Refuses {Assert-WorkerGatewayFirewallProfiles $profiles Tailscale}
 $profiles[1].AllowLocalFirewallRules=$true;$profiles[2].Enabled=$false
 Refuses {Assert-WorkerGatewayFirewallProfiles $profiles Tailscale}
+
+$repairPath=Join-Path $root 'ssh/repair-v1/runtime.ps1'
+$repairTokens=$null;$repairErrors=$null
+[System.Management.Automation.Language.Parser]::ParseFile($repairPath,[ref]$repairTokens,[ref]$repairErrors)|Out-Null
+if($repairErrors){throw 'Worker gateway repair runtime has a PowerShell syntax error.'}
+$repairSource=Get-Content -LiteralPath $repairPath -Raw
+foreach($required in @('pc-setup/windows-worker-gateway-repair/v1','Read-WorkerGatewayRepairBaseV3','BaseGatewayManifestHash','HostFingerprint','Invoke-WorkerPortProxy set','Get-WorkerSshHoldArguments','Test-WorkerKeyStageGatewayRepairV1')){if($repairSource -cnotmatch [regex]::Escape($required)){throw "Worker gateway repair contract missing: $required"}}
+foreach($forbidden in @('Remove-NetFirewallRule','Stop-Service','Set-Service','ssh-agent')){if($repairSource -match [regex]::Escape($forbidden)){throw "Worker gateway repair contains forbidden operation: $forbidden"}}
 # Security regression: an ineffective local rule must fail before port publication.
 & {
     . "$root/ssh/gateway.ps1"

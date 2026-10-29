@@ -68,6 +68,18 @@ Test-WorkerGatewayV3 $instance $password
 
 v3 gatewayはv1/v2の所有状態をadoptせず、別manifestを使用する。上記は再現手順であり実機成功の証拠ではない。serviceの稼働を保持するだけで再起動・idle後の自動復帰は保証しない。
 
+## V3 gatewayの復旧とIP追従
+
+`repair-v1/runtime.ps1` は既存V3のVerify/Hold証跡を変更せず、独立したAdmin所有manifestを作る。初回修復時は専用workerのWindowsアカウントとしてforegound WSL holdを起動し、資格情報は呼び出し元から受けるin-memory `SecureString`だけを使う。credentialed Verifyで既存host fingerprintを再確認し、現在のWSL IPv4が同じ仮想subnetに属することを確かめる。portproxyは既存のV3所有mappingと一致した場合に限って現在IPへ更新する。Firewall rule、通常のsshd、他WSL、既存V3証跡は変更しない。
+
+```powershell
+. ./platforms/windows-11/worker/ssh/repair-v1/runtime.ps1
+$repair = Initialize-WorkerGatewayRepairV1 $instance
+$repair = Invoke-WorkerGatewayRepairV1 $instance $password
+```
+
+`$password`はdotfiles側のprocess-scoped Infisical wrapperから渡し、terminal、argv、task definition、manifest、logへ出さない。毎回の実行は既存holdのPID/SID/path/argv/start timeを照合し、消失していれば同じ専用workerだけを再起動する。repair manifestはV3 base manifest hashとhost pinを保持し、V3の履歴証跡を上書きしない。V3の古いhold receiptに依存しない鍵stage後検査には、`Test-WorkerKeyStageGatewayRepairV1 $instance $operation $password`を使う。これは明示実行用の修復stageであり、Windows再ログイン時の自動起動・常時monitor taskは別途実機検証が必要である。
+
 ## 公開鍵の追加・失効
 
 初回VerifyV3が成功した後の公開鍵変更は、`key-stage/runtime.ps1` の世代付きkey ledgerを使う。既存のsetup manifest、v3 verifier manifest、Linuxのroot所有setup manifestは書き換えず、鍵stageごとにsource/hash/ACL・対象SID・前世代のVerifyAfter proofをbindする。`Add` は既存公開鍵を残して追加し、`Revoke` は同じ公開鍵fingerprintの鍵だけを除く。失効済みfingerprintの再追加、重複鍵、古いgeneration、既存attemptの再利用を拒否する。

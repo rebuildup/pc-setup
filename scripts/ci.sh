@@ -141,9 +141,13 @@ if command -v mise >/dev/null 2>&1; then
   printf 'Checking bootstrap package OS filtering through mise...\n'
   mise_scope_dir="$(mktemp -d)"
   trap 'rm -rf "$mise_scope_dir"' EXIT
-  mkdir -p "$mise_scope_dir/config" "$mise_scope_dir/work"
+  # Keep mise's install inventory and cache isolated: bootstrap status in a
+  # temporary config must never prune the operator's regular tool installs.
+  mkdir -p "$mise_scope_dir/config" "$mise_scope_dir/work" "$mise_scope_dir/data" "$mise_scope_dir/cache"
   cp mise.global.toml "$mise_scope_dir/config/config.toml"
   MISE_CONFIG_DIR="$mise_scope_dir/config" \
+  MISE_DATA_DIR="$mise_scope_dir/data" \
+  MISE_CACHE_DIR="$mise_scope_dir/cache" \
     mise -C "$mise_scope_dir/work" bootstrap status --json >"$mise_scope_dir/status.json"
 
   python3 - "$mise_scope_dir/status.json" <<'PY'
