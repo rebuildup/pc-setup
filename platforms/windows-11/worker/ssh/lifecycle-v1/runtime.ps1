@@ -1,5 +1,6 @@
 . (Join-Path $PSScriptRoot '../../runtime.ps1')
 . (Join-Path $PSScriptRoot '../repair-v1/runtime.ps1')
+. (Join-Path $PSScriptRoot 'contract.ps1')
 
 $script:WorkerGatewayLifecycleOwner = 'pc-setup/windows-worker-gateway-lifecycle/v1'
 $script:WorkerGatewayLifecycleInfisicalHash = 'E840DDA7C58586559F82D364DEA5FDB3DFFF61C28E32E6E2F59715FC7A565305'
@@ -104,7 +105,7 @@ function Install-WorkerGatewayLifecycleV1([string]$InstanceId,[string]$Repositor
     if ((git -C $RepositoryRoot rev-parse HEAD 2>$null | Out-String).Trim() -cne $ExpectedCommit) { throw 'pc-setup checkout differs from the reviewed source commit.' }
     $status = @(& git -C $RepositoryRoot status --porcelain --untracked-files=all 2>$null)
     if ($LASTEXITCODE -ne 0 -or $status.Count -ne 0) { throw 'pc-setup checkout must be clean before installing the protected lifecycle bundle.' }
-    if ($repair.SourceHash -cne (Get-FileHash (Join-Path $PSScriptRoot '../repair-v1/runtime.ps1')).Hash -or $repair.ListenAddress -notmatch '^100\.' -or $repair.ControllerAddress -notmatch '^100\.' -or $repair.HostFingerprint -notmatch '^SHA256:[A-Za-z0-9+/]{43}$') { throw 'Current repaired worker manifest/source/scope differs from the expected VPN SSH worker.' }
+    if (-not (Test-WorkerGatewayRepairAcceptedSourceHash $repair.SourceHash) -or $repair.ListenAddress -notmatch '^100\.' -or $repair.ControllerAddress -notmatch '^100\.' -or $repair.HostFingerprint -notmatch '^SHA256:[A-Za-z0-9+/]{43}$') { throw 'Current repaired worker manifest/source/scope differs from the expected VPN SSH worker.' }
 
     $root = Get-WorkerGatewayLifecycleV1Path $InstanceId
     $taskName = Get-WorkerGatewayLifecycleV1TaskName $InstanceId

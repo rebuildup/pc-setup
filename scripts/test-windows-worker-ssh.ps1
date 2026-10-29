@@ -213,10 +213,30 @@ if($lifecyclePlan.LogonType -cne 'Interactive' -or $lifecyclePlan.RunLevel -cne 
 $lifecycleRuntime=Get-Content (Join-Path $root 'ssh/lifecycle-v1/runtime.ps1') -Raw
 $lifecycleContract=Get-Content (Join-Path $root 'ssh/lifecycle-v1/contract.ps1') -Raw
 $lifecycleRunner=Get-Content (Join-Path $root 'ssh/lifecycle-v1/run.ps1') -Raw
-foreach($required in @('Install-WorkerGatewayLifecycleV1','Assert-WorkerGatewayLifecycleV1Task','PasswordStored=$false','StartupBeforeInteractiveLogon=$false','infisical.exe','SecretCapture.cs','WorkerGatewayLifecycleSecretCaptureHash','SourceCommit')){if($lifecycleRuntime -cnotmatch [regex]::Escape($required)){throw "Lifecycle contract missing: $required"}}
+foreach($required in @('Install-WorkerGatewayLifecycleV1','Assert-WorkerGatewayLifecycleV1Task','PasswordStored=$false','StartupBeforeInteractiveLogon=$false','infisical.exe','SecretCapture.cs','WorkerGatewayLifecycleSecretCaptureHash','SourceCommit','Test-WorkerGatewayRepairAcceptedSourceHash $repair.SourceHash')){if($lifecycleRuntime -cnotmatch [regex]::Escape($required)){throw "Lifecycle contract missing: $required"}}
 foreach($required in @("LogonType = 'Interactive'","RunLevel = 'Highest'",'RestartCount = 0')){if($lifecycleContract -cnotmatch [regex]::Escape($required)){throw "Lifecycle task plan missing: $required"}}
 foreach($required in @('[WorkerSecretCapture]::Capture($info,15000)','Invoke-WorkerGatewayRepairV1','HostFingerprint','Status=''pass''','Status=''fail''')){if($lifecycleRunner -cnotmatch [regex]::Escape($required)){throw "Lifecycle runner missing: $required"}}
-foreach($required in @("../../runtime.ps1","../repair-v1/runtime.ps1")){if($lifecycleRuntime -cnotmatch [regex]::Escape($required)){throw "Lifecycle runtime dependency missing: $required"}}
+foreach($required in @("../../runtime.ps1","../repair-v1/runtime.ps1",'contract.ps1')){if($lifecycleRuntime -cnotmatch [regex]::Escape($required)){throw "Lifecycle runtime dependency missing: $required"}}
+$probePath=Join-Path ([IO.Path]::GetTempPath()) ('pc-setup-lifecycle-dependency-'+[guid]::NewGuid().ToString('N')+'.ps1')
+$probeSource=@'
+param([Parameter(Mandatory)][string]$WorkerRoot)
+$ErrorActionPreference='Stop'
+. (Join-Path $WorkerRoot 'ssh/lifecycle-v1/runtime.ps1')
+$required=@('Assert-WorkerAdministrator','Read-WorkerState','Read-WorkerGatewayRepairV1','Set-WorkerResourceAcl','Assert-WorkerResourceAcl','Get-WorkerGatewayLifecycleV1Path','New-WorkerGatewayLifecycleV1TaskPlan','Assert-WorkerGatewayLifecycleV1Task','Install-WorkerGatewayLifecycleV1','Remove-WorkerGatewayLifecycleV1Task')
+foreach($name in $required){if(-not(Get-Command $name -CommandType Function -ErrorAction SilentlyContinue)){throw "Missing runtime dependency: $name"}}
+'LifecycleDependencies:PASS'
+'@
+[IO.File]::WriteAllText($probePath,$probeSource,[Text.UTF8Encoding]::new($false))
+try {
+    $pwshCommand=Get-Command pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1
+    $probeOutput=@(& $pwshCommand.Source -NoLogo -NoProfile -NonInteractive -File $probePath $root 2>&1)
+    $probeExit=$LASTEXITCODE
+    if($probeExit -ne 0 -or $probeOutput -notcontains 'LifecycleDependencies:PASS'){throw 'Fresh -NoProfile lifecycle runtime dependency probe failed.'}
+} finally {
+    $probeFull=[IO.Path]::GetFullPath($probePath);$probeParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([char[]]'\/')
+    if([IO.Path]::GetDirectoryName($probeFull) -cne $probeParent -or [IO.Path]::GetFileName($probeFull) -cnotmatch '^pc-setup-lifecycle-dependency-[a-f0-9]{32}\.ps1$' -or (Get-Item -LiteralPath $probeFull -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Unsafe lifecycle dependency fixture cleanup path; preserve fixture.'}
+    Remove-Item -LiteralPath $probeFull -Force
+}
 . (Join-Path $root 'ssh/lifecycle-v1/runtime.ps1')
 foreach($functionName in @('Assert-WorkerAdministrator','Read-WorkerState','Read-WorkerGatewayRepairV1','Set-WorkerResourceAcl','Assert-WorkerResourceAcl')){if(-not(Get-Command $functionName -CommandType Function -ErrorAction SilentlyContinue)){throw "Fresh lifecycle runtime did not load dependency: $functionName"}}
 $currentRepairHash=(Get-FileHash (Join-Path $root 'ssh/repair-v1/runtime.ps1')).Hash
