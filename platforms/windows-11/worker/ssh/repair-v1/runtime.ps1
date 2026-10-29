@@ -28,7 +28,8 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
     $root = Get-WorkerGatewayRepairV1Path $InstanceId
     Assert-WorkerResourceAcl $root $gateway.Sid Metadata
     $files = @(Get-ChildItem -LiteralPath $root -Force)
-    if ($files.Count -ne 2 -or @($files | Where-Object Name -cnotin @('manifest.json','journal')).Count) { throw 'Unknown repair-stage state.' }
+    if ($files.Count -ne 3 -or @($files | Where-Object Name -cnotin @('manifest.json','journal','instance.lock')).Count) { throw 'Unknown repair-stage state.' }
+    Assert-WorkerResourceAcl (Join-Path $root 'instance.lock') $gateway.Sid Metadata
     Assert-WorkerResourceAcl (Join-Path $root 'journal') $gateway.Sid Metadata
     foreach ($entry in @(Get-ChildItem -LiteralPath (Join-Path $root 'journal') -Force)) {
         if ($entry.Name -cnotmatch '^[a-f0-9]{32}\.before\.json$') { throw 'Partial repair journal; preserve and inspect.' }
@@ -64,6 +65,7 @@ function Initialize-WorkerGatewayRepairV1([string]$InstanceId) {
     Assert-WorkerPlainPath $root
     $null = New-Item -ItemType Directory -Path $root -ErrorAction Stop
     Set-WorkerResourceAcl $root $gateway.Sid Metadata
+    Write-WorkerNewFile (Join-Path $root 'instance.lock') '' $gateway.Sid
     $journal = Join-Path $root 'journal'
     $null = New-Item -ItemType Directory -Path $journal -ErrorAction Stop
     Set-WorkerResourceAcl $journal $gateway.Sid Metadata
@@ -88,7 +90,7 @@ function Initialize-WorkerGatewayRepairV1([string]$InstanceId) {
     Read-WorkerGatewayRepairV1 $InstanceId
 }
 
-function Invoke-WorkerGatewayRepairV1([string]$InstanceId,[SecureString]$Password) {
+function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]$Password) {
     Assert-WorkerAdministrator
     if (-not $Password -or $Password.Length -lt 1) { throw 'Supply an in-memory credential.' }
     $m = Read-WorkerGatewayRepairV1 $InstanceId
@@ -171,6 +173,21 @@ function Invoke-WorkerGatewayRepairV1([string]$InstanceId,[SecureString]$Passwor
     [IO.File]::Replace($pending,(Join-Path $root 'manifest.json'),$null)
     Set-WorkerResourceAcl (Join-Path $root 'manifest.json') $m.Sid Metadata
     Read-WorkerGatewayRepairV1 $InstanceId
+}
+
+function Invoke-WorkerGatewayRepairV1([string]$InstanceId,[SecureString]$Password) {
+    Assert-WorkerAdministrator
+    $root = Get-WorkerGatewayRepairV1Path $InstanceId
+    $lockPath = Join-Path $root 'instance.lock'
+    Assert-WorkerResourceAcl $lockPath (Read-WorkerVerificationV3 $InstanceId).Sid Metadata
+    $lock = $null
+    try {
+        $lock = [IO.File]::Open($lockPath,[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+    } catch [IO.IOException] {
+        throw 'Another gateway repair operation owns the instance lock.'
+    }
+    try { Invoke-WorkerGatewayRepairV1Unlocked $InstanceId $Password }
+    finally { $lock.Dispose() }
 }
 
 function Test-WorkerKeyStageGatewayRepairV1([string]$InstanceId,[string]$OperationId,[SecureString]$Password) {
