@@ -241,7 +241,7 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     if ($live.Guest.host_fp -cne $m.HostFingerprint) { throw 'Live host key changed.' }
 
     $global:PCSetupWorkerGatewayRepairStep = 'hold-process-resume-or-start'
-            $exe = Get-WorkerGatewayRepairWslExecutable
+    $exe = Get-WorkerGatewayRepairWslExecutable
     $hold = $m.Hold
     $process = $null
     if ($hold) {
