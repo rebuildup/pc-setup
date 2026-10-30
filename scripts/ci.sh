@@ -481,6 +481,7 @@ if command -v pwsh >/dev/null 2>&1; then
   printf 'Checking Windows worker contracts...\n'
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-wsl.ps1
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-maintenance.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-boot.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh-keys.ps1

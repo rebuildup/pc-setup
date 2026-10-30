@@ -1,4 +1,9 @@
 param([Parameter(Mandatory)][string]$InstanceId,[switch]$NoExecute)
+$approvedModulePaths=[Collections.Generic.List[string]]::new()
+$pwshModules=[IO.Path]::Combine($PSHOME,'Modules')
+if([IO.Directory]::Exists($pwshModules)){$approvedModulePaths.Add($pwshModules)}
+if($IsWindows){$windowsModules=[IO.Path]::Combine([Environment]::SystemDirectory,'WindowsPowerShell','v1.0','Modules');if([IO.Directory]::Exists($windowsModules)){$approvedModulePaths.Add($windowsModules)}}
+[Environment]::SetEnvironmentVariable('PSModulePath',[string]::Join([IO.Path]::PathSeparator,$approvedModulePaths),'Process')
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'runtime.ps1')
 

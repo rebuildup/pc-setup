@@ -222,7 +222,10 @@ $probePath=Join-Path ([IO.Path]::GetTempPath()) ('pc-setup-lifecycle-dependency-
 $probeSource=@'
 param([Parameter(Mandatory)][string]$WorkerRoot)
 $ErrorActionPreference='Stop'
+$env:PSModulePath=((Join-Path ([IO.Path]::GetTempPath()) 'untrusted-user-modules')+[IO.Path]::PathSeparator+[IO.Path]::PathSeparator)
 . (Join-Path $WorkerRoot 'ssh/lifecycle-v1/runtime.ps1')
+$moduleParts=$env:PSModulePath.Split([IO.Path]::PathSeparator)
+if($moduleParts.Count -eq 0 -or @($moduleParts|Where-Object{[string]::IsNullOrWhiteSpace($_) -or $_ -like '*untrusted-user-modules*'}).Count){throw 'Lifecycle runtime retained an untrusted or empty PSModulePath component.'}
 $required=@('Assert-WorkerAdministrator','Read-WorkerState','Read-WorkerGatewayRepairV1','Set-WorkerResourceAcl','Assert-WorkerResourceAcl','Get-WorkerGatewayLifecycleV1Path','New-WorkerGatewayLifecycleV1TaskPlan','Assert-WorkerGatewayLifecycleV1Task','Install-WorkerGatewayLifecycleV1','Remove-WorkerGatewayLifecycleV1Task')
 foreach($name in $required){if(-not(Get-Command $name -CommandType Function -ErrorAction SilentlyContinue)){throw "Missing runtime dependency: $name"}}
 'LifecycleDependencies:PASS'
@@ -251,7 +254,12 @@ if($IsWindows){
     $installProbeSource=@'
 param([string]$WorkerRoot,[string]$RepositoryRoot,[string]$CliPath,[string]$Commit,[string]$FixtureRoot,[string]$InstanceId)
 $ErrorActionPreference='Stop';Set-StrictMode -Version Latest
-. (Join-Path $WorkerRoot 'ssh/lifecycle-v1/runtime.ps1')
+$installer=Join-Path $WorkerRoot 'ssh/lifecycle-v1/install.ps1'
+$installerHash=(Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
+$env:PSModulePath=((Join-Path ([IO.Path]::GetTempPath()) 'untrusted-user-modules')+[IO.Path]::PathSeparator+[IO.Path]::PathSeparator)
+. $installer -InstanceId $InstanceId -RepositoryRoot $RepositoryRoot -ExpectedCommit $Commit -InfisicalSource $CliPath -ExpectedInstallerSha256 $installerHash -NoExecute
+$moduleParts=$env:PSModulePath.Split([IO.Path]::PathSeparator)
+if($moduleParts.Count -eq 0 -or @($moduleParts|Where-Object{[string]::IsNullOrWhiteSpace($_) -or $_ -like '*untrusted-user-modules*'}).Count){throw 'Lifecycle installer retained an untrusted or empty PSModulePath component.'}
 $script:fixtureRoot=Join-Path $FixtureRoot 'programdata';$script:fixtureTask=$null
 $script:fixtureOperator=[Security.Principal.WindowsIdentity]::GetCurrent()
 $script:fixtureOperatorSid=$script:fixtureOperator.User.Value
@@ -285,7 +293,10 @@ if(-not $manifest.Files.PSObject.Properties.Name.Contains($expectedBundle) -or -
 if($script:fixtureTask.TaskName -cne $result.TaskName -or $manifest.TaskName -cne $result.TaskName -or $manifest.SourceCommit -cne $Commit){throw 'Installer task/manifest readback did not match.'}
 Assert-WorkerGatewayLifecycleV1Task $script:fixtureTask (New-WorkerGatewayLifecycleV1TaskPlan $InstanceId $script:fixtureOperatorSid $script:fixtureWorkerSid $script:fixtureOperator.Name (Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell/7/pwsh.exe') (Join-Path $script:fixtureRoot ($expectedBundle.Replace('/','\'))))|Out-Null
 $runner=Join-Path $script:fixtureRoot ($expectedBundle.Replace('/','\'))
+$env:PSModulePath=((Join-Path ([IO.Path]::GetTempPath()) 'untrusted-user-modules')+[IO.Path]::PathSeparator+[IO.Path]::PathSeparator)
 . $runner -InstanceId $InstanceId -NoExecute
+$moduleParts=$env:PSModulePath.Split([IO.Path]::PathSeparator)
+if($moduleParts.Count -eq 0 -or @($moduleParts|Where-Object{[string]::IsNullOrWhiteSpace($_) -or $_ -like '*untrusted-user-modules*'}).Count){throw 'Lifecycle runner retained an untrusted or empty PSModulePath component.'}
 function Get-WorkerGatewayLifecycleV1Path([string]$Id){$script:fixtureRoot}
 function Assert-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind){if(-not(Test-Path -LiteralPath $Path)){throw 'ACL fixture path missing'}}
 function Get-WorkerGatewayLifecycleV1Credential($Info,[string]$SecretCapturePath,[int]$TimeoutMs){$script:secretBoundaryReached=$true;throw 'fixture-secret-boundary'}

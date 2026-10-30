@@ -26,6 +26,9 @@ jobs:
       - name: Worker contracts and scratch ACLs (no accounts or WSL changes)
         shell: pwsh
         run: ./scripts/test-windows-worker.ps1
+      - name: Worker root maintenance contract (no root maintenance execution)
+        shell: pwsh
+        run: ./scripts/test-windows-worker-maintenance.ps1
       - name: WSL gateway repair transaction fixtures (no accounts or WSL changes)
         shell: pwsh
         run: ./scripts/test-windows-worker-ssh.ps1
