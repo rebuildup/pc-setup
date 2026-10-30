@@ -1,4 +1,4 @@
-param([Parameter(Mandatory)][string]$InstanceId)
+param([Parameter(Mandatory)][string]$InstanceId,[switch]$NoExecute)
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'runtime.ps1')
 
@@ -27,10 +27,9 @@ function Invoke-WorkerGatewayLifecycleV1([string]$InstanceId) {
     $info.StandardOutputEncoding = [Text.UTF8Encoding]::new($false,$true)
     $info.StandardErrorEncoding = [Text.UTF8Encoding]::new($false,$true)
     foreach ($arg in @('secrets','get','--plain',"--projectId=$($manifest.InfisicalProjectId)","--env=$($manifest.InfisicalEnvironment)","--path=$($manifest.InfisicalPath)",'--domain=https://secrets.rebuildup.dev/api','--expand=false','--include-imports=false','--secret-overriding=false','--recursive=false','--silent','--telemetry=false','--log-level=error','--log-destination=stderr','--',$manifest.InfisicalSecretKey)) { $info.ArgumentList.Add($arg) }
-    Add-Type -Path (Join-Path $root 'SecretCapture.cs') -ErrorAction Stop
     $password = $null
     try {
-        $password = [WorkerSecretCapture]::Capture($info,15000)
+        $password = Get-WorkerGatewayLifecycleV1Credential $info (Join-Path $root 'SecretCapture.cs') 15000
         if (-not $password -or $password.Length -lt 1) { throw 'Infisical did not provide the required worker credential.' }
         $null = Invoke-WorkerGatewayRepairV1 $InstanceId $password
         $verified = Read-WorkerGatewayRepairV1 $InstanceId
@@ -42,14 +41,16 @@ function Invoke-WorkerGatewayLifecycleV1([string]$InstanceId) {
     finally { if ($password) { $password.Dispose() } }
 }
 
-try { Invoke-WorkerGatewayLifecycleV1 $InstanceId | Out-Null; exit 0 }
-catch {
-    try {
-        $root = Get-WorkerGatewayLifecycleV1Path $InstanceId
-        $manifest = Read-WorkerGatewayLifecycleV1 $InstanceId
-        $resultPath = Join-Path (Join-Path $root 'results') (('{0:yyyyMMddTHHmmssfffZ}-{1}.json' -f [DateTime]::UtcNow,[guid]::NewGuid().ToString('N')))
-        $result = [ordered]@{ Owner=$script:WorkerGatewayLifecycleOwner; InstanceId=$InstanceId; Status='fail'; ErrorType=$_.Exception.GetType().FullName; CheckedAtUtc=[DateTime]::UtcNow.ToString('o') }
-        Write-WorkerNewFile $resultPath ($result | ConvertTo-Json) $manifest.OperatorSid
-    } catch { }
-    exit 1
+if(-not $NoExecute){
+    try { Invoke-WorkerGatewayLifecycleV1 $InstanceId | Out-Null; exit 0 }
+    catch {
+        try {
+            $root = Get-WorkerGatewayLifecycleV1Path $InstanceId
+            $manifest = Read-WorkerGatewayLifecycleV1 $InstanceId
+            $resultPath = Join-Path (Join-Path $root 'results') (('{0:yyyyMMddTHHmmssfffZ}-{1}.json' -f [DateTime]::UtcNow,[guid]::NewGuid().ToString('N')))
+            $result = [ordered]@{ Owner=$script:WorkerGatewayLifecycleOwner; InstanceId=$InstanceId; Status='fail'; ErrorType=$_.Exception.GetType().FullName; CheckedAtUtc=[DateTime]::UtcNow.ToString('o') }
+            Write-WorkerNewFile $resultPath ($result | ConvertTo-Json) $manifest.OperatorSid
+        } catch { }
+        exit 1
+    }
 }

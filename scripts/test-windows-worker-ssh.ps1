@@ -215,7 +215,8 @@ $lifecycleContract=Get-Content (Join-Path $root 'ssh/lifecycle-v1/contract.ps1')
 $lifecycleRunner=Get-Content (Join-Path $root 'ssh/lifecycle-v1/run.ps1') -Raw
 foreach($required in @('Install-WorkerGatewayLifecycleV1','Assert-WorkerGatewayLifecycleV1Task','PasswordStored=$false','StartupBeforeInteractiveLogon=$false','infisical.exe','SecretCapture.cs','WorkerGatewayLifecycleSecretCaptureHash','SourceCommit','Test-WorkerGatewayRepairAcceptedSourceHash $repair.SourceHash')){if($lifecycleRuntime -cnotmatch [regex]::Escape($required)){throw "Lifecycle contract missing: $required"}}
 foreach($required in @("LogonType = 'Interactive'","RunLevel = 'Highest'",'RestartCount = 0')){if($lifecycleContract -cnotmatch [regex]::Escape($required)){throw "Lifecycle task plan missing: $required"}}
-foreach($required in @('[WorkerSecretCapture]::Capture($info,15000)','Invoke-WorkerGatewayRepairV1','HostFingerprint','Status=''pass''','Status=''fail''')){if($lifecycleRunner -cnotmatch [regex]::Escape($required)){throw "Lifecycle runner missing: $required"}}
+foreach($required in @('Get-WorkerGatewayLifecycleV1Credential $info','Invoke-WorkerGatewayRepairV1','HostFingerprint','Status=''pass''','Status=''fail''','NoExecute')){if($lifecycleRunner -cnotmatch [regex]::Escape($required)){throw "Lifecycle runner missing: $required"}}
+if($lifecycleRuntime -cnotmatch '\[WorkerSecretCapture\]::Capture\(\$Info,\$TimeoutMs\)'){throw 'Lifecycle credential boundary helper is missing.'}
 foreach($required in @("../../runtime.ps1","../repair-v1/runtime.ps1",'contract.ps1')){if($lifecycleRuntime -cnotmatch [regex]::Escape($required)){throw "Lifecycle runtime dependency missing: $required"}}
 $probePath=Join-Path ([IO.Path]::GetTempPath()) ('pc-setup-lifecycle-dependency-'+[guid]::NewGuid().ToString('N')+'.ps1')
 $probeSource=@'
@@ -228,7 +229,8 @@ foreach($name in $required){if(-not(Get-Command $name -CommandType Function -Err
 '@
 [IO.File]::WriteAllText($probePath,$probeSource,[Text.UTF8Encoding]::new($false))
 try {
-    $pwshCommand=Get-Command pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1
+    $pwshCommand=Get-Command pwsh -CommandType Application -ErrorAction Stop | Where-Object { $_.Source -like (Join-Path $env:ProgramW6432 'PowerShell/7/pwsh.exe') } | Select-Object -First 1
+    if(-not $pwshCommand){throw '64-bit PowerShell executable missing for lifecycle install fixture.'}
     $probeOutput=@(& $pwshCommand.Source -NoLogo -NoProfile -NonInteractive -File $probePath $root 2>&1)
     $probeExit=$LASTEXITCODE
     if($probeExit -ne 0 -or $probeOutput -notcontains 'LifecycleDependencies:PASS'){throw 'Fresh -NoProfile lifecycle runtime dependency probe failed.'}
@@ -236,6 +238,72 @@ try {
     $probeFull=[IO.Path]::GetFullPath($probePath);$probeParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([char[]]'\/')
     if([IO.Path]::GetDirectoryName($probeFull) -cne $probeParent -or [IO.Path]::GetFileName($probeFull) -cnotmatch '^pc-setup-lifecycle-dependency-[a-f0-9]{32}\.ps1$' -or (Get-Item -LiteralPath $probeFull -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Unsafe lifecycle dependency fixture cleanup path; preserve fixture.'}
     Remove-Item -LiteralPath $probeFull -Force
+}
+# Exercise the actual installer against a fresh temporary ProgramData-like root.
+# The child mocks only OS ACL/task APIs and host-owned state; source discovery,
+# file copy, manifest construction, bundle readback, and task assertion stay real.
+if($IsWindows){
+    $installFixture=Join-Path ([IO.Path]::GetTempPath()) ('pc-setup-lifecycle-install-'+[guid]::NewGuid().ToString('N'))
+    $null=New-Item -ItemType Directory -Path $installFixture
+    $cliFixture=Join-Path $installFixture 'infisical.exe';[IO.File]::WriteAllBytes($cliFixture,[byte[]](0..255))
+    $installProbe=Join-Path $installFixture 'install-probe.ps1'
+    $installProbeSource=@'
+param([string]$WorkerRoot,[string]$RepositoryRoot,[string]$CliPath,[string]$Commit,[string]$FixtureRoot,[string]$InstanceId)
+$ErrorActionPreference='Stop';Set-StrictMode -Version Latest
+. (Join-Path $WorkerRoot 'ssh/lifecycle-v1/runtime.ps1')
+$script:fixtureRoot=Join-Path $FixtureRoot 'programdata';$script:fixtureTask=$null
+$script:fixtureOperator=[Security.Principal.WindowsIdentity]::GetCurrent()
+$script:fixtureOperatorSid=$script:fixtureOperator.User.Value
+$script:fixtureWorkerSid='S-1-5-21-111-222-333-444'
+$script:fixtureState=[pscustomobject]@{Sid=$script:fixtureWorkerSid;UserName='fixture-worker'}
+$script:fixtureRepair=[pscustomobject]@{Sid=$script:fixtureWorkerSid;SourceHash='77C209A4BE06B8F0275292556852BDA6BDF9C5D0E9D62D0F0DED1769024A6004';ListenAddress='100.118.123.62';ControllerAddress='100.83.203.34';HostFingerprint='SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'}
+function Get-FileHash([string]$Path,[string]$LiteralPath,[string]$Algorithm){$target=if($LiteralPath){$LiteralPath}else{$Path};if($target -ceq $CliPath -or $target -ceq (Join-Path $script:fixtureRoot 'infisical.exe')){return [pscustomobject]@{Hash='E840DDA7C58586559F82D364DEA5FDB3DFFF61C28E32E6E2F59715FC7A565305'}};if($LiteralPath){Microsoft.PowerShell.Utility\Get-FileHash -LiteralPath $LiteralPath -Algorithm $Algorithm}else{Microsoft.PowerShell.Utility\Get-FileHash $Path -Algorithm $Algorithm}}
+function Assert-WorkerAdministrator {}
+function Read-WorkerState([string]$InstanceId){$script:fixtureState}
+function Read-WorkerGatewayRepairV1([string]$InstanceId){$script:fixtureRepair}
+function Test-WorkerGatewayRepairAcceptedSourceHash([string]$Hash){$true}
+function Get-WorkerGatewayLifecycleV1Path([string]$InstanceId){$script:fixtureRoot}
+function Assert-WorkerPlainPath([string]$Path){if((Get-Item -LiteralPath $Path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'reparse'} }
+function Set-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind){}
+function Assert-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind){if(-not(Test-Path -LiteralPath $Path)){throw 'ACL fixture path missing'}}
+function Write-WorkerNewFile([string]$Path,[string]$Content,[string]$Sid){[IO.File]::WriteAllText($Path,$Content,[Text.UTF8Encoding]::new($false))}
+function git {if($args -contains 'rev-parse'){$global:LASTEXITCODE=0;return $script:fixtureCommit};if($args -contains 'status'){$global:LASTEXITCODE=0;return}}
+$script:fixtureCommit=$Commit
+function Get-ScheduledTask([string]$TaskName,[string]$TaskPath,[string]$ErrorAction){$script:fixtureTask}
+function New-ScheduledTaskAction([string]$Execute,[string]$Argument){[pscustomobject]@{Execute=$Execute;Argument=$Argument;WorkingDirectory=$null}}
+function New-ScheduledTaskTrigger([switch]$AtLogOn,[string]$User){[pscustomobject]@{UserId=$User;CimClass=[pscustomobject]@{CimClassName='MSFT_TaskLogonTrigger'}}}
+function New-ScheduledTaskPrincipal([string]$UserId,[string]$LogonType,[string]$RunLevel){[pscustomobject]@{UserId=$UserId;LogonType=$LogonType;RunLevel=$RunLevel}}
+function New-ScheduledTaskSettingsSet([switch]$StartWhenAvailable,[switch]$AllowStartIfOnBatteries,[switch]$DontStopIfGoingOnBatteries,[string]$MultipleInstances,[TimeSpan]$ExecutionTimeLimit){[pscustomobject]@{StartWhenAvailable=$StartWhenAvailable.IsPresent;AllowStartIfOnBatteries=$AllowStartIfOnBatteries.IsPresent;DontStopIfGoingOnBatteries=$DontStopIfGoingOnBatteries.IsPresent;MultipleInstances=$MultipleInstances;ExecutionTimeLimit=$ExecutionTimeLimit;RestartCount=0}}
+function Register-ScheduledTask([string]$TaskName,[string]$TaskPath,$Action,$Trigger,$Principal,$Settings,[string]$Description,[string]$ErrorAction){$script:fixtureTask=[pscustomobject]@{TaskName=$TaskName;TaskPath=$TaskPath;Description=$Description;Actions=@($Action);Triggers=@($Trigger);Principal=$Principal;Settings=$Settings};$script:fixtureTask}
+$expectedFiles=@(Get-WorkerGatewayLifecycleRelativeFiles (Join-Path $RepositoryRoot 'platforms/windows-11/worker'))
+if($expectedFiles -contains '' -or @($expectedFiles|Where-Object{$_ -match '\\'}).Count -or $expectedFiles -notcontains 'ssh/lifecycle-v1/run.ps1'){throw 'Windows relative source paths were not normalized.'}
+$result=Install-WorkerGatewayLifecycleV1 $InstanceId $RepositoryRoot $Commit $CliPath
+$manifest=Read-WorkerGatewayLifecycleV1 $InstanceId
+$expectedBundle='bundle/platforms/windows-11/worker/ssh/lifecycle-v1/run.ps1'
+if(-not $manifest.Files.PSObject.Properties.Name.Contains($expectedBundle) -or -not(Test-Path -LiteralPath (Join-Path $script:fixtureRoot ($expectedBundle.Replace('/','\'))))){throw 'Installer did not copy and manifest the actual lifecycle entrypoint.'}
+if($script:fixtureTask.TaskName -cne $result.TaskName -or $manifest.TaskName -cne $result.TaskName -or $manifest.SourceCommit -cne $Commit){throw 'Installer task/manifest readback did not match.'}
+Assert-WorkerGatewayLifecycleV1Task $script:fixtureTask (New-WorkerGatewayLifecycleV1TaskPlan $InstanceId $script:fixtureOperatorSid $script:fixtureWorkerSid $script:fixtureOperator.Name (Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell/7/pwsh.exe') (Join-Path $script:fixtureRoot ($expectedBundle.Replace('/','\'))))|Out-Null
+$runner=Join-Path $script:fixtureRoot ($expectedBundle.Replace('/','\'))
+. $runner -InstanceId $InstanceId -NoExecute
+function Get-WorkerGatewayLifecycleV1Path([string]$Id){$script:fixtureRoot}
+function Assert-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind){if(-not(Test-Path -LiteralPath $Path)){throw 'ACL fixture path missing'}}
+function Get-WorkerGatewayLifecycleV1Credential($Info,[string]$SecretCapturePath,[int]$TimeoutMs){$script:secretBoundaryReached=$true;throw 'fixture-secret-boundary'}
+$script:secretBoundaryReached=$false;$boundaryCaught=$false
+try{Invoke-WorkerGatewayLifecycleV1 $InstanceId|Out-Null}catch{if($_.Exception.Message -ceq 'fixture-secret-boundary'){$boundaryCaught=$true}else{throw}}
+if(-not $boundaryCaught -or -not $script:secretBoundaryReached){throw 'Fresh lifecycle runner did not read its bundle and reach the secret-capture boundary.'}
+'LifecycleInstallFixture:PASS'
+'@
+    [IO.File]::WriteAllText($installProbe,$installProbeSource,[Text.UTF8Encoding]::new($false))
+    try{
+        $commit=(& git -C $PSScriptRoot/.. rev-parse HEAD).Trim()
+        $repoRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+        $installOutput=@(& $pwshCommand.Source -NoLogo -NoProfile -NonInteractive -File $installProbe $root $repoRoot $cliFixture $commit $installFixture '2a1084ec-5389-4b0b-a0f0-9a38fcfaece5' 2>&1)
+        if($LASTEXITCODE -ne 0 -or $installOutput -notcontains 'LifecycleInstallFixture:PASS'){throw "Fresh-process lifecycle install fixture failed: $($installOutput -join ' ')"}
+    }finally{
+        $fixtureFull=[IO.Path]::GetFullPath($installFixture);$fixtureParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([char[]]'\/')
+        if([IO.Path]::GetDirectoryName($fixtureFull) -cne $fixtureParent -or [IO.Path]::GetFileName($fixtureFull) -cnotmatch '^pc-setup-lifecycle-install-[a-f0-9]{32}$' -or (Get-Item -LiteralPath $fixtureFull -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Unsafe lifecycle install fixture cleanup path; preserve fixture.'}
+        Remove-Item -LiteralPath $fixtureFull -Recurse -Force
+    }
 }
 . (Join-Path $root 'ssh/lifecycle-v1/runtime.ps1')
 foreach($functionName in @('Assert-WorkerAdministrator','Read-WorkerState','Read-WorkerGatewayRepairV1','Set-WorkerResourceAcl','Assert-WorkerResourceAcl')){if(-not(Get-Command $functionName -CommandType Function -ErrorAction SilentlyContinue)){throw "Fresh lifecycle runtime did not load dependency: $functionName"}}

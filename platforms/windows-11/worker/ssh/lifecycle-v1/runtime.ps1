@@ -10,7 +10,7 @@ function Get-WorkerGatewayLifecycleRelativeFiles([string]$WorkerSourceRoot) {
     @(Get-ChildItem -LiteralPath $WorkerSourceRoot -File -Recurse -Force |
         Where-Object { $_.Extension -in @('.ps1','.sh') } |
         Sort-Object FullName |
-        ForEach-Object { $_.FullName.Substring($WorkerSourceRoot.TrimEnd('\').Length + 1) })
+        ForEach-Object { $_.FullName.Substring($WorkerSourceRoot.TrimEnd('\').Length + 1).Replace('\','/') })
 }
 
 function Copy-WorkerGatewayLifecycleNewFile([string]$Source,[string]$Destination) {
@@ -90,6 +90,11 @@ function New-WorkerGatewayLifecycleV1Task([pscustomobject]$Plan) {
     $principal = New-ScheduledTaskPrincipal -UserId $Plan.OperatorName -LogonType Interactive -RunLevel Highest
     $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -ExecutionTimeLimit $Plan.ExecutionTimeLimit
     Register-ScheduledTask -TaskName $Plan.TaskName -TaskPath $Plan.TaskPath -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description $Plan.Description -ErrorAction Stop
+}
+
+function Get-WorkerGatewayLifecycleV1Credential([Diagnostics.ProcessStartInfo]$Info,[string]$SecretCapturePath,[int]$TimeoutMs = 15000) {
+    if (-not ('WorkerSecretCapture' -as [type])) { Add-Type -Path $SecretCapturePath -ErrorAction Stop }
+    [WorkerSecretCapture]::Capture($Info,$TimeoutMs)
 }
 
 function Install-WorkerGatewayLifecycleV1([string]$InstanceId,[string]$RepositoryRoot,[string]$ExpectedCommit,[string]$InfisicalSource) {
