@@ -115,4 +115,6 @@ stage準備と実行はreview済みclean checkoutからnative x64 PowerShell 7.3
 
 `Apply` は直前にpackage inventoryを調べ、不足がある時だけ同じworker Windows SIDからUUID対応WSLへ `--user root` で接続し、保護stageの固定scriptをstdinで実行する。対象は`mise.toml`のUbuntu/Linux APT baselineに限定し、`apt-get upgrade`・削除・sudo付与・フルbootstrap・mise/dotfilesやユーザー領域scriptのroot実行を行わない。適用後に再inventoryする。Windows passwordはSecureStringのprocess memoryだけで使い、Linux sudo passwordは設定しない。失敗時はAPTのraw diagnosticsやsecretを出さず、状態を確認してから明示的に再実行する。これはWindows account ownerが所有するdistroの保守経路であり、同一Windows userからのWSL root起動を防ぐ隔離境界ではない。
 
+`scripts/test-windows-worker-maintenance.ps1` はfresh `pwsh -NoProfile` processで実際のstage初期化/copy/readback、資格情報付きchildの起動条件、child runtimeの固定WSL argv・stdin送信・nonce付きreport検証をfixture化する。ACL、Windows identity/profile/registry、WSL process境界だけをmockし、APTや実WSL rootは実行しない。
+
 sourceテストはpackage一覧が`mise.toml`と一致すること、引数・報告parser、SHA256 pin、PowerShell/Bash構文を確認する。実APT導入や実WSL root実行の証拠ではない。初回実機適用、Windows→WSL SSHの専用鍵/host pin/nonce、Herdr接続は個別に記録する。

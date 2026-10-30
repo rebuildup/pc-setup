@@ -27,7 +27,7 @@ function Read-WorkerRootMaintenanceStage([string]$InstanceId,[string]$Repository
     $worker=Read-WorkerState $InstanceId
     $wsl=Read-WorkerWslStage $InstanceId
     $root=Get-WorkerRootMaintenanceStagePath $InstanceId
-    $names=@('manifest.json','contract.ps1','child.ps1','root-maintenance.sh')
+    $names=@('manifest.json','contract.ps1','child.ps1','child-runtime.ps1','root-maintenance.sh')
     Assert-WorkerResourceAcl $root $worker.Sid Metadata
     $actual=@(Get-ChildItem -LiteralPath $root -Force|ForEach-Object Name|Sort-Object)
     if(Compare-Object ($names|Sort-Object) $actual){throw 'Foreign or partial root maintenance stage.'}
@@ -38,7 +38,7 @@ function Read-WorkerRootMaintenanceStage([string]$InstanceId,[string]$Repository
     $manifestPackages=@($manifest.PackageList) -join ',';$expectedPackages=(Get-WorkerRootMaintenancePackages) -join ','
     if($manifestPackages -cne $expectedPackages){throw 'Root maintenance package list drift.'}
     $sourceRoot=Join-Path $RepositoryRoot 'platforms/windows-11/worker/maintenance-v1'
-    foreach($name in @('contract.ps1','child.ps1','root-maintenance.sh')){
+    foreach($name in @('contract.ps1','child.ps1','child-runtime.ps1','root-maintenance.sh')){
         $source=Join-Path $sourceRoot $name;$staged=Join-Path $root $name
         if((Get-FileHash $source -Algorithm SHA256).Hash -cne $manifest.SourceHashes.$name -or (Get-FileHash $staged -Algorithm SHA256).Hash -cne $manifest.SourceHashes.$name){throw 'Root maintenance source/hash drift.'}
     }
@@ -54,7 +54,7 @@ function Initialize-WorkerRootMaintenanceStage([string]$InstanceId,[string]$Repo
     if(Test-Path -LiteralPath $root){return Read-WorkerRootMaintenanceStage $InstanceId $RepositoryRoot $ExpectedCommit}
     $sourceRoot=Join-Path $RepositoryRoot 'platforms/windows-11/worker/maintenance-v1'
     Assert-WorkerPlainPath $sourceRoot
-    $names=@('contract.ps1','child.ps1','root-maintenance.sh')
+    $names=@('contract.ps1','child.ps1','child-runtime.ps1','root-maintenance.sh')
     if((Get-FileHash (Join-Path $sourceRoot 'root-maintenance.sh') -Algorithm SHA256).Hash -cne $script:WorkerRootMaintenanceScriptHash){throw 'Root maintenance script hash differs from its reviewed pin.'}
     foreach($name in $names){if((Get-Item -LiteralPath (Join-Path $sourceRoot $name) -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Root maintenance source cannot contain reparse points.'}}
     $null=New-Item -ItemType Directory -Path $root -ErrorAction Stop
@@ -74,6 +74,10 @@ function Initialize-WorkerRootMaintenanceStage([string]$InstanceId,[string]$Repo
     Read-WorkerRootMaintenanceStage $InstanceId $RepositoryRoot $ExpectedCommit
 }
 
+function Start-WorkerRootMaintenanceCredentialedChild([Diagnostics.ProcessStartInfo]$StartInfo) {
+    [Diagnostics.Process]::Start($StartInfo)
+}
+
 function Invoke-WorkerRootMaintenanceChild([string]$InstanceId,[SecureString]$Password,[ValidateSet('Inspect','Apply')][string]$Action,[string]$RepositoryRoot,[string]$ExpectedCommit){
     $stage=Read-WorkerRootMaintenanceStage $InstanceId $RepositoryRoot $ExpectedCommit
     $worker=Read-WorkerState $InstanceId
@@ -86,7 +90,7 @@ function Invoke-WorkerRootMaintenanceChild([string]$InstanceId,[SecureString]$Pa
     $previousCanary=[Environment]::GetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY');$process=$null
     try{
         $env:PC_SETUP_CONTROLLER_CANARY=[guid]::NewGuid().ToString('N')
-        $process=[Diagnostics.Process]::Start($info);$process.StandardInput.Close()
+        $process=Start-WorkerRootMaintenanceCredentialedChild $info;$process.StandardInput.Close()
         $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
         if(-not $process.WaitForExit(510000)){throw 'Worker root maintenance timed out; preserve state/processes and inspect before retrying.'}
         if($process.ExitCode -ne 0){throw 'Worker root maintenance failed; no raw package diagnostics emitted.'}

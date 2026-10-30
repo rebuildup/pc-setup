@@ -32,6 +32,27 @@ function Get-WorkerRootMaintenanceArguments($Plan,[ValidateSet('Inspect','Apply'
     @('--distribution',$Plan.DistroName,'--user','root','--exec','/usr/bin/env','-i','PATH=/usr/sbin:/usr/bin:/sbin:/bin','LC_ALL=C','/bin/bash','-s','--',$Action,$Plan.InstanceId,$Nonce)
 }
 
+function Start-WorkerRootMaintenanceWslProcess([Diagnostics.ProcessStartInfo]$StartInfo) {
+    [Diagnostics.Process]::Start($StartInfo)
+}
+
+function Invoke-WorkerRootMaintenanceWslScript([string]$WslExecutable,$Plan,[ValidateSet('Inspect','Apply')][string]$Action,[string]$Nonce,[string]$ScriptText) {
+    $info=[Diagnostics.ProcessStartInfo]::new();$info.FileName=$WslExecutable;$info.UseShellExecute=$false;$info.CreateNoWindow=$true
+    $info.RedirectStandardInput=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+    foreach($arg in (Get-WorkerRootMaintenanceArguments $Plan $Action $Nonce)){$info.ArgumentList.Add($arg)}
+    $process=$null
+    try{
+        $process=Start-WorkerRootMaintenanceWslProcess $info
+        $process.StandardInput.Write($ScriptText);$process.StandardInput.Close()
+        $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
+        if(-not $process.WaitForExit(480000)){throw 'Root maintenance timed out; preserve package state and inspect before rerunning.'}
+        if($process.ExitCode -ne 0){throw 'Approved WSL root maintenance failed; no raw package diagnostics emitted.'}
+        $text=$stdout.GetAwaiter().GetResult();$errorText=$stderr.GetAwaiter().GetResult()
+        if($text.Length -gt 8192 -or $errorText.Length -gt 16384){throw 'Unexpected root maintenance output size.'}
+        ConvertFrom-WorkerRootMaintenanceReport $text $Action $Plan.InstanceId $Nonce
+    }finally{if($process){$process.Dispose()}}
+}
+
 function ConvertFrom-WorkerRootMaintenanceReport([string]$Text,[ValidateSet('Inspect','Apply')][string]$Action,[string]$InstanceId,[string]$Nonce) {
     if($InstanceId -cnotmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'){throw 'Invalid worker instance UUID.'}
     if ($Text.Length -gt 8192 -or $Nonce -cnotmatch '^[a-f0-9]{32}$') { throw 'Unexpected root maintenance output.' }
