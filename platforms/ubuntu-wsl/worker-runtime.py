@@ -208,6 +208,8 @@ class Runtime:
                 info = os.fstat(fd)
                 if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid():
                     raise ValueError('package permission normalization requires a worker-owned regular file')
+                if info.st_nlink != 1:
+                    raise ValueError('package permission normalization refuses hardlinks')
                 if info.st_mode & 0o7000:
                     raise ValueError('package has unexpected special permissions')
                 if info.st_mode & 0o022:

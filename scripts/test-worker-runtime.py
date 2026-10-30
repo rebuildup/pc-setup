@@ -144,6 +144,19 @@ url = "https://github.com/herdrdev/herdr/releases/download/v{herdr}/herdr-linux-
             self.runtime().install()
         self.assertFalse((self.state/'current').exists())
 
+    def test_new_package_hardlink_does_not_chmod_an_external_file(self):
+        external=self.root/'external-helper'
+        self.exe(external,'external')
+        external.chmod(0o775)
+        helper=self.codex_root/'bin/codex-code-mode-host'
+        helper.unlink()
+        os.link(external,helper)
+        with self.assertRaisesRegex(ValueError,'hardlink'):
+            self.runtime().install()
+        self.assertEqual(external.stat().st_mode & 0o777,0o775)
+        self.assertEqual(helper.stat().st_ino,external.stat().st_ino)
+        self.assertFalse((self.state/'current').exists())
+
     def test_new_package_symlink_does_not_chmod_an_external_file(self):
         external=self.root/'external-helper'
         self.exe(external,'external')
