@@ -1,3 +1,4 @@
 # Cross-platform scripts must not change semantics with Windows Git autocrlf.
 *.sh text eol=lf
 *.ps1 text eol=lf
+*.cs text eol=lf

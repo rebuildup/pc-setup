@@ -229,8 +229,7 @@ foreach($name in $required){if(-not(Get-Command $name -CommandType Function -Err
 '@
 [IO.File]::WriteAllText($probePath,$probeSource,[Text.UTF8Encoding]::new($false))
 try {
-    $pwshCommand=Get-Command pwsh -CommandType Application -ErrorAction Stop | Where-Object { $_.Source -like (Join-Path $env:ProgramW6432 'PowerShell/7/pwsh.exe') } | Select-Object -First 1
-    if(-not $pwshCommand){throw '64-bit PowerShell executable missing for lifecycle install fixture.'}
+    $pwshCommand=Get-Command pwsh -CommandType Application -ErrorAction Stop | Select-Object -First 1
     $probeOutput=@(& $pwshCommand.Source -NoLogo -NoProfile -NonInteractive -File $probePath $root 2>&1)
     $probeExit=$LASTEXITCODE
     if($probeExit -ne 0 -or $probeOutput -notcontains 'LifecycleDependencies:PASS'){throw 'Fresh -NoProfile lifecycle runtime dependency probe failed.'}
@@ -243,6 +242,8 @@ try {
 # The child mocks only OS ACL/task APIs and host-owned state; source discovery,
 # file copy, manifest construction, bundle readback, and task assertion stay real.
 if($IsWindows){
+    $installPwsh=Get-Command pwsh -CommandType Application -ErrorAction Stop | Where-Object { $_.Source -like (Join-Path $env:ProgramW6432 'PowerShell/7/pwsh.exe') } | Select-Object -First 1
+    if(-not $installPwsh){throw '64-bit PowerShell executable missing for lifecycle install fixture.'}
     $installFixture=Join-Path ([IO.Path]::GetTempPath()) ('pc-setup-lifecycle-install-'+[guid]::NewGuid().ToString('N'))
     $null=New-Item -ItemType Directory -Path $installFixture
     $cliFixture=Join-Path $installFixture 'infisical.exe';[IO.File]::WriteAllBytes($cliFixture,[byte[]](0..255))
@@ -297,7 +298,7 @@ if(-not $boundaryCaught -or -not $script:secretBoundaryReached){throw 'Fresh lif
     try{
         $commit=(& git -C $PSScriptRoot/.. rev-parse HEAD).Trim()
         $repoRoot=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-        $installOutput=@(& $pwshCommand.Source -NoLogo -NoProfile -NonInteractive -File $installProbe $root $repoRoot $cliFixture $commit $installFixture '2a1084ec-5389-4b0b-a0f0-9a38fcfaece5' 2>&1)
+        $installOutput=@(& $installPwsh.Source -NoLogo -NoProfile -NonInteractive -File $installProbe $root $repoRoot $cliFixture $commit $installFixture '2a1084ec-5389-4b0b-a0f0-9a38fcfaece5' 2>&1)
         if($LASTEXITCODE -ne 0 -or $installOutput -notcontains 'LifecycleInstallFixture:PASS'){throw "Fresh-process lifecycle install fixture failed: $($installOutput -join ' ')"}
     }finally{
         $fixtureFull=[IO.Path]::GetFullPath($installFixture);$fixtureParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([char[]]'\/')
