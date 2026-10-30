@@ -94,6 +94,27 @@ unregister、既存WSL停止/再生成、OS upgrade/reboot、daemon/scheduler追
 
 `boot-runtime.ps1` は元のworker/WSL stageを変更せず、別の `pc-setup-worker-boot-<UUID>` に本人読取・Administrators/SYSTEM書込だけの固定sourceとmanifestを準備する。レビュー済みcontrollerで `Initialize-WorkerBootStage`、続いてSecureStringを使い `Invoke-WorkerBootStage` を一回だけ呼ぶ。実行直前にCreateNewのattempt markerを作り、失敗時も消さず保持する。
 
-標準Windows SID本人のnative profile/WSL registry照合後、完全名distroだけを `--user root --exec /usr/bin/env -i` で起動し、固定shell probeでLinux/Ubuntu24.04/x86_64/root UIDとnonce往復、CPU数、memory、Windows mount/interopの存在を測る。新しいLinux userの作成・package導入・SSH/Herdr起動・network公開・credential登録は行わない。rootは新規import直後のinventoryだけに使い、常用worker認証の完成とは扱わない。
+標準Windows SID本人のnative profile/WSL registry照合後、完全名distroだけを `--user root --exec /usr/bin/env -i` で起動し、固定shell probeでLinux/Ubuntu24.04/x86_64/root UIDとnonce往復、CPU数、memory、Windows mount/interopの存在を測る。新しいLinux userの作成・package導入・SSH/Herdr起動・network公開・credential登録は行わない。このboot stageだけではrootを新規import直後のinventoryに限定し、常用worker認証の完成とは扱わない。
 
 Windows mount/interopがある場合も隠さず結果へ記録する。これはLinux bootの証拠であり、最終のWindows PATH排除やmount/interop抑制、resource budgetの実効性、SSH/Herdr疎通の合格ではない。first-boot vendor stderrの有無はbooleanだけ記録し、内容はチャットへ出さない。timeoutはプロセス/部分状態を保持し、global shutdownや再importをしない。既存adapter同様にstdout/stderrの取得は終了後size検査であり、streamingの厳密なメモリ上限ではない。
+
+## 限定OS package maintenance
+
+`maintenance-v1/runtime.ps1` は、完全UUIDで特定したworkerの別ProgramData stageに `contract.ps1`・`child.ps1`・`root-maintenance.sh` を保存する。初回stage作成は管理者PowerShellから、review済みのclean pc-setup commitを指定して一度行う。root scriptのSHA256はruntimeに固定され、再利用時はcommit、source hash、worker manifest、WSL登録、ACLを再照合する。driftやpartial stageはadopt・上書きしない。
+
+```powershell
+. ./platforms/windows-11/worker/maintenance-v1/runtime.ps1
+$repositoryRoot = (Get-Location).Path
+$null = Initialize-WorkerRootMaintenanceStage $instance $repositoryRoot '<reviewed pc-setup commit>'
+
+# $passwordは承認済みprocess-scoped Infisical wrapperが返すSecureString。
+$result = Invoke-WorkerRootMaintenanceV1 $instance $password Apply $repositoryRoot '<reviewed pc-setup commit>'
+```
+
+stage準備と実行はreview済みclean checkoutからnative x64 PowerShell 7.3以上・管理者tokenで行う。実行中に別Windows userのprocessを起動するため、その本人のWindows credentialを`SecureString`で渡す。通常運用では承認済みprocess-scoped Infisical wrapperから値を得て、手入力・平文引数・file保存はしない。
+
+`Apply` は直前にpackage inventoryを調べ、不足がある時だけ同じworker Windows SIDからUUID対応WSLへ `--user root` で接続し、保護stageの固定scriptをstdinで実行する。対象は`mise.toml`のUbuntu/Linux APT baselineに限定し、`apt-get upgrade`・削除・sudo付与・フルbootstrap・mise/dotfilesやユーザー領域scriptのroot実行を行わない。適用後に再inventoryする。Windows passwordはSecureStringのprocess memoryだけで使い、Linux sudo passwordは設定しない。失敗時はAPTのraw diagnosticsやsecretを出さず、状態を確認してから明示的に再実行する。これはWindows account ownerが所有するdistroの保守経路であり、同一Windows userからのWSL root起動を防ぐ隔離境界ではない。
+
+`scripts/test-windows-worker-maintenance.ps1` はfresh `pwsh -NoProfile` processで実際のstage初期化/copy/readback、資格情報付きchildの起動条件、child runtimeの固定WSL argv・stdin送信・nonce付きreport検証をfixture化する。ACL、Windows identity/profile/registry、WSL process境界だけをmockし、APTや実WSL rootは実行しない。
+
+sourceテストはpackage一覧が`mise.toml`と一致すること、引数・報告parser、SHA256 pin、PowerShell/Bash構文を確認する。実APT導入や実WSL root実行の証拠ではない。初回実機適用、Windows→WSL SSHの専用鍵/host pin/nonce、Herdr接続は個別に記録する。

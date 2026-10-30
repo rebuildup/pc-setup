@@ -141,9 +141,13 @@ if command -v mise >/dev/null 2>&1; then
   printf 'Checking bootstrap package OS filtering through mise...\n'
   mise_scope_dir="$(mktemp -d)"
   trap 'rm -rf "$mise_scope_dir"' EXIT
-  mkdir -p "$mise_scope_dir/config" "$mise_scope_dir/work"
+  # Keep mise's install inventory and cache isolated: bootstrap status in a
+  # temporary config must never prune the operator's regular tool installs.
+  mkdir -p "$mise_scope_dir/config" "$mise_scope_dir/work" "$mise_scope_dir/data" "$mise_scope_dir/cache"
   cp mise.global.toml "$mise_scope_dir/config/config.toml"
   MISE_CONFIG_DIR="$mise_scope_dir/config" \
+  MISE_DATA_DIR="$mise_scope_dir/data" \
+  MISE_CACHE_DIR="$mise_scope_dir/cache" \
     mise -C "$mise_scope_dir/work" bootstrap status --json >"$mise_scope_dir/status.json"
 
   python3 - "$mise_scope_dir/status.json" <<'PY'
@@ -469,11 +473,20 @@ grep -Fq 'cannot modify the parent shell PATH' bootstrap.sh
 grep -Fq 'source ~/.bashrc' bootstrap.sh
 grep -Fq 'bootstrap.sh | bash && source ~/.bashrc' platforms/ubuntu-wsl/README.md
 
+printf 'Checking WSL SSH runtime and host identity...\n'
+bash scripts/test-windows-worker-ssh-runtime.sh
+bash scripts/test-windows-worker-key-transaction.sh
+
 if command -v pwsh >/dev/null 2>&1; then
   printf 'Checking Windows worker contracts...\n'
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-wsl.ps1
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-maintenance.ps1
   pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-boot.ps1
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh.ps1
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh-keys.ps1
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh-v2.ps1
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-worker-ssh-v3.ps1
 else
   printf 'Skipping Windows worker contracts: pwsh is unavailable.\n'
 fi
