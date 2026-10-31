@@ -87,6 +87,64 @@ version = "0.6.5"
 backend = "cargo:cargo-clean-all"
 specifiers = ["latest"]
 
+[[tools."cargo:cargo-cleaner"]]
+version = "0.1.5"
+backend = "cargo:cargo-cleaner"
+specifiers = ["latest"]
+
+[[tools."cargo:cargo-compete"]]
+version = "0.10.7"
+backend = "cargo:cargo-compete"
+specifiers = ["latest"]
+
+[[tools."cargo:cargo-generate"]]
+version = "0.25.1"
+backend = "cargo:cargo-generate"
+specifiers = ["latest"]
+
+[[tools."cargo:cargo-ndk"]]
+version = "4.1.2"
+backend = "cargo:cargo-ndk"
+specifiers = ["latest"]
+
+[[tools."cargo:cargo-update"]]
+version = "22.1.1"
+backend = "cargo:cargo-update"
+specifiers = ["latest"]
+
+[[tools."cargo:just"]]
+version = "1.59.0"
+backend = "cargo:just"
+specifiers = ["latest"]
+
+[[tools."cargo:llmfit"]]
+version = "1.1.18"
+backend = "cargo:llmfit"
+specifiers = ["latest"]
+
+[[tools."cargo:rtk-ai/rtk"]]
+version = "tag:v0.42.4"
+backend = "cargo:rtk-ai/rtk"
+specifiers = ["tag:v0.42.4"]
+
+[tools."cargo:rtk-ai/rtk".options]
+crate = "rtk"
+
+[[tools."cargo:rust-mcp-stack/rust-mcp-filesystem"]]
+version = "tag:v0.4.2"
+backend = "cargo:rust-mcp-stack/rust-mcp-filesystem"
+specifiers = ["tag:v0.4.2"]
+
+[[tools."cargo:tauri-cli"]]
+version = "2.12.4"
+backend = "cargo:tauri-cli"
+specifiers = ["latest"]
+
+[[tools."cargo:wasm-pack"]]
+version = "0.15.1"
+backend = "cargo:wasm-pack"
+specifiers = ["latest"]
+
 [[tools.claude]]
 version = "2.1.296"
 backend = "aqua:anthropics/claude-code"

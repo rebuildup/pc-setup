@@ -5,8 +5,10 @@
 # `os` condition because they are `[settings]` keys rather than tools or
 # packages, so they are rewritten into the Windows copy of the config instead:
 #
-#   * `disable_tools` keeps mise from touching the rustup installation, which is
-#     canonical on Windows.
+#   * `auto_install_disable_tools` keeps a shim-triggered Rust install from
+#     happening. The Rust toolchain is installed explicitly with
+#     `mise install rust`, so the toolchain a directory resolves to only ever
+#     changes on purpose.
 #   * `credential_command` is executed by mise's *default inline shell*, which
 #     is `sh -o errexit -c` on Unix and `cmd /c` on Windows. mise performs no
 #     expansion of the command string itself; it only exports
@@ -16,21 +18,27 @@
 #     lookup fails there. Rewriting it to the `%MISE_CREDENTIAL_HOST%` form is
 #     the only difference the two platforms need.
 #
+# The Windows copy also carries the Rust and Cargo homes in an `[env]` section.
+# They are paths under the local app data dir, so only Windows can name them;
+# the shared file keeps the default homes on Unix and macOS. Both the mise
+# prefixed variables and the plain ones are set so the homes agree whether a
+# process is started by mise or by hand.
+#
 # The functions here have no side effects and are dot-sourced by
 # apply-global-mise.ps1 so that they can be exercised directly in CI.
 
 Set-StrictMode -Version Latest
 
-function Add-WindowsRustGuard {
+function Add-WindowsRustAutoInstallGuard {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
         [string]$Text
     )
 
-    if ($Text -match '(?m)^\s*disable_tools\s*=') { return $Text }
+    if ($Text -match '(?m)^\s*auto_install_disable_tools\s*=') { return $Text }
 
-    $guard = "# Windows: rustup is canonical; mise must never install or upgrade Rust.`ndisable_tools = [`"rust`"]`n"
+    $guard = "# Windows: a shim must never install a Rust toolchain on its own;`n# install it explicitly with `mise install rust`.`nauto_install_disable_tools = [`"rust`"]`n"
     $anchor = [regex]::Match($Text, '(?m)^idiomatic_version_file_enable_tools\s*=.*\r?\n')
     if ($anchor.Success) {
         return $Text.Insert($anchor.Index + $anchor.Length, $guard)
@@ -40,6 +48,32 @@ function Add-WindowsRustGuard {
         return $Text.Insert($settings.Index + $settings.Length, $guard)
     }
     return $Text.TrimEnd() + "`n`n[settings]`n" + $guard
+}
+
+function Add-WindowsRustHomes {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Text
+    )
+
+    if ($Text -match '(?m)^\s*MISE_RUSTUP_HOME\s*=') { return $Text }
+
+    $newline = if ($Text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $lines = @(
+        '[env]',
+        '# Windows: the Rust toolchain and the Cargo home live under the local app',
+        '# data dir, so the machine has exactly one rustup home and one Cargo',
+        '# home, both owned by mise. The legacy %USERPROFILE%\.rustup and',
+        '# %USERPROFILE%\.cargo installations are retired with this.',
+        'MISE_RUSTUP_HOME = "{{env.LOCALAPPDATA}}/mise/rustup"',
+        'MISE_CARGO_HOME = "{{env.LOCALAPPDATA}}/mise/cargo"',
+        'RUSTUP_HOME = "{{env.LOCALAPPDATA}}/mise/rustup"',
+        'CARGO_HOME = "{{env.LOCALAPPDATA}}/mise/cargo"',
+        ''
+    ) -join $newline
+
+    return $Text.TrimEnd() + $newline + $newline + $lines
 }
 
 function Set-WindowsCredentialCommand {
@@ -88,5 +122,5 @@ function ConvertTo-WindowsMiseConfig {
         [string]$Text
     )
 
-    return Set-WindowsCredentialCommand (Add-WindowsRustGuard -Text $Text)
+    return Add-WindowsRustHomes (Set-WindowsCredentialCommand (Add-WindowsRustAutoInstallGuard -Text $Text))
 }

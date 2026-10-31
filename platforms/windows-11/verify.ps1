@@ -149,20 +149,40 @@ else {
     Write-Ok "pwsh -> $pwshX64"
 }
 
-Write-Host "`nRust (rustup is canonical on Windows)"
-$rustup = Get-Command rustup -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $rustup) {
-    Write-WarnLocal 'rustup not found; install it from https://rustup.rs (mise does not manage Rust on Windows)'
-}
-else {
-    # `rustup run` executes the real toolchain binaries, so a toolchain whose
-    # rustc.exe/cargo.exe were removed fails here instead of passing on proxies.
+Write-Host "`nRust (mise manages the toolchain on Windows)"
+# Verification must not install anything: an automatic install would download a
+# toolchain in the middle of a check and hide the state it is meant to report.
+$previousAutoInstall = $env:MISE_AUTO_INSTALL
+$env:MISE_AUTO_INSTALL = '0'
+try {
+    # `mise exec` runs the real toolchain binaries through the toolchain mise
+    # selected, so a toolchain whose rustc.exe/cargo.exe were removed fails
+    # here instead of passing on proxies.
     foreach ($tool in 'rustc', 'cargo') {
-        $versionOutput = & $rustup.Source run stable $tool --version 2>&1
-        if ($LASTEXITCODE -eq 0) { Write-Ok "rustup stable $tool -> $($versionOutput | Select-Object -First 1)" } else { Write-Fail "rustup stable $tool is broken: $($versionOutput | Select-Object -First 1)" }
+        $versionOutput = & mise exec -- $tool --version 2>&1
+        if ($LASTEXITCODE -eq 0) { Write-Ok "mise $tool -> $($versionOutput | Select-Object -First 1)" } else { Write-Fail "mise $tool is broken: $($versionOutput | Select-Object -First 1)" }
     }
-    $disabled = (& mise settings get disable_tools 2>$null) -join ' '
-    if ($disabled -match 'rust') { Write-Ok 'mise disable_tools includes rust' } else { Write-WarnLocal 'mise disable_tools does not include rust; re-run scripts/apply-global-mise.ps1' }
+
+    # One rustup home and one Cargo home, both under the mise data dir.
+    foreach ($home in 'RUSTUP_HOME', 'CARGO_HOME') {
+        $homeValue = (& mise exec -- printenv $home 2>$null) -join ''
+        if ($homeValue -match 'mise\\(rustup|cargo)$') { Write-Ok "$home -> $homeValue" } else { Write-Fail "$home is not the mise home: $homeValue" }
+    }
+
+    # A leftover legacy home means the machine can still resolve a toolchain
+    # outside mise.
+    $legacyRustup = Join-Path $HOME '.rustup'
+    $legacyCargo = Join-Path $HOME '.cargo'
+    foreach ($legacy in $legacyRustup, $legacyCargo) {
+        if (Test-Path -LiteralPath $legacy) { Write-WarnLocal "$legacy still exists; remove it so the machine keeps one rustup home and one Cargo home" }
+    }
+
+    # A shim-triggered install is what broke the legacy rustup home before.
+    $autoInstallExcluded = (& mise settings get auto_install_disable_tools 2>$null) -join ' '
+    if ($autoInstallExcluded -match 'rust') { Write-Ok 'rust is excluded from mise automatic installs' } else { Write-WarnLocal 'auto_install_disable_tools does not include rust; re-run scripts/apply-global-mise.ps1' }
+}
+finally {
+    if ($null -eq $previousAutoInstall) { Remove-Item Env:MISE_AUTO_INSTALL -ErrorAction SilentlyContinue } else { $env:MISE_AUTO_INSTALL = $previousAutoInstall }
 }
 
 Write-Host "`nTailscale / WSL SSH"
