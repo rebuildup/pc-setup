@@ -164,9 +164,11 @@ try {
     }
 
     # One rustup home and one Cargo home, both under the mise data dir.
-    foreach ($home in 'RUSTUP_HOME', 'CARGO_HOME') {
-        $homeValue = (& mise exec -- printenv $home 2>$null) -join ''
-        if ($homeValue -match 'mise\\(rustup|cargo)$') { Write-Ok "$home -> $homeValue" } else { Write-Fail "$home is not the mise home: $homeValue" }
+    # PowerShell variable names are case-insensitive, so a `$home` loop
+    # variable would collide with the read-only $HOME automatic variable.
+    foreach ($homeName in 'RUSTUP_HOME', 'CARGO_HOME') {
+        $homeValue = (& mise exec -- printenv $homeName 2>$null) -join ''
+        if ($homeValue -match 'mise\\(rustup|cargo)$') { Write-Ok "$homeName -> $homeValue" } else { Write-Fail "$homeName is not the mise home: $homeValue" }
     }
 
     # A leftover legacy home means the machine can still resolve a toolchain

@@ -39,7 +39,7 @@ Write-Host 'ok      rust excluded from automatic installs'
 # The Rust and Cargo homes decide where the toolchain lands. They have to be
 # under the mise data dir so the machine keeps one rustup home and one Cargo
 # home.
-foreach ($homeLine in 'MISE_RUSTUP_HOME = "{{env.LOCALAPPDATA}}/mise/rustup"', 'MISE_CARGO_HOME = "{{env.LOCALAPPDATA}}/mise/cargo"') {
+foreach ($homeLine in "MISE_RUSTUP_HOME = '{{env.LOCALAPPDATA}}\mise\rustup'", "MISE_CARGO_HOME = '{{env.LOCALAPPDATA}}\mise\cargo'") {
     if (-not $out.Contains($homeLine)) { throw "rendered config lost: $homeLine" }
 }
 Write-Host 'ok      Rust and Cargo homes point at the mise data dir'

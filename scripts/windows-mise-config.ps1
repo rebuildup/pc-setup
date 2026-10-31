@@ -66,10 +66,12 @@ function Add-WindowsRustHomes {
         '# data dir, so the machine has exactly one rustup home and one Cargo',
         '# home, both owned by mise. The legacy %USERPROFILE%\.rustup and',
         '# %USERPROFILE%\.cargo installations are retired with this.',
-        'MISE_RUSTUP_HOME = "{{env.LOCALAPPDATA}}/mise/rustup"',
-        'MISE_CARGO_HOME = "{{env.LOCALAPPDATA}}/mise/cargo"',
-        'RUSTUP_HOME = "{{env.LOCALAPPDATA}}/mise/rustup"',
-        'CARGO_HOME = "{{env.LOCALAPPDATA}}/mise/cargo"',
+        # TOML literal strings keep the backslashes as written, so the value
+        # is a native Windows path instead of a half-translated one.
+        "MISE_RUSTUP_HOME = '{{env.LOCALAPPDATA}}\mise\rustup'",
+        "MISE_CARGO_HOME = '{{env.LOCALAPPDATA}}\mise\cargo'",
+        "RUSTUP_HOME = '{{env.LOCALAPPDATA}}\mise\rustup'",
+        "CARGO_HOME = '{{env.LOCALAPPDATA}}\mise\cargo'",
         ''
     ) -join $newline
 
