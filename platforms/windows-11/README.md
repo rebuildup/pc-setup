@@ -102,13 +102,17 @@ OSごとにWinGet packageを重複宣言せず、`mise.global.toml [tools]` を�
 
 ### Rust on Windows
 
-Windows の Rust toolchain の正本は既存の rustup (`rustup.rs`) であり、mise は Rust を管理しない。
+Windows の Rust も mise が管理する (ADR-0015)。toolchain を選ぶ層は mise だけで、rustup は mise の rust backend が使う置き場所として残る。
 
-- `mise.global.toml` の `rust` は `os = ["linux", "macos"]` に限定する。
-- `scripts/apply-global-mise.ps1` は Windows 用 copy に `disable_tools = ["rust"]` を追加する。プロジェクトの `mise.toml` や `rust-toolchain.toml` 由来の Rust 指定も mise は無視する。
-- 理由: mise が既存 rustup toolchain に対して `rust@stable` を自動 install し、競合でロールバックした結果 `rustc.exe` / `cargo.exe` が消えた実例がある。mise shim を 1 回呼ぶだけで起きた。
-- `cargo:cargo-clean-all` など Rust 依存の cargo backend tool は、Rust 自体を mise に要求しない。`cargo` は PATH 上の rustup proxy を使う。
-- `verify.ps1` は `rustup run stable rustc/cargo` で実バイナリを確認する。
+- `mise.global.toml` の `rust = "stable"` は全 OS 共通。Windows だけの例外扱いはしない。
+- Windows 用の config (`scripts/windows-mise-config.ps1` が描画) は `[env]` で rustup home と Cargo home を mise の data dir に固定する。
+  - `RUSTUP_HOME` / `MISE_RUSTUP_HOME` = `%LOCALAPPDATA%\mise\rustup`
+  - `CARGO_HOME` / `MISE_CARGO_HOME` = `%LOCALAPPDATA%\mise\cargo`
+- 同じ config は `auto_install_disable_tools = ["rust"]` を持つ。shim を 1 回呼んだだけで background の toolchain install が始まらない。導入と更新は `mise install rust` / `mise install rust@<version>` で行う。
+- 旧 `%USERPROFILE%\.rustup` と `%USERPROFILE%\.cargo` は廃止する。`%USERPROFILE%\.cargo\bin` は User PATH から外し、mise が作る shim に同じ proxy を作らせる。PATH 上の優先順位は mise shim が先になる。
+- toolchain 選択の優先順位は project の `mise.toml` → `rust-toolchain.toml` → global の `rust = "stable"`。mise は `RUSTUP_TOOLCHAIN` を export するので、rustup 互換の選択になる。
+- Rust CLI (cargo-tauri / wasm-pack / just / llmfit / rtk / cargo-ndk / cargo-generate / cargo-compete / cargo-cleaner / cargo-update / rust-mcp-filesystem) は `mise.global.toml` の `cargo:` tool として宣言する。`cargo install` による個別インストールはしない。
+- `verify.ps1` は mise 経由の実行で実バイナリを確認する。
 
 ### Optional apps and pending items
 

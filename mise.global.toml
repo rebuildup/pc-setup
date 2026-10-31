@@ -14,10 +14,12 @@ node = "26"
 python = "3.14"
 bun = "latest"
 pnpm = "latest"
-# Linux/macOS: mise manages Rust. Windows: the existing rustup installation is
-# canonical (see platforms/windows-11/README.md); apply-global-mise.ps1 also
-# adds `disable_tools = ["rust"]` there so no config can make mise touch it.
-rust = { version = "stable", os = ["linux", "macos"] }
+# Rust: mise owns the toolchain on every OS. The rust backend drives rustup as
+# its storage layer, so rustup stays the installer while mise stays the only
+# place that decides which toolchain a directory uses. On Windows the rustup
+# home and the Cargo home live under the mise data dir, which keeps the
+# machine on a single rustup home (see platforms/windows-11/README.md).
+rust = "stable"
 
 gh = "latest"
 infisical = "latest"
@@ -38,7 +40,27 @@ supabase = "latest"
 vercel = { version = "latest", depends = ["node"] }
 
 "npm:npkill" = { version = "latest", depends = ["node"] }
+
+# Rust CLI tools, installed by the cargo backend with the mise-managed Rust
+# toolchain; `depends = ["rust"]` installs the toolchain first. The
+# Windows-scoped ones are the tools this machine had as `cargo install`
+# binaries; they stay scoped to Windows until the other platforms declare
+# them too.
 "cargo:cargo-clean-all" = { version = "latest", depends = ["rust"] }
+"cargo:cargo-cleaner" = { version = "latest", depends = ["rust"], os = ["windows"] }
+"cargo:cargo-compete" = { version = "latest", depends = ["rust"], os = ["windows"] }
+"cargo:cargo-generate" = { version = "latest", depends = ["rust"], os = ["windows"] }
+"cargo:cargo-ndk" = { version = "latest", depends = ["rust"], os = ["windows"] }
+"cargo:cargo-update" = { version = "latest", depends = ["rust"], os = ["windows"] }
+"cargo:just" = { version = "latest", depends = ["rust"], os = ["windows"] }
+"cargo:llmfit" = { version = "latest", depends = ["rust"], os = ["windows"] }
+"cargo:tauri-cli" = { version = "latest", depends = ["rust"], os = ["windows"] }
+"cargo:wasm-pack" = { version = "latest", depends = ["rust"], os = ["windows"] }
+# Git sources resolve to the default branch unless the version names a tag,
+# branch or rev. The tags below keep the code this machine runs today, and
+# `crate` names the crate because the rtk repository holds more than one.
+"cargo:rtk-ai/rtk" = { version = "tag:v0.42.4", crate = "rtk", depends = ["rust"], os = ["windows"] }
+"cargo:rust-mcp-stack/rust-mcp-filesystem" = { version = "tag:v0.4.2", depends = ["rust"], os = ["windows"] }
 
 ripgrep = "latest"
 fd = "latest"
