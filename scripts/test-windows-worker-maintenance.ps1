@@ -111,7 +111,7 @@ function Set-WorkerRootMaintenanceChildCredential([Diagnostics.ProcessStartInfo]
 }
 function Start-WorkerRootMaintenanceCredentialedChild([Diagnostics.ProcessStartInfo]$StartInfo){
     $arguments=@($StartInfo.ArgumentList)
-    if($StartInfo.FileName -notlike '*pwsh.exe' -or $script:credentialedUser -cne 'worker' -or $script:credentialedPasswordType -cne 'System.Security.SecureString' -or ($arguments -join ' ') -notmatch '-NoProfile.*-File.*child.ps1.*-Action Inspect'){throw 'credentialed child launch contract mismatch'}
+    if($StartInfo.FileName -notlike '*pwsh*' -or $script:credentialedUser -cne 'worker' -or $script:credentialedPasswordType -cne 'System.Security.SecureString' -or ($arguments -join ' ') -notmatch '-NoProfile.*-File.*child.ps1.*-Action Inspect'){throw 'credentialed child launch contract mismatch'}
     $script:launchCaptured=$true
     throw 'fixture launch captured'
 }
