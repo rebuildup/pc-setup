@@ -156,7 +156,7 @@ try{
     & $pwshPath -NoLogo -NoProfile -NonInteractive -File $harness $PSScriptRoot/.. $fixtureBase $mockWsl
     if($LASTEXITCODE -ne 0){throw 'Fresh maintenance call-path fixture failed.'}
 }finally{$env:PSModulePath=$previousModulePath}
-$resolvedFixture=[IO.Path]::GetFullPath($fixtureBase);$expectedParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\')
-if([IO.Path]::GetDirectoryName($resolvedFixture).TrimEnd('\') -cne $expectedParent -or [IO.Path]::GetFileName($resolvedFixture) -cnotmatch '^pc-setup-root-maintenance-call-[a-f0-9]{32}$' -or (Get-Item -LiteralPath $resolvedFixture -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Unsafe call-path fixture cleanup target; preserve it for inspection.'}
+$resolvedFixture=[IO.Path]::GetFullPath($fixtureBase);$expectedParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([char[]]'\/')
+if([IO.Path]::GetDirectoryName($resolvedFixture).TrimEnd([char[]]'\/') -cne $expectedParent -or [IO.Path]::GetFileName($resolvedFixture) -cnotmatch '^pc-setup-root-maintenance-call-[a-f0-9]{32}$' -or (Get-Item -LiteralPath $resolvedFixture -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Unsafe call-path fixture cleanup target; preserve it for inspection.'}
 Remove-Item -LiteralPath $resolvedFixture -Recurse -Force
 Write-Output 'Worker root maintenance contracts: PASS'
