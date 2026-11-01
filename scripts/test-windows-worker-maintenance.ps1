@@ -94,6 +94,12 @@ function Get-WorkerRootMaintenanceRegisteredProfile([string]$Sid){$script:fixtur
 function Get-WorkerRootMaintenanceRegistrations {@([pscustomobject]@{Name="pcw-$instance";BasePath='C:\ProgramData\pcw-wsl\distro';Version=2})}
 function Get-WorkerRootMaintenanceWslExecutable {$script:mockWsl}
 function Get-WorkerRootMaintenancePowerShellExecutable {(Get-Process -Id $PID).Path}
+function New-CleanWorkerStartInfo([string]$Executable,[string]$WorkingDirectory,[string]$WindowsDirectory){
+    if($Executable -cne (Get-Process -Id $PID).Path -or $WorkingDirectory -cne $script:fixtureData){throw 'credentialed process input mismatch'}
+    $info=[Diagnostics.ProcessStartInfo]::new();$info.FileName=$Executable;$info.WorkingDirectory=$WorkingDirectory;$info.UseShellExecute=$false;$info.CreateNoWindow=$true
+    $info.RedirectStandardInput=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+    $info
+}
 function Assert-WorkerPlainPath([string]$Path){}
 function Assert-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind){}
 function Set-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind){}
