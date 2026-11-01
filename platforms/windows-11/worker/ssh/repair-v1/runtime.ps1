@@ -416,6 +416,14 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
         if ($mappingMissing) {
             Assert-WorkerGatewayMapping @(Get-WorkerGatewayMappings) $m.ListenAddress $fresh.Guest.address -MustBeAbsent
             if (@(Get-NetTCPConnection -State Listen -LocalPort 22224 -ErrorAction SilentlyContinue).Count) { throw 'Missing owned mapping conflicts with a live listener on TCP 22224.' }
+        } else {
+            Assert-WorkerGatewayMapping @(Get-WorkerGatewayMappings) $m.ListenAddress $mappingTarget
+            $listeners = @(Get-NetTCPConnection -State Listen -LocalPort 22224 -ErrorAction SilentlyContinue)
+            if ($listeners.Count -gt 1) { throw 'Multiple listeners conflict with the owned TCP 22224 gateway.' }
+            if ($listeners.Count -eq 1) {
+                $helper = Get-CimInstance Win32_Service -Filter "Name='iphlpsvc'"
+                if ($listeners[0].LocalAddress -cne $m.ListenAddress -or $listeners[0].OwningProcess -notin @(4,[int]$helper.ProcessId)) { throw 'Foreign listener conflicts with the owned TCP 22224 gateway.' }
+            }
         }
         Invoke-WorkerPortProxy $mappingVerb $m.ListenAddress $fresh.Guest.address
         Assert-WorkerGatewayMapping @(Get-WorkerGatewayMappings) $m.ListenAddress $fresh.Guest.address

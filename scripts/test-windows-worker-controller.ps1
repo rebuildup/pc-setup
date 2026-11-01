@@ -20,6 +20,7 @@ $required=@(
     'Invoke-WorkerWslStage $id $password Inventory $ProtectedFile $ProtectedDirectory',
     'WslRegistration -cne ''registered''',
     'FromMinutes(15)',
+    "owned-mapping-missing",
     "SetAccessRuleProtection(`$true,`$false)",
     'Assert-WorkerControllerTrustedGit',
     '$script:WorkerControllerGitExecutable',
