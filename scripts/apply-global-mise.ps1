@@ -79,6 +79,23 @@ Write-Host "synced  $TargetConfig <- $SourceConfig"
 if (Test-Path -LiteralPath $SourceLock) {
     Copy-Item -LiteralPath $SourceLock -Destination $TargetLock -Force
     Write-Host "synced  $TargetLock <- $SourceLock"
+
+    # The lock references its dependency sidecars by a path relative to the
+    # lock file (`aube = { path = ".mise/locks/mise.global/<tool>/<version>" }`).
+    # On POSIX the lock is a symlink into the repository, so mise resolves those
+    # paths against the repository root and finds them. Windows copies the lock
+    # instead, so mise resolves them against the copy's directory and every
+    # locked install fails with "dependency sidecar ... path not found". Copy
+    # the sidecar tree next to the lock to keep both platforms equivalent.
+    $SourceSidecars = Join-Path $RepoRoot '.mise'
+    $TargetSidecars = Join-Path (Split-Path -Parent $TargetLock) '.mise'
+    if (Test-Path -LiteralPath $SourceSidecars) {
+        if (Test-Path -LiteralPath $TargetSidecars) {
+            Remove-Item -LiteralPath $TargetSidecars -Recurse -Force
+        }
+        Copy-Item -LiteralPath $SourceSidecars -Destination $TargetSidecars -Recurse -Force
+        Write-Host "synced  $TargetSidecars <- $SourceSidecars"
+    }
 }
 elseif (Test-Path -LiteralPath $TargetLock) {
     Remove-Item -LiteralPath $TargetLock -Force
