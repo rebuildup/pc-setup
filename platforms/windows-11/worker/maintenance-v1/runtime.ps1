@@ -78,12 +78,16 @@ function Start-WorkerRootMaintenanceCredentialedChild([Diagnostics.ProcessStartI
     [Diagnostics.Process]::Start($StartInfo)
 }
 
+function Get-WorkerRootMaintenancePowerShellExecutable {
+    Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell/7/pwsh.exe'
+}
+
 function Invoke-WorkerRootMaintenanceChild([string]$InstanceId,[SecureString]$Password,[ValidateSet('Inspect','Apply')][string]$Action,[string]$RepositoryRoot,[string]$ExpectedCommit){
     $stage=Read-WorkerRootMaintenanceStage $InstanceId $RepositoryRoot $ExpectedCommit
     $worker=Read-WorkerState $InstanceId
     if(-not $Password -or $Password.Length -lt 1){throw 'Supply the in-memory Windows worker credential.'}
     $nonce=[guid]::NewGuid().ToString('N')
-    $exe=Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell/7/pwsh.exe'
+    $exe=Get-WorkerRootMaintenancePowerShellExecutable
     $info=New-CleanWorkerStartInfo $exe (Get-WorkerPaths $InstanceId).Data ([Environment]::GetFolderPath('Windows'))
     $info.UserName=$worker.UserName;$info.Domain=[Environment]::MachineName;$info.Password=$Password;$info.LoadUserProfile=$true
     foreach($arg in @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path (Get-WorkerRootMaintenanceStagePath $InstanceId) 'child.ps1'),'-Action',$Action,'-ManifestPath',(Join-Path (Get-WorkerRootMaintenanceStagePath $InstanceId) 'manifest.json'),'-Nonce',$nonce)){$info.ArgumentList.Add($arg)}

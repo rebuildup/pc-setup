@@ -93,6 +93,7 @@ function Get-WorkerRootMaintenanceCurrentProfile {$script:fixtureProfile}
 function Get-WorkerRootMaintenanceRegisteredProfile([string]$Sid){$script:fixtureProfile}
 function Get-WorkerRootMaintenanceRegistrations {@([pscustomobject]@{Name="pcw-$instance";BasePath='C:\ProgramData\pcw-wsl\distro';Version=2})}
 function Get-WorkerRootMaintenanceWslExecutable {$script:mockWsl}
+function Get-WorkerRootMaintenancePowerShellExecutable {(Get-Process -Id $PID).Path}
 function Assert-WorkerPlainPath([string]$Path){}
 function Assert-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind){}
 function Set-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind){}
