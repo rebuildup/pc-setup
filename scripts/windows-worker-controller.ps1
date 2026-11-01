@@ -8,8 +8,22 @@ param(
     [string]$InventoryResultPath,
     [string]$OperationId,
     [string]$PreviousOperationId,
-    [string]$PublicKeyPath
+    [string]$PublicKeyPath,
+    [switch]$SelfTestModuleBoundary
 )
+
+# Restrict module autoload before the first PowerShell cmdlet. This section uses
+# only .NET and automatic variables, so elevated commands cannot resolve from
+# CurrentUser Modules or any inherited user-controlled module path.
+$approvedModulePaths = [Collections.Generic.List[string]]::new()
+$pwshModules = [IO.Path]::Combine($PSHOME,'Modules')
+if ([IO.Directory]::Exists($pwshModules)) { $approvedModulePaths.Add($pwshModules) }
+if ($IsWindows) {
+    $windowsModules = [IO.Path]::Combine([Environment]::SystemDirectory,'WindowsPowerShell','v1.0','Modules')
+    if ([IO.Directory]::Exists($windowsModules)) { $approvedModulePaths.Add($windowsModules) }
+}
+[Environment]::SetEnvironmentVariable('PSModulePath',[string]::Join([IO.Path]::PathSeparator,$approvedModulePaths),'Process')
+if ($SelfTestModuleBoundary) { [Console]::Out.WriteLine([Environment]::GetEnvironmentVariable('PSModulePath','Process')); exit 0 }
 
 $ErrorActionPreference = 'Stop'
 $script:WorkerControllerInstanceId = '2a1084ec-5389-4b0b-a0f0-9a38fcfaece5'

@@ -33,4 +33,38 @@ if(-not $actions.Success){throw 'Worker controller action allowlist missing.'}
 $actionNames=@([regex]::Matches($actions.Groups['actions'].Value,"'([^']+)'" )|ForEach-Object{$_.Groups[1].Value})
 $expected=@('Status','WslInventory','GatewayRepair','KeyPrepare','KeyVerifyBefore','KeyUpdate','KeyVerifyAfter','KeyGateway','LifecycleInstall','MaintenanceStage','MaintenanceInspect','MaintenanceApply')
 if(($actionNames -join ',') -cne ($expected -join ',')){throw 'Worker controller action set changed without updating its contract test.'}
+
+$moduleBoundary=$source.IndexOf("[Environment]::SetEnvironmentVariable('PSModulePath'",[StringComparison]::Ordinal)
+$preference=$source.IndexOf('$ErrorActionPreference = ''Stop''',[StringComparison]::Ordinal)
+if($moduleBoundary -lt 0 -or $preference -lt $moduleBoundary){throw 'PSModulePath must be fixed before PowerShell error/cmdlet setup.'}
+$prefix=$source.Substring(0,$moduleBoundary)
+if($prefix -match '(?im)\b(Get-Item|Get-FileHash|Test-Path|Join-Path|Set-Acl|Get-Acl|Write-Output|Import-Module)\b'){throw 'A PowerShell cmdlet appears before the .NET PSModulePath boundary.'}
+
+# Launch the real entrypoint in a fresh pwsh process whose inherited module
+# search path contains a fake CurrentUser Modules directory. The self-test exits
+# immediately after the .NET boundary and before privilege/source checks.
+$fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('pc-setup-controller-module-boundary-'+[guid]::NewGuid().ToString('N'))
+$poisonModules=Join-Path $fixtureRoot 'CurrentUser/Modules'
+[void][IO.Directory]::CreateDirectory($poisonModules)
+$pwsh=if($IsWindows){Join-Path $PSHOME 'pwsh.exe'}else{Join-Path $PSHOME 'pwsh'}
+$info=[Diagnostics.ProcessStartInfo]::new();$info.FileName=$pwsh;$info.UseShellExecute=$false;$info.CreateNoWindow=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+$info.Environment['PSModulePath']=$poisonModules
+foreach($arg in @('-NoProfile','-NonInteractive','-File',$path,'-Action','Status','-ExpectedCommit',('0'*40),'-ExpectedControllerSha256',('0'*64),'-SelfTestModuleBoundary')){$info.ArgumentList.Add($arg)}
+$process=$null
+try{
+    $process=[Diagnostics.Process]::Start($info)
+    $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
+    if(-not $process.WaitForExit(30000)){throw 'Controller module-boundary child timed out.'}
+    $actual=$stdout.GetAwaiter().GetResult().Trim();$errorText=$stderr.GetAwaiter().GetResult()
+    if($process.ExitCode -ne 0 -or $errorText -or $actual.Split([IO.Path]::PathSeparator) -contains $poisonModules){throw 'Fresh controller process retained the poisoned module directory.'}
+    $expectedModules=[Collections.Generic.List[string]]::new();$pwshModules=[IO.Path]::Combine($PSHOME,'Modules')
+    if([IO.Directory]::Exists($pwshModules)){$expectedModules.Add($pwshModules)}
+    if($IsWindows){$windowsModules=[IO.Path]::Combine([Environment]::SystemDirectory,'WindowsPowerShell','v1.0','Modules');if([IO.Directory]::Exists($windowsModules)){$expectedModules.Add($windowsModules)}}
+    if($actual -cne [string]::Join([IO.Path]::PathSeparator,$expectedModules)){throw 'Fresh controller process module path differs from the approved platform directories.'}
+}finally{
+    if($process){$process.Dispose()}
+    $tempRoot=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+    $target=[IO.Path]::GetFullPath($fixtureRoot)
+    if($target.StartsWith($tempRoot,[StringComparison]::OrdinalIgnoreCase)){Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction SilentlyContinue}
+}
 Write-Output 'Windows worker recovery controller source contract PASS.'
