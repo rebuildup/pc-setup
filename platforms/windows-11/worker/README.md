@@ -117,4 +117,26 @@ stage準備と実行はreview済みclean checkoutからnative x64 PowerShell 7.3
 
 `scripts/test-windows-worker-maintenance.ps1` はfresh `pwsh -NoProfile` processで実際のstage初期化/copy/readback、資格情報付きchildの起動条件、child runtimeの固定WSL argv・stdin送信・nonce付きreport検証をfixture化する。ACL、Windows identity/profile/registry、WSL process境界だけをmockし、APTや実WSL rootは実行しない。
 
+## UUID限定の復旧controller
+
+`scripts/windows-worker-controller.ps1` は既存V4 lifecycleと同じ固定Infisical project/env/path/key、公式Infisical Windows CLIのSHA256、`SecretCapture.cs`のSHA256を検査し、Windows passwordをprocess-memory `SecureString`だけで取得する。CLI stdoutはC# helperからSecureStringへ直接読み、passwordをPowerShell string、argv、environment、file、resultへ出さない。controller自身のSHA256とclean checkoutの完全commitも必須。固定UUIDは `2a1084ec-5389-4b0b-a0f0-9a38fcfaece5` で、任意UUIDを受け付けない。全actionの結果はユーザー専用ACLのLocalAppData内JSONへ追記する。
+
+このcontrollerはWSLの登録/再登録をしない。`Status` は管理者が見えるmanifest/stage/task/listenerだけを読み、worker registry hiveが未ロードなら登録状態を`unknown`とする。`WslInventory` は既存stageを使ってworker本人のprofile/HKCUをcredentialed read-only照会する。Inventory結果が`registered`のときだけ、後続actionにそのcontroller result pathを渡せる。未登録なら停止し、Windows→Macの専用22222 SSH PoC成功後に、既存の別途承認済みWSL import手順を実施する。PoCやWSL registrationをcontrollerが成功扱いにする経路はない。
+
+復旧・鍵追加・永続化・OS保守は次の独立action順で進める。各呼出しは1 actionのみで、失敗/結果不明なら既存marker/resultと実状態を確認し、同じmutating actionを再実行しない。
+
+1. `Status`（password不要）→ `WslInventory`（read-only、保護対象pathを指定）。
+2. 既存VerifyV3/repair stateが妥当な場合だけ `GatewayRepair`。22224のworker gatewayだけを扱い、22222のSYSTEM task/sshdには触れない。
+3. `KeyPrepare`に新規operation UUIDとMac公開鍵fileを指定。次に同じoperationで `KeyVerifyBefore` → `KeyUpdate` → `KeyVerifyAfter` → `KeyGateway` を一回ずつ実行。秘密鍵はMacに残し、結果不明時は再Updateせず状態調査。
+4. Mac側でWindows/WSL host pinと専用鍵のnonce往復が成功した後にだけ `LifecycleInstall`。これはInteractive/Highest login taskとProgramData bundleを作るため、明示した持続変更。
+5. `MaintenanceStage` → `MaintenanceInspect`。人が不足packageと差分を確認した後、許容差分の場合に限り別コマンドで `MaintenanceApply`。
+
+読み取り例（`<...>`はreview後に確定したcommit/hashへ置換）。Infisical CLIはruntimeに固定されたWindows amd64 v0.44.4 SHA256と一致するローカルfileを指定する。異なるhashの既存CLIは使用しない。
+
+```powershell
+& 'C:\path\to\pc-setup\scripts\windows-worker-controller.ps1' -Action Status -ExpectedCommit '<40-char-reviewed-commit>' -ExpectedControllerSha256 '<64-char-controller-sha256>'
+```
+
+認証または後続actionでは `-InfisicalSource '<verified-infisical.exe>'` を追加する。`WslInventory`には既存のoperator-owned protected file/directoryを `-ProtectedFile` / `-ProtectedDirectory` で明示し、出力された `ResultPath` を `-InventoryResultPath` として後続actionへ渡す。鍵stageでは `-OperationId` を一度だけ作成して以後記録し、`KeyPrepare` に `-PublicKeyPath` を渡す。lifecycle/maintenanceでは同じclean checkout commitを使う。controllerはMac側nonce成功やAPTの人手承認を代行しない。
+
 sourceテストはpackage一覧が`mise.toml`と一致すること、引数・報告parser、SHA256 pin、PowerShell/Bash構文を確認する。実APT導入や実WSL root実行の証拠ではない。初回実機適用、Windows→WSL SSHの専用鍵/host pin/nonce、Herdr接続は個別に記録する。
