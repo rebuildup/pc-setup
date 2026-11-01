@@ -131,7 +131,13 @@ $childOutput=Invoke-WorkerRootMaintenanceChildCore Inspect (Join-Path $fixtureSt
  [Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',$previousCanary,'Process')
 if($childOutput.Sid -cne 'S-1-5-21-1-2-3-1000' -or $childOutput.RootUid -ne 0 -or -not $childOutput.Complete -or $childOutput.Nonce -cne '0123456789abcdef0123456789abcdef'){throw 'fresh child WSL stdin roundtrip/report validation failed'}
 '@|Set-Content -LiteralPath $harness -Encoding utf8
-$pwshPath=Join-Path $env:ProgramW6432 'PowerShell/7/pwsh.exe';if(-not(Test-Path -LiteralPath $pwshPath)){ $pwshPath=(Get-Process -Id $PID).Path };$previousModulePath=$env:PSModulePath
+$pwshPath=(Get-Process -Id $PID).Path
+if($IsWindows -and -not [Environment]::Is64BitProcess){
+    $x64Candidate=Join-Path $env:ProgramW6432 'PowerShell/7/pwsh.exe'
+    if(-not(Test-Path -LiteralPath $x64Candidate)){throw 'The fresh child-path fixture requires x64 PowerShell 7 on Windows.'}
+    $pwshPath=$x64Candidate
+}
+$previousModulePath=$env:PSModulePath
 try{
     $env:PSModulePath=(Join-Path $fixtureBase 'untrusted-modules')+[IO.Path]::PathSeparator+[IO.Path]::PathSeparator
     & $pwshPath -NoLogo -NoProfile -NonInteractive -File $harness $PSScriptRoot/.. $fixtureBase $mockWsl
