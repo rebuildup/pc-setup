@@ -45,7 +45,7 @@ $repairTokens=$null;$repairErrors=$null
 [System.Management.Automation.Language.Parser]::ParseFile($repairPath,[ref]$repairTokens,[ref]$repairErrors)|Out-Null
 if($repairErrors){throw 'Worker gateway repair runtime has a PowerShell syntax error.'}
 $repairSource=Get-Content -LiteralPath $repairPath -Raw
-foreach($required in @('pc-setup/windows-worker-gateway-repair/v1','Read-WorkerGatewayRepairBaseV3','BaseGatewayManifestHash','HostFingerprint','Invoke-WorkerPortProxy set','Get-WorkerSshHoldArguments','Test-WorkerKeyStageGatewayRepairV1','instance.lock','[IO.FileShare]::None','Another gateway repair operation owns the instance lock.','*.intent.json','*.hold.json','Pending launch intent has no unique matching hold','latest journaled transition','PCSetupWorkerGatewayRepairStep','read-only-v3-verification','hold-process-resume-or-start','manifest-commit','Invoke-WorkerGatewayRepairV3ReadOnly','Assert-WorkerGatewayRepairV3Live','Assert-WorkerGatewayRepairHold','Replace-WorkerGatewayRepairManifest','PreviousManifestHash','Get-WorkerGatewayRepairAcceptedSourceHashes','77C209A4BE06B8F0275292556852BDA6BDF9C5D0E9D62D0F0DED1769024A6004','404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A','Repair manifest backup differs from its journaled before hash.')){if($repairSource -cnotmatch [regex]::Escape($required)){throw "Worker gateway repair contract missing: $required"}}
+foreach($required in @('pc-setup/windows-worker-gateway-repair/v1','Read-WorkerGatewayRepairBaseV3','BaseGatewayManifestHash','HostFingerprint','Invoke-WorkerPortProxy $mappingVerb','Missing gateway mapping has no matching owned manifest transition.','Get-WorkerSshHoldArguments','Test-WorkerKeyStageGatewayRepairV1','instance.lock','[IO.FileShare]::None','Another gateway repair operation owns the instance lock.','*.intent.json','*.hold.json','Pending launch intent has no unique matching hold','latest journaled transition','PCSetupWorkerGatewayRepairStep','read-only-v3-verification','hold-process-resume-or-start','manifest-commit','Invoke-WorkerGatewayRepairV3ReadOnly','Assert-WorkerGatewayRepairV3Live','Assert-WorkerGatewayRepairHold','Replace-WorkerGatewayRepairManifest','PreviousManifestHash','Get-WorkerGatewayRepairAcceptedSourceHashes','77C209A4BE06B8F0275292556852BDA6BDF9C5D0E9D62D0F0DED1769024A6004','404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2','1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A','Repair manifest backup differs from its journaled before hash.')){if($repairSource -cnotmatch [regex]::Escape($required)){throw "Worker gateway repair contract missing: $required"}}
 if($repairSource -match 'Assert-WorkerGatewayLive'){throw 'Repair stage must not pass a V3 report to the V1 live contract.'}
 foreach($forbidden in @('Remove-NetFirewallRule','Stop-Service','Set-Service','ssh-agent')){if($repairSource -match [regex]::Escape($forbidden)){throw "Worker gateway repair contains forbidden operation: $forbidden"}}
 # Security regression: an ineffective local rule must fail before port publication.
@@ -93,7 +93,7 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
     $fixtureBase=Join-Path ([IO.Path]::GetTempPath()) ('pc-setup-repair-test-'+[guid]::NewGuid().ToString('N'))
     $fixtureRoot=Join-Path $fixtureBase 'repair';$fixtureBaseV3=Join-Path $fixtureBase 'base';$fixtureSsh=Join-Path $fixtureBase 'ssh';$fixtureVerification=Join-Path $fixtureBase 'verification'
     foreach($directory in @($fixtureRoot,$fixtureBaseV3,$fixtureSsh,$fixtureVerification)){[void](New-Item -ItemType Directory -Path $directory -Force)}
-    $script:repairFixture=[pscustomobject]@{Root=$fixtureRoot;Base=$fixtureBaseV3;Ssh=$fixtureSsh;Verification=$fixtureVerification;Sid='S-1-5-21-1-2-3-1001';Listen='100.118.123.62';Controller='100.83.203.34';OldGuest='172.30.1.2';CurrentGuest='172.30.1.3';HostFingerprint='SHA256:fixture-host-pin';CurrentTarget='172.30.1.3';Hold=$null;StartCalls=0;MappingCalls=0;ReplaceCalls=0;FailBeforeManifestReplace=$true;FailAfterBackupCreation=$false;FailAfterManifestReplace=$false;ForceHoldStartMismatch=$false}
+$script:repairFixture=[pscustomobject]@{Root=$fixtureRoot;Base=$fixtureBaseV3;Ssh=$fixtureSsh;Verification=$fixtureVerification;Sid='S-1-5-21-1-2-3-1001';Listen='100.118.123.62';Controller='100.83.203.34';OldGuest='172.30.1.2';CurrentGuest='172.30.1.3';HostFingerprint='SHA256:fixture-host-pin';CurrentTarget='172.30.1.3';MissingMapping=$false;ConflictingListener=$false;FailAcl=$false;Hold=$null;StartCalls=0;MappingCalls=0;ReplaceCalls=0;FailBeforeManifestReplace=$true;FailAfterBackupCreation=$false;FailAfterManifestReplace=$false;ForceHoldStartMismatch=$false}
     $journal=Join-Path $fixtureRoot 'journal';[void](New-Item -ItemType Directory -Path $journal -Force)
     [IO.File]::WriteAllText((Join-Path $fixtureRoot 'instance.lock'),'')
     [IO.File]::WriteAllText((Join-Path $fixtureBaseV3 'manifest.json'),'{}')
@@ -113,6 +113,7 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
     $receipt=[ordered]@{Owner='pc-setup/windows-worker-gateway-repair/v1';InstanceId=$fixtureId;Sid=$gateway.Sid;Hold=$hold;IntentId=$intentId;RecordedAtUtc=[DateTime]::UtcNow.AddMinutes(-5).ToString('o')}
     [IO.File]::WriteAllText((Join-Path $journal "$intentId.hold.json"),($receipt|ConvertTo-Json -Depth 6))
     $before=[ordered]@{Owner='pc-setup/windows-worker-gateway-repair/v1';InstanceId=$fixtureId;Sid=$gateway.Sid;Previous=$script:repairFixture.OldGuest;Current=$script:repairFixture.CurrentGuest;PreviousHoldPID=$null;CurrentHoldPID=$hold.PID;CapturedAtUtc=[DateTime]::UtcNow.AddMinutes(-4).ToString('o')}
+    $before.PreviousManifestHash=(Get-FileHash (Join-Path $fixtureRoot 'manifest.json')).Hash
     [IO.File]::WriteAllText((Join-Path $journal "$changeId.before.json"),($before|ConvertTo-Json))
     $pending=[ordered]@{};foreach($name in $manifest.Keys){$pending[$name]=$manifest[$name]};$pending.GuestAddress=$script:repairFixture.CurrentGuest;$pending.Hold=$hold;$pending.SourceHash='404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2';$pending.UpdatedAtUtc=[DateTime]::UtcNow.AddMinutes(-4).ToString('o')
     [IO.File]::WriteAllText((Join-Path $fixtureRoot "$changeId.pending.json"),($pending|ConvertTo-Json -Depth 6))
@@ -120,7 +121,7 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
     $script:repairFixture|Add-Member -NotePropertyName Live -NotePropertyValue $live
 
     function Assert-WorkerAdministrator {}
-    function Assert-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind) {}
+    function Assert-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind) { if($script:repairFixture.FailAcl){throw 'fixture ACL mismatch'};if($Sid -cne $script:repairFixture.Sid -or $Kind -cne 'Metadata'){throw 'fixture ACL identity mismatch'} }
     function Set-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind) {}
     function Assert-WorkerVpnAddress([string]$Address) {}
     function Assert-WorkerGatewayRule([string]$Name,[string]$Kind,$Manifest) {}
@@ -136,14 +137,14 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
     function Invoke-WorkerVerificationV3([string]$InstanceId,[SecureString]$Password,[switch]$ReadOnly) { $script:repairFixture.Live }
     function Assert-WorkerGatewayRepairV3Live($Stage,$Report,[string]$Listen,[string]$Controller) {}
     function Assert-WorkerGatewayRepairHold([string]$InstanceId,[string]$Sid,$Hold,[string]$PublicKey) {}
-    function Get-WorkerGatewayMappings { @([pscustomobject]@{Family='v4tov4';Name="$($script:repairFixture.Listen)/22224";Target="$($script:repairFixture.CurrentTarget)/22224"}) }
-    function Assert-WorkerGatewayMapping($Mappings,[string]$Listen,[string]$Guest,[switch]$MustBeAbsent) { if($MustBeAbsent -or $Listen -cne $script:repairFixture.Listen -or $Guest -cne $script:repairFixture.CurrentTarget -or $Mappings.Count -ne 1){throw 'fixture mapping mismatch'} }
-    function Invoke-WorkerPortProxy([string]$Verb,[string]$Listen,[string]$Guest) { $script:repairFixture.MappingCalls++;$script:repairFixture.CurrentTarget=$Guest }
+    function Get-WorkerGatewayMappings { if($script:repairFixture.MissingMapping){return @()};@([pscustomobject]@{Family='v4tov4';Name="$($script:repairFixture.Listen)/22224";Target="$($script:repairFixture.CurrentTarget)/22224"}) }
+    function Assert-WorkerGatewayMapping($Mappings,[string]$Listen,[string]$Guest,[switch]$MustBeAbsent) { if($MustBeAbsent){if($Mappings.Count){throw 'fixture reserved port mapping exists'};return};if($Listen -cne $script:repairFixture.Listen -or $Guest -cne $script:repairFixture.CurrentTarget -or $Mappings.Count -ne 1){throw 'fixture mapping mismatch'} }
+    function Invoke-WorkerPortProxy([string]$Verb,[string]$Listen,[string]$Guest) { $script:repairFixture.MappingCalls++;if(-not $script:repairFixture.PSObject.Properties['MappingVerbs']){$script:repairFixture|Add-Member -NotePropertyName MappingVerbs -NotePropertyValue ([Collections.Generic.List[string]]::new())};$script:repairFixture.MappingVerbs.Add($Verb);$script:repairFixture.CurrentTarget=$Guest;$script:repairFixture.MissingMapping=$false }
     function Get-WorkerGatewayBlockedRanges([string]$Controller) { @() }
     function Test-WorkerGatewaySubnet([string]$Ip,[string]$Prefix) { $true }
     function Get-NetRoute([string]$AddressFamily) { @([pscustomobject]@{InterfaceAlias='vEthernet (WSL)';NextHop='0.0.0.0';DestinationPrefix='172.30.0.0/20'}) }
     function Get-NetIPAddress([string]$AddressFamily,[string]$IPAddress) { @() }
-    function Get-NetTCPConnection([string]$State,[int]$LocalPort,[string]$ErrorAction) { @([pscustomobject]@{LocalAddress=$script:repairFixture.Listen;OwningProcess=4}) }
+    function Get-NetTCPConnection([string]$State,[int]$LocalPort,[string]$ErrorAction) { if($script:repairFixture.ConflictingListener){return @([pscustomobject]@{LocalAddress='0.0.0.0';OwningProcess=999})};if($script:repairFixture.MissingMapping){return @()};@([pscustomobject]@{LocalAddress=$script:repairFixture.Listen;OwningProcess=4}) }
     function Get-CimInstance([string]$ClassName,[string]$Filter,[string]$ErrorAction) { if($ClassName -eq 'Win32_Service'){[pscustomobject]@{State='Running';ProcessId=4}}else{[pscustomobject]@{ProcessId=$script:repairFixture.Hold.PID;ExecutablePath=$script:repairFixture.Hold.Executable;CommandLine=$script:repairFixture.Hold.CommandLine}} }
     function Invoke-CimMethod($InputObject,[string]$MethodName) { [pscustomobject]@{Sid=$script:repairFixture.Sid} }
     function Get-Process([int]$Id) { [pscustomobject]@{Id=$script:repairFixture.Hold.PID;StartTime=[DateTime]::UtcNow.AddMinutes(-5)} }
@@ -158,6 +159,32 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
     }
     $password=ConvertTo-SecureString 'fixture-only-not-a-secret' -AsPlainText -Force
     try {
+        if(-not(Test-WorkerGatewayRepairAcceptedSourceHash '77C209A4BE06B8F0275292556852BDA6BDF9C5D0E9D62D0F0DED1769024A6004') -or -not(Test-WorkerGatewayRepairAcceptedSourceHash '5C740C91F541DAF9E4A46B4D00CC4831A1472989289309A8F8E16BBE1CF746B2')){throw 'Original V4 repair manifest source hash is not accepted.'}
+        $script:repairFixture.FailAcl=$true
+        $aclRefused=$false;try{Read-WorkerGatewayRepairV1 $fixtureId|Out-Null}catch{$aclRefused=$_.Exception.Message -ceq 'fixture ACL mismatch'}
+        if(-not $aclRefused){throw 'Repair accepted a failed ACL ownership check.'};$script:repairFixture.FailAcl=$false
+        $unknownJournal=Join-Path $journal 'unknown.json';[IO.File]::WriteAllText($unknownJournal,'{}')
+        $unknownRefused=$false;try{Read-WorkerGatewayRepairV1 $fixtureId|Out-Null}catch{$unknownRefused=$_.Exception.Message -ceq 'Partial repair journal; preserve and inspect.'}
+        [IO.File]::Delete($unknownJournal)
+        if(-not $unknownRefused){throw 'Repair adopted an unknown journal artifact.'}
+        $script:repairFixture.Live.Guest.address=$script:repairFixture.OldGuest
+        $journaledTarget=Read-WorkerGatewayRepairV1 $fixtureId
+        if($journaledTarget.MappingTarget -cne $script:repairFixture.CurrentGuest -or $journaledTarget.GuestAddress -cne $script:repairFixture.OldGuest){throw 'Latest journaled mapping target was not preserved for live reconciliation.'}
+        $script:repairFixture.Live.Guest.address=$script:repairFixture.CurrentGuest
+        $exclusiveLock=[IO.File]::Open((Join-Path $fixtureRoot 'instance.lock'),[IO.FileMode]::Open,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
+        try{$concurrentRefused=$false;try{Invoke-WorkerGatewayRepairV1 $fixtureId (ConvertTo-SecureString 'fixture-only-not-a-secret' -AsPlainText -Force)|Out-Null}catch{$concurrentRefused=$_.Exception.Message -ceq 'Another gateway repair operation owns the instance lock.'};if(-not $concurrentRefused){throw 'Concurrent repair did not fail closed.'}}finally{$exclusiveLock.Dispose()}
+        $script:repairFixture.MissingMapping=$true
+        $missingMapping=Read-WorkerGatewayRepairV1 $fixtureId
+        if(-not $missingMapping.MappingMissing -or $missingMapping.GuestAddress -cne $script:repairFixture.OldGuest){throw 'Owned missing-mapping journal fixture was not recognized.'}
+        $script:repairFixture.ConflictingListener=$true
+        $listenerRefused=$false;try{Read-WorkerGatewayRepairV1 $fixtureId|Out-Null}catch{$listenerRefused=$_.Exception.Message -ceq 'Missing owned mapping conflicts with a live listener on TCP 22224.'}
+        if(-not $listenerRefused){throw 'Missing mapping with a conflicting listener was not refused.'}
+        $script:repairFixture.ConflictingListener=$false;$script:repairFixture.MissingMapping=$false
+        $script:repairFixture.CurrentTarget='172.30.1.4'
+        $targetRefused=$false;try{Read-WorkerGatewayRepairV1 $fixtureId|Out-Null}catch{$targetRefused=$_.Exception.Message -ceq 'Gateway mapping is outside the manifest and latest journaled transition.'}
+        if(-not $targetRefused){throw 'Different portproxy target was adopted.'}
+        $script:repairFixture.CurrentTarget=$script:repairFixture.CurrentGuest
+        $script:repairFixture.MissingMapping=$true
         $firstFailed=$false
         try { Invoke-WorkerGatewayRepairV1 $fixtureId $password|Out-Null } catch { if($_.Exception.Message -cne 'fixture interrupted before atomic manifest replace'){throw};$firstFailed=$true }
         if(-not $firstFailed -or $global:PCSetupWorkerGatewayRepairStep -cne 'manifest-commit'){throw 'Fixture did not stop at the manifest commit boundary.'}
@@ -166,7 +193,7 @@ $atomicRepairReplace=(Get-Command Replace-WorkerGatewayRepairManifest -CommandTy
         $result=Invoke-WorkerGatewayRepairV1 $fixtureId $password
         if($result.GuestAddress -cne $script:repairFixture.CurrentGuest -or $result.Hold.PID -ne $hold.PID -or $result.SourceHash -cne $currentSource){throw 'Fixture recovery manifest differs from live verified state.'}
         if((Test-Path (Join-Path $fixtureRoot "$changeId.pending.json")) -or (Test-Path (Join-Path $journal "$intentId.hold.json")) -or (Test-Path (Join-Path $journal "$intentId.intent.json"))){throw 'Fixture recovery left a committed pending/hold receipt.'}
-        if($script:repairFixture.StartCalls -ne 0 -or $script:repairFixture.MappingCalls -ne 2 -or $script:repairFixture.CurrentTarget -cne $script:repairFixture.CurrentGuest){throw 'Fixture recovery restarted WSL or changed the wrong mapping.'}
+        if($script:repairFixture.StartCalls -ne 0 -or $script:repairFixture.MappingCalls -ne 2 -or $script:repairFixture.MappingVerbs[0] -cne 'add' -or $script:repairFixture.MappingVerbs[1] -cne 'set' -or $script:repairFixture.CurrentTarget -cne $script:repairFixture.CurrentGuest){throw 'Missing-mapping fixture did not add the owned portproxy and resume safely.'}
         $script:repairFixture.FailAfterBackupCreation=$true;$noReceiptFailure=$false
         try { Invoke-WorkerGatewayRepairV1 $fixtureId $password|Out-Null } catch { if($_.Exception.Message -cne 'fixture interrupted after backup creation'){throw};$noReceiptFailure=$true }
         $noReceiptPending=@(Get-ChildItem -LiteralPath $fixtureRoot -Filter '*.pending.json' -Force)

@@ -5,6 +5,7 @@
 function Get-WorkerGatewayRepairAcceptedSourceHashes {
     @(
         (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot 'runtime.ps1') -Algorithm SHA256).Hash
+        '5C740C91F541DAF9E4A46B4D00CC4831A1472989289309A8F8E16BBE1CF746B2'
         '77C209A4BE06B8F0275292556852BDA6BDF9C5D0E9D62D0F0DED1769024A6004'
         '404606904CFAD3D25C33F90AD31F2C47BEEAF8B5245B45BBEFC249E8A941C4B2'
         '1DBB76DBE660317C2BC197DEE81ADA34CE8D2FEA4358D921818C81A01953822A'
@@ -105,17 +106,52 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
     }
     $journal = Join-Path $root 'journal'
     $mappingSet = @(Get-WorkerGatewayMappings)
-    $mappingChecked = $false
-    $mappingTargets = @($m.GuestAddress)
-    $lastChange = @(Get-ChildItem -LiteralPath $journal -Filter '*.before.json' -Force | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1)
-    if ($lastChange.Count -eq 1) {
-        $transition = Get-Content -LiteralPath $lastChange[0].FullName -Raw | ConvertFrom-Json
-        if ($transition.Current -match '^(?:\d{1,3}\.){3}\d{1,3}$') { $mappingTargets += $transition.Current }
+    $reservedMappings = @($mappingSet | Where-Object Name -match '/22224$')
+    $changes = @(Get-ChildItem -LiteralPath $journal -Filter '*.before.json' -Force)
+    $latestChange = $null
+    if ($changes.Count) {
+        foreach ($change in $changes) {
+            $record = $journalRecords[$change.Name]
+            $captured = [DateTime]::MinValue
+            if (-not $record -or -not $record.CapturedAtUtc -or -not [DateTime]::TryParse($record.CapturedAtUtc,[ref]$captured)) { throw 'Repair journal transition timestamp is invalid.' }
+        }
+        $orderedChanges = @($changes | Sort-Object LastWriteTimeUtc -Descending)
+        if ($orderedChanges.Count -gt 1 -and $orderedChanges[0].LastWriteTimeUtc -eq $orderedChanges[1].LastWriteTimeUtc) { throw 'Repair journal has an ambiguous latest transition.' }
+        $latestChange = [pscustomobject]@{ Path=$orderedChanges[0].FullName; Record=$journalRecords[$orderedChanges[0].Name] }
     }
-    foreach ($target in @($mappingTargets | Select-Object -Unique)) {
-        try { Assert-WorkerGatewayMapping $mappingSet $m.ListenAddress $target; $mappingChecked=$true; break } catch { }
+    $mappingMissing = $false
+    $mappingTarget = $null
+    if ($reservedMappings.Count) {
+        $mappingTargets = @($m.GuestAddress)
+        if ($latestChange -and $latestChange.Record.Current -match '^(?:\d{1,3}\.){3}\d{1,3}$') { $mappingTargets += $latestChange.Record.Current }
+        $mappingChecked = $false
+        foreach ($target in @($mappingTargets | Select-Object -Unique)) {
+            try { Assert-WorkerGatewayMapping $reservedMappings $m.ListenAddress $target; $mappingChecked=$true; $mappingTarget=$target; break } catch { }
+        }
+        if (-not $mappingChecked) { throw 'Gateway mapping is outside the manifest and latest journaled transition.' }
+    } else {
+        $manifestHash = (Get-FileHash -LiteralPath $path).Hash
+        $transition = if ($latestChange) { $latestChange.Record } else { $null }
+        $committedTransition = $transition -and $transition.Current -ceq $m.GuestAddress -and $m.Hold -and $transition.CurrentHoldPID -eq $m.Hold.PID
+        $interruptedTransition = $transition -and $transition.Previous -ceq $m.GuestAddress -and $transition.PreviousManifestHash -ceq $manifestHash
+        if (-not ($committedTransition -or $interruptedTransition)) { throw 'Missing gateway mapping has no matching owned manifest transition.' }
+        $transitionTarget = $latestChange.Record.Current
+        $ip = $null
+        $privateTarget = $false
+        foreach ($subnet in @('10.0.0.0/8','172.16.0.0/12','192.168.0.0/16')) { if (Test-WorkerGatewaySubnet $transitionTarget $subnet) { $privateTarget=$true; break } }
+        if (-not [Net.IPAddress]::TryParse($transitionTarget,[ref]$ip) -or $ip.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork -or $ip.ToString() -cne $transitionTarget -or -not $privateTarget) { throw 'Missing gateway mapping transition target is invalid.' }
+        $listeners = @(Get-NetTCPConnection -State Listen -LocalPort 22224 -ErrorAction SilentlyContinue)
+        if ($listeners.Count) { throw 'Missing owned mapping conflicts with a live listener on TCP 22224.' }
+        $mappingMissing = $true
     }
-    if (-not $mappingChecked) { throw 'Gateway mapping is outside the manifest and latest journaled transition.' }
+    if (-not $mappingMissing) {
+        $listeners = @(Get-NetTCPConnection -State Listen -LocalPort 22224 -ErrorAction SilentlyContinue)
+        if ($listeners.Count -gt 1) { throw 'Multiple listeners conflict with the owned TCP 22224 gateway.' }
+        if ($listeners.Count -eq 1) {
+            $helper = Get-CimInstance Win32_Service -Filter "Name='iphlpsvc'"
+            if ($listeners[0].LocalAddress -cne $m.ListenAddress -or $listeners[0].OwningProcess -notin @(4,[int]$helper.ProcessId)) { throw 'Foreign listener conflicts with the owned TCP 22224 gateway.' }
+        }
+    }
     $holdRecords = @(Get-ChildItem -LiteralPath $journal -Filter '*.hold.json' -Force)
     foreach ($holdRecord in $holdRecords) {
         $record = Get-Content -LiteralPath $holdRecord.FullName -Raw | ConvertFrom-Json
@@ -146,6 +182,8 @@ function Read-WorkerGatewayRepairV1([string]$InstanceId) {
             if ($candidate.Hold.$field -cne $recordedHold.$field) { throw 'Pending repair hold differs from the recorded live hold.' }
         }
     }
+    if ($mappingMissing) { $m | Add-Member -NotePropertyName MappingMissing -NotePropertyValue $true }
+    else { $m | Add-Member -NotePropertyName MappingTarget -NotePropertyValue $mappingTarget }
     $m
 }
 
@@ -250,6 +288,10 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     $global:PCSetupWorkerGatewayRepairStep = 'read-only-v3-verification'
     if (-not $Password -or $Password.Length -lt 1) { throw 'Supply an in-memory credential.' }
     $m = Read-WorkerGatewayRepairV1 $InstanceId
+    $mappingMissing = $m.PSObject.Properties.Name -contains 'MappingMissing' -and [bool]$m.MappingMissing
+    $mappingTarget = if ($m.PSObject.Properties.Name -contains 'MappingTarget') { [string]$m.MappingTarget } else { $null }
+    $null = $m.PSObject.Properties.Remove('MappingMissing')
+    $null = $m.PSObject.Properties.Remove('MappingTarget')
     $v = Read-WorkerVerificationV3 $InstanceId
     $state = Read-WorkerState $InstanceId
     $ssh = Read-WorkerSshStage $InstanceId
@@ -360,7 +402,7 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     $journal = Join-Path $root 'journal'
     $manifestPath = Join-Path $root 'manifest.json'
     $change = [guid]::NewGuid().ToString('N')
-    $mappingChanged = $fresh.Guest.address -cne $m.GuestAddress
+    $mappingChanged = $fresh.Guest.address -cne $m.GuestAddress -or $mappingMissing -or ($mappingTarget -and $mappingTarget -cne $fresh.Guest.address)
     $holdChanged = -not $m.Hold -or $m.Hold.PID -ne $hold.PID
     $commitBeforeHash = (Get-FileHash -LiteralPath $manifestPath).Hash
     if ($mappingChanged -or $holdChanged) {
@@ -370,7 +412,12 @@ function Invoke-WorkerGatewayRepairV1Unlocked([string]$InstanceId,[SecureString]
     }
     if ($mappingChanged) {
         $global:PCSetupWorkerGatewayRepairStep = 'owned-portproxy-update'
-        Invoke-WorkerPortProxy set $m.ListenAddress $fresh.Guest.address
+        $mappingVerb = if ($mappingMissing) { 'add' } else { 'set' }
+        if ($mappingMissing) {
+            Assert-WorkerGatewayMapping @(Get-WorkerGatewayMappings) $m.ListenAddress $fresh.Guest.address -MustBeAbsent
+            if (@(Get-NetTCPConnection -State Listen -LocalPort 22224 -ErrorAction SilentlyContinue).Count) { throw 'Missing owned mapping conflicts with a live listener on TCP 22224.' }
+        }
+        Invoke-WorkerPortProxy $mappingVerb $m.ListenAddress $fresh.Guest.address
         Assert-WorkerGatewayMapping @(Get-WorkerGatewayMappings) $m.ListenAddress $fresh.Guest.address
     }
     $helper = Get-CimInstance Win32_Service -Filter "Name='iphlpsvc'"

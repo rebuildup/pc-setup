@@ -113,7 +113,7 @@ Repair-WorkerGateway $instance $live
 
 今回のVPN IPv4:22224だけをv4tov4でguest IPv4:22224へ転送する。controllerだけのAllowと、それ以外のIPv4 rangeのBlockを同じIP/portに限定して作る。他のbroad Allowによる露出を防ぐためのBlockであり、他port/既存22222/標準sshdを変更しない。実効Firewallと否定接続は別途実測する。共有gateway方式のためWSL独自VPN identityや隣接workerからの完全なnetwork分離を主張しない。
 
-gatewayは別のAdmin所有manifestで所有mapping/rules/guest hostpin/SSH stage hashを追跡する。Repairはlive guest verificationと同一pinを要求し、旧mapping一致を確認した上で今回のmappingだけnetsh setする。before journalと新manifestのatomic replaceでIP変更を記録し、途中失敗はpartialのまま止める。foreign mappingを削除・adoptしない。
+gatewayは別のAdmin所有manifestで所有mapping/rules/guest hostpin/SSH stage hashを追跡する。Repairはexclusive instance lockを取得し、UUID/owner/SID、全journalのidentity・ACL、最新before transitionを検証する。port 22224のmappingが欠けている場合は、manifest hashと結び付いたbefore transitionが欠落mappingを説明し、reserved portにforeign mapping/listenerがない時だけmissingとして扱う。current VPN scopeとlive guest host fingerprintを再検証し、guestが接続中のWSL subnet内であることを確認した後、今回のv4tov4 mappingをnetsh addする。既存mappingのtarget更新はjournalに一致する所有mappingに限りnetsh setする。before journalと新manifestのatomic replaceでIP変更を記録し、途中失敗は証跡を保ってresumeする。foreign mapping、conflicting listener、同時repair、unknown/ambiguous journalは拒否し、foreign資源を削除・adoptしない。
 
 ## 稼働時間と未達条件
 
