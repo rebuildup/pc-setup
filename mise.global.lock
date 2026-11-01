@@ -462,10 +462,10 @@ url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-darwin-x64.tar.gz"
 checksum = "sha256:dcc60d59a0746999f99064a01c020445d54d84228c691cdbf25b49ac3b59150a"
 url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-win-x64.zip"
 
-[[tools."npm:@mariozechner/pi-coding-agent"]]
-version = "0.73.1"
-aube = { path = ".mise/locks/mise.global/npm-mariozechner-pi-coding-agent/0.73.1", digest = "sha256:31189504ab50d12c67bcbf22b3fbf7aa496c42359b833e371db9cdb62374a51e" }
-backend = "npm:@mariozechner/pi-coding-agent"
+[[tools."npm:@earendil-works/pi-coding-agent"]]
+version = "1.4.0"
+aube = { path = ".mise/locks/mise.global/npm-earendil-works-pi-coding-agent/1.4.0", digest = "sha256:5d6d7804275e7c23df8985b3448a00f45919a1744e8fc091b3b27215e0dd326b" }
+backend = "npm:@earendil-works/pi-coding-agent"
 specifiers = ["latest"]
 
 [[tools."npm:@opencode/cli"]]
