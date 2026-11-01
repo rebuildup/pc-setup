@@ -79,7 +79,7 @@ jobs:
               # CI can hit an archive mirror while its canonical Packages.gz
               # path is being synchronized. Use the signed Release hash path
               # and bounded acquisition retries without disabling APT checks.
-              printf 'Acquire::By-Hash "force";\nAcquire::Retries "3";\n' > /etc/apt/apt.conf.d/99-ci-archive-consistency
+              printf "%s\n" "Acquire::By-Hash \"force\";" "Acquire::Retries \"3\";" > /etc/apt/apt.conf.d/99-ci-archive-consistency
               rm -rf /var/lib/apt/lists/*
               apt-get update >/dev/null
 
