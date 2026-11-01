@@ -108,6 +108,12 @@ function Prepare-MiseGitHubAuth {
     }
 
     Push-Location $HOME
+    # Windows PowerShell 5.1 turns a native command's stderr into a
+    # terminating NativeCommandError while $ErrorActionPreference is 'Stop'.
+    # mise reports its progress on stderr, so every native call below has to
+    # run with the preference relaxed and is judged by its exit code instead.
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     try {
         & mise install gh
         if ($LASTEXITCODE -ne 0) {
@@ -133,6 +139,7 @@ function Prepare-MiseGitHubAuth {
         Write-Host 'ok      mise GitHub authentication prepared from gh'
     }
     finally {
+        $ErrorActionPreference = $previousPreference
         Pop-Location
     }
 }
@@ -140,6 +147,8 @@ function Prepare-MiseGitHubAuth {
 Prepare-MiseGitHubAuth
 
 Push-Location $HOME
+$previousPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 try {
     $installArgs = @('install')
     if (Test-Path -LiteralPath $TargetLock) {
@@ -148,12 +157,15 @@ try {
     }
 
     & mise @installArgs
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
-    }
+    $installExitCode = $LASTEXITCODE
 }
 finally {
+    $ErrorActionPreference = $previousPreference
     Pop-Location
+}
+
+if ($installExitCode -ne 0) {
+    exit $installExitCode
 }
 
 Write-Host 'Machine-global mise tools are installed.'

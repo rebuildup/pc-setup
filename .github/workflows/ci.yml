@@ -725,6 +725,41 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      # Regression: `mise run` on Windows invokes this script with
+      # `powershell.exe` (Windows PowerShell 5.1), which turns a native
+      # command's stderr into a terminating NativeCommandError. mise reports
+      # its progress on stderr, so the apply aborted on the first progress
+      # line. The fake mise below writes to stderr on purpose.
+      - name: Validate global mise apply under Windows PowerShell 5.1
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-mise-ps51-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $target = Join-Path $root 'config.toml'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+          $oldPath = $env:PATH
+
+          try {
+            "@echo off`r`necho mise by @jdx - installing 1 tool 1>&2`r`nexit /b 0" |
+              Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd')
+            $env:PATH = "$fakeBin;$oldPath"
+            $env:MISE_GLOBAL_CONFIG_FILE = $target
+            $env:MISE_GITHUB_TOKEN = 'ci-placeholder'
+
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/apply-global-mise.ps1
+            if ($LASTEXITCODE -ne 0) {
+              throw "apply-global-mise.ps1 failed under Windows PowerShell 5.1 (exit $LASTEXITCODE)."
+            }
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       # Regression for the 2026-10-17 incident: a plain mise command on Windows
       # auto-installed rust@stable against the user's rustup toolchain and left
       # rustc.exe/cargo.exe deleted. Everything runs in throwaway MISE_*/RUSTUP_HOME/
