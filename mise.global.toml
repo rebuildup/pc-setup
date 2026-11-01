@@ -55,6 +55,9 @@ powershell = { version = "7.6.6", os = ["linux", "macos"] }
 # on 2026-05-07. 1.4.0 sends the x-opencode-session header required by OpenCode
 # Go; the old package stops at 0.73.1 and is no longer updated.
 "npm:@earendil-works/pi-coding-agent" = "latest"
+# dsh (DeepSeek Harness) is only published as prereleases, so the machine-global
+# install pins the exact version instead of tracking a rolling selector.
+"npm:@deepseek-ai/dsh" = "0.2.0-rc.2"
 "npm:playwright" = "latest"
 ruby = "4"
 
