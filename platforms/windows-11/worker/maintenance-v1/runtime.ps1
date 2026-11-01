@@ -82,6 +82,10 @@ function Get-WorkerRootMaintenancePowerShellExecutable {
     Join-Path ([Environment]::GetFolderPath('ProgramFiles')) 'PowerShell/7/pwsh.exe'
 }
 
+function Set-WorkerRootMaintenanceChildCredential([Diagnostics.ProcessStartInfo]$StartInfo,$Worker,[SecureString]$Password) {
+    $StartInfo.UserName=$Worker.UserName;$StartInfo.Domain=[Environment]::MachineName;$StartInfo.Password=$Password;$StartInfo.LoadUserProfile=$true
+}
+
 function Invoke-WorkerRootMaintenanceChild([string]$InstanceId,[SecureString]$Password,[ValidateSet('Inspect','Apply')][string]$Action,[string]$RepositoryRoot,[string]$ExpectedCommit){
     $stage=Read-WorkerRootMaintenanceStage $InstanceId $RepositoryRoot $ExpectedCommit
     $worker=Read-WorkerState $InstanceId
@@ -89,7 +93,7 @@ function Invoke-WorkerRootMaintenanceChild([string]$InstanceId,[SecureString]$Pa
     $nonce=[guid]::NewGuid().ToString('N')
     $exe=Get-WorkerRootMaintenancePowerShellExecutable
     $info=New-CleanWorkerStartInfo $exe (Get-WorkerPaths $InstanceId).Data ([Environment]::GetFolderPath('Windows'))
-    $info.UserName=$worker.UserName;$info.Domain=[Environment]::MachineName;$info.Password=$Password;$info.LoadUserProfile=$true
+    Set-WorkerRootMaintenanceChildCredential $info $worker $Password
     foreach($arg in @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path (Get-WorkerRootMaintenanceStagePath $InstanceId) 'child.ps1'),'-Action',$Action,'-ManifestPath',(Join-Path (Get-WorkerRootMaintenanceStagePath $InstanceId) 'manifest.json'),'-Nonce',$nonce)){$info.ArgumentList.Add($arg)}
     $previousCanary=[Environment]::GetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY');$process=$null
     try{

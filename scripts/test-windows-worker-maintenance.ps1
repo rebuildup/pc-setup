@@ -105,9 +105,13 @@ function Assert-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind){}
 function Set-WorkerResourceAcl([string]$Path,[string]$Sid,[string]$Kind){}
 function Write-WorkerNewFile([string]$Path,[string]$Content,[string]$Sid){[IO.File]::WriteAllText($Path,$Content,[Text.UTF8Encoding]::new($false))}
 $script:launchCaptured=$false
+function Set-WorkerRootMaintenanceChildCredential([Diagnostics.ProcessStartInfo]$StartInfo,$Worker,[Security.SecureString]$Password){
+    if($Worker.UserName -cne 'worker' -or $Password -isnot [Security.SecureString] -or $Password.Length -lt 1){throw 'credentialed child identity input mismatch'}
+    $script:credentialedUser=$Worker.UserName;$script:credentialedPasswordType=$Password.GetType().FullName
+}
 function Start-WorkerRootMaintenanceCredentialedChild([Diagnostics.ProcessStartInfo]$StartInfo){
     $arguments=@($StartInfo.ArgumentList)
-    if($StartInfo.FileName -notlike '*pwsh.exe' -or $StartInfo.UserName -cne 'worker' -or $StartInfo.Domain -cne [Environment]::MachineName -or $StartInfo.Password -isnot [Security.SecureString] -or -not $StartInfo.LoadUserProfile -or ($arguments -join ' ') -notmatch '-NoProfile.*-File.*child.ps1.*-Action Inspect'){throw 'credentialed child launch contract mismatch'}
+    if($StartInfo.FileName -notlike '*pwsh.exe' -or $script:credentialedUser -cne 'worker' -or $script:credentialedPasswordType -cne 'System.Security.SecureString' -or ($arguments -join ' ') -notmatch '-NoProfile.*-File.*child.ps1.*-Action Inspect'){throw 'credentialed child launch contract mismatch'}
     $script:launchCaptured=$true
     throw 'fixture launch captured'
 }
