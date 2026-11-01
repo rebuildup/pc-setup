@@ -149,3 +149,23 @@ Do not reconstruct the old package-by-package installation procedure manually.
 The WSL distribution is treated as its own development machine. Windows-side installations and authentication do not imply the same tool/auth state inside WSL.
 
 Windows-native applications are managed by the Windows pc-setup profile; the Linux development environment is managed here.
+
+### デバイスとしての SSH 接続
+
+通常の Ubuntu を独立した接続先として使う場合は、公開鍵ファイルを用意して
+root で `./platforms/ubuntu-wsl/setup-ssh.sh basic 2222 clients.pub` を実行する。
+秘密鍵は各クライアントに保持し、このファイルには許可する ed25519 公開鍵だけを置く。
+既存 sshd の設定変更や既存ファイルの置換は拒否する。既に同じ設定なら再実行できる。
+Herdr は通常ユーザーで起動する。SSH セットアップは Herdr を停止・再起動しない。
+
+WSL NAT では、Windows の localhost 転送を利用できる。別端末からの経路は
+既存のネットワークで確保する（例: Windows の既存 Tailscale Serve TCP 転送先を
+`127.0.0.1:2222` にする）。新たな VPN や独自 gateway を必須にしない。
+ポートは同時に起動する各ディストリビューションで重複させない。
+
+接続定義の正本は dotfiles の self-hosted Infisical `/devices`。
+作成・再作成後は実 instance ID と host key を照合して `devices register`、
+削除時は `devices forget`、各クライアントで `devices sync` を行う。
+停止中の WSL への接続は失敗させ、別インスタンスへ転送しない。
+
+根拠: [Microsoft WSL networking](https://learn.microsoft.com/en-us/windows/wsl/networking)。
