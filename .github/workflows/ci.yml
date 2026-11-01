@@ -76,6 +76,10 @@ jobs:
               # main. Clear package lists so universe packages cannot be found
               # through stale metadata.
               sed -i -E "s/^Components:.*/Components: main/" /etc/apt/sources.list.d/ubuntu.sources
+              # CI can hit an archive mirror while its canonical Packages.gz
+              # path is being synchronized. Use the signed Release hash path
+              # and bounded acquisition retries without disabling APT checks.
+              printf 'Acquire::By-Hash "force";\nAcquire::Retries "3";\n' > /etc/apt/apt.conf.d/99-ci-archive-consistency
               rm -rf /var/lib/apt/lists/*
               apt-get update >/dev/null
 
