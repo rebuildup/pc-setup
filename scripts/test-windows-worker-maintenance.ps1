@@ -93,6 +93,7 @@ function Get-WorkerRootMaintenanceCurrentProfile {$script:fixtureProfile}
 function Get-WorkerRootMaintenanceRegisteredProfile([string]$Sid){$script:fixtureProfile}
 function Get-WorkerRootMaintenanceRegistrations {@([pscustomobject]@{Name="pcw-$instance";BasePath='C:\ProgramData\pcw-wsl\distro';Version=2})}
 function Get-WorkerRootMaintenanceWslExecutable {$script:mockWsl}
+function Test-WorkerRootMaintenanceNativeX64Windows {$true}
 function Get-WorkerRootMaintenancePowerShellExecutable {(Get-Process -Id $PID).Path}
 function New-CleanWorkerStartInfo([string]$Executable,[string]$WorkingDirectory,[string]$WindowsDirectory){
     if($Executable -cne (Get-Process -Id $PID).Path -or $WorkingDirectory -cne $script:fixtureData){throw 'credentialed process input mismatch'}

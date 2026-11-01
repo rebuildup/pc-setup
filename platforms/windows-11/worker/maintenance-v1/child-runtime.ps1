@@ -20,8 +20,12 @@ function Get-WorkerRootMaintenanceWslExecutable {
     Join-Path ([Environment]::SystemDirectory) 'wsl.exe'
 }
 
+function Test-WorkerRootMaintenanceNativeX64Windows {
+    $IsWindows -and [Environment]::Is64BitProcess
+}
+
 function Invoke-WorkerRootMaintenanceChildCore([ValidateSet('Inspect','Apply')][string]$Action,[string]$ManifestPath,[string]$Nonce){
-    if(-not $IsWindows -or -not [Environment]::Is64BitProcess){throw 'Native x64 Windows only.'}
+    if(-not (Test-WorkerRootMaintenanceNativeX64Windows)){throw 'Native x64 Windows only.'}
     $stage=Get-Content -LiteralPath $ManifestPath -Raw|ConvertFrom-Json
     $identity=Get-WorkerRootMaintenanceIdentity
     if($stage.Owner -cne 'pc-setup/windows-worker-root-maintenance/v1' -or $identity.User.Value -cne $stage.Sid -or $identity.Groups.Value -contains 'S-1-5-32-544' -or (Test-Path Env:/PC_SETUP_CONTROLLER_CANARY)){throw 'Root maintenance identity/environment mismatch.'}
