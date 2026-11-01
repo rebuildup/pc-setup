@@ -107,7 +107,7 @@ function Invoke-WorkerRootMaintenanceChild([string]$InstanceId,[SecureString]$Pa
         $report=$text|ConvertFrom-Json
         if($report.Sid -cne $stage.Sid -or $report.Administrator -isnot [bool] -or $report.Administrator -or $report.CanaryPresent -isnot [bool] -or $report.CanaryPresent -or $report.InstanceId -cne $InstanceId -or $report.DistroName -cne $stage.DistroName -or $report.Action -cne $Action -or $report.Nonce -cne $nonce -or $report.RootUid -ne 0){throw 'Invalid worker root maintenance report.'}
         $report
-    }finally{[Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',$previousCanary);$info.Password=$null;if($process){$process.Dispose()}}
+    }finally{[Environment]::SetEnvironmentVariable('PC_SETUP_CONTROLLER_CANARY',$previousCanary);if($IsWindows){$info.Password=$null};if($process){$process.Dispose()}}
 }
 
 function Invoke-WorkerRootMaintenanceV1([string]$InstanceId,[SecureString]$Password,[ValidateSet('Inspect','Apply')][string]$Action,[string]$RepositoryRoot,[string]$ExpectedCommit){
