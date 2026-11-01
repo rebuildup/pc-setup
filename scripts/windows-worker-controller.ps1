@@ -9,7 +9,8 @@ param(
     [string]$OperationId,
     [string]$PreviousOperationId,
     [string]$PublicKeyPath,
-    [switch]$SelfTestModuleBoundary
+    [switch]$SelfTestModuleBoundary,
+    [switch]$SelfTestTrustedGit
 )
 
 # Restrict module autoload before the first PowerShell cmdlet. This section uses
@@ -18,12 +19,22 @@ param(
 $approvedModulePaths = [Collections.Generic.List[string]]::new()
 $pwshModules = [IO.Path]::Combine($PSHOME,'Modules')
 if ([IO.Directory]::Exists($pwshModules)) { $approvedModulePaths.Add($pwshModules) }
+$script:WorkerControllerGitRoot = [IO.Path]::Combine([Environment]::GetFolderPath('ProgramFiles'),'Git')
+$script:WorkerControllerGitExecutable = [IO.Path]::Combine($script:WorkerControllerGitRoot,'cmd','git.exe')
 if ($IsWindows) {
     $windowsModules = [IO.Path]::Combine([Environment]::SystemDirectory,'WindowsPowerShell','v1.0','Modules')
     if ([IO.Directory]::Exists($windowsModules)) { $approvedModulePaths.Add($windowsModules) }
+    $approvedPath = [Collections.Generic.List[string]]::new()
+    foreach ($path in @([IO.Path]::Combine($script:WorkerControllerGitRoot,'cmd'),[IO.Path]::Combine($script:WorkerControllerGitRoot,'bin'),[IO.Path]::Combine($script:WorkerControllerGitRoot,'mingw64','bin'),[Environment]::SystemDirectory)) { if ([IO.Directory]::Exists($path)) { $approvedPath.Add($path) } }
+    [Environment]::SetEnvironmentVariable('PATH',[string]::Join([IO.Path]::PathSeparator,$approvedPath),'Process')
 }
 [Environment]::SetEnvironmentVariable('PSModulePath',[string]::Join([IO.Path]::PathSeparator,$approvedModulePaths),'Process')
-if ($SelfTestModuleBoundary) { [Console]::Out.WriteLine([Environment]::GetEnvironmentVariable('PSModulePath','Process')); exit 0 }
+if ($SelfTestModuleBoundary) {
+    [Console]::Out.WriteLine('PSModulePath='+[Environment]::GetEnvironmentVariable('PSModulePath','Process'))
+    [Console]::Out.WriteLine('GitExecutable='+$script:WorkerControllerGitExecutable)
+    [Console]::Out.WriteLine('PATH='+[Environment]::GetEnvironmentVariable('PATH','Process'))
+    exit 0
+}
 
 $ErrorActionPreference = 'Stop'
 $script:WorkerControllerInstanceId = '2a1084ec-5389-4b0b-a0f0-9a38fcfaece5'
@@ -38,15 +49,59 @@ function Assert-WorkerControllerPrerequisites {
     $root = Split-Path -Parent $PSScriptRoot
     foreach($path in @($PSCommandPath,(Join-Path $root 'platforms/windows-11/worker/ssh/lifecycle-v1/SecretCapture.cs'))){if((Get-Item -LiteralPath $path -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'Controller/source must not be a reparse point.'}}
     if ((Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash -ine $ExpectedControllerSha256) { throw 'Controller SHA256 differs from the reviewed pin.' }
-    if ((git -C $root rev-parse HEAD 2>$null | Out-String).Trim() -cne $ExpectedCommit) { throw 'pc-setup checkout differs from the reviewed commit.' }
-    $status = @(& git -C $root status --porcelain --untracked-files=all 2>$null)
-    if ($LASTEXITCODE -ne 0 -or $status.Count -ne 0) { throw 'Use a clean pc-setup checkout at the reviewed commit.' }
-    if ($Action -in @('GatewayRepair','KeyPrepare','KeyVerifyBefore','KeyUpdate','KeyVerifyAfter','KeyGateway','LifecycleInstall','MaintenanceInspect','MaintenanceApply')) {
+    Assert-WorkerControllerTrustedGit
+    if ((Invoke-WorkerControllerGit $root @('-c','core.fsmonitor=false','rev-parse','HEAD')) -cne $ExpectedCommit) { throw 'pc-setup checkout differs from the reviewed commit.' }
+    $status = Invoke-WorkerControllerGit $root @('-c','core.fsmonitor=false','status','--porcelain','--untracked-files=all')
+    if ($status.Length -ne 0) { throw 'Use a clean pc-setup checkout at the reviewed commit.' }
+    if ($Action -in @('WslInventory','GatewayRepair','KeyPrepare','KeyVerifyBefore','KeyUpdate','KeyVerifyAfter','KeyGateway','LifecycleInstall','MaintenanceInspect','MaintenanceApply')) {
         if (-not $InfisicalSource -or -not (Test-Path -LiteralPath $InfisicalSource -PathType Leaf) -or (Get-Item -LiteralPath $InfisicalSource -Force).Attributes -band [IO.FileAttributes]::ReparsePoint -or (Get-FileHash -LiteralPath $InfisicalSource -Algorithm SHA256).Hash -ine $script:WorkerControllerInfisicalSha256) { throw 'Infisical CLI differs from the reviewed official binary pin.' }
     }
     $capture = Join-Path $root 'platforms/windows-11/worker/ssh/lifecycle-v1/SecretCapture.cs'
     if ((Get-FileHash -LiteralPath $capture -Algorithm SHA256).Hash -ine $script:WorkerControllerSecretCaptureSha256) { throw 'SecretCapture source differs from the reviewed pin.' }
     $root
+}
+
+function Assert-WorkerControllerTrustedGit {
+    $trustedOwners=@('S-1-5-18','S-1-5-32-544','S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+    $writeRights=[int][Security.AccessControl.FileSystemRights]::WriteData -bor [int][Security.AccessControl.FileSystemRights]::AppendData -bor [int][Security.AccessControl.FileSystemRights]::WriteExtendedAttributes -bor [int][Security.AccessControl.FileSystemRights]::WriteAttributes -bor [int][Security.AccessControl.FileSystemRights]::Delete -bor [int][Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [int][Security.AccessControl.FileSystemRights]::ChangePermissions -bor [int][Security.AccessControl.FileSystemRights]::TakeOwnership
+    $root=[IO.Path]::GetFullPath($script:WorkerControllerGitRoot)
+    $programFiles=[IO.Path]::GetFullPath([Environment]::GetFolderPath('ProgramFiles')).TrimEnd([IO.Path]::DirectorySeparatorChar)
+    if(-not $root.StartsWith($programFiles+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase) -or -not (Test-Path -LiteralPath $script:WorkerControllerGitExecutable -PathType Leaf)){throw 'Fixed Program Files Git executable is unavailable.'}
+    $pathTargets=@($script:WorkerControllerGitExecutable,(Join-Path $root 'cmd'),(Join-Path $root 'bin'),(Join-Path $root 'mingw64'),(Join-Path $root 'mingw64/bin'))
+    $checked=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach($target in $pathTargets){
+        if(-not (Test-Path -LiteralPath $target)){throw 'A fixed Git PATH component is missing.'}
+        $current=$target
+        while($current){
+            $full=[IO.Path]::GetFullPath($current)
+            if(-not $checked.Add($full)){break}
+            $item=Get-Item -LiteralPath $full -Force;$acl=Get-Acl -LiteralPath $full
+            if($item.Attributes -band [IO.FileAttributes]::ReparsePoint -or $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trustedOwners){throw 'Trusted Git path owner/reparse validation failed.'}
+            foreach($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){
+                if($rule.AccessControlType -ne 'Allow' -or ($rule.IdentityReference.Value -notin $trustedOwners -and (([int]$rule.FileSystemRights -band $writeRights) -ne 0))){throw 'Trusted Git path ACL grants an untrusted writer.'}
+            }
+            if($full -ieq $programFiles){break}
+            $current=Split-Path -Parent $full
+        }
+    }
+}
+
+function Invoke-WorkerControllerGit([string]$RepositoryRoot,[string[]]$Arguments){
+    $info=[Diagnostics.ProcessStartInfo]::new();$info.FileName=$script:WorkerControllerGitExecutable;$info.WorkingDirectory=$RepositoryRoot;$info.UseShellExecute=$false;$info.CreateNoWindow=$true
+    $info.RedirectStandardInput=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
+    $windows=[Environment]::GetFolderPath('Windows')
+    $info.Environment.Clear()
+    foreach($name in @('SystemRoot','WINDIR')){$info.Environment[$name]=$windows}
+    $info.Environment['PATH']=[Environment]::GetEnvironmentVariable('PATH','Process')
+    $info.Environment['GIT_CONFIG_NOSYSTEM']='1';$info.Environment['GIT_TERMINAL_PROMPT']='0';$info.Environment['GIT_OPTIONAL_LOCKS']='0'
+    foreach($arg in @('-C',$RepositoryRoot)+$Arguments){$info.ArgumentList.Add($arg)}
+    $process=[Diagnostics.Process]::Start($info)
+    try{
+        $process.StandardInput.Close();$stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
+        if(-not $process.WaitForExit(15000)){throw 'Trusted Git preflight timed out.'}
+        if($process.ExitCode -ne 0 -or $stderr.GetAwaiter().GetResult().Length){throw 'Trusted Git preflight failed.'}
+        $stdout.GetAwaiter().GetResult().TrimEnd("`r","`n")
+    }finally{$process.Dispose()}
 }
 
 function Get-WorkerControllerCredential([string]$Root) {
@@ -194,6 +249,11 @@ function Invoke-WorkerControllerAction([string]$Root) {
         } finally { if ($password) { $password.Dispose() } }
     }
     throw 'Unsupported controller action.'
+}
+
+if($SelfTestTrustedGit){
+    try{Assert-WorkerControllerTrustedGit;[Console]::Out.WriteLine('TrustedGit=pass');[Console]::Out.WriteLine('GitExecutable='+$script:WorkerControllerGitExecutable);[Console]::Out.WriteLine('PATH='+[Environment]::GetEnvironmentVariable('PATH','Process'));exit 0}
+    catch{[Console]::Error.WriteLine('TrustedGit=fail');exit 1}
 }
 
 $root = $null

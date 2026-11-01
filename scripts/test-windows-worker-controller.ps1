@@ -21,6 +21,10 @@ $required=@(
     'WslRegistration -cne ''registered''',
     'FromMinutes(15)',
     "SetAccessRuleProtection(`$true,`$false)",
+    'Assert-WorkerControllerTrustedGit',
+    '$script:WorkerControllerGitExecutable',
+    'SelfTestTrustedGit',
+    "'WslInventory','GatewayRepair'",
     'unknown-worker-hive-not-loaded',
     'NoAutomaticRetry=$true'
 )
@@ -46,21 +50,42 @@ if($prefix -match '(?im)\b(Get-Item|Get-FileHash|Test-Path|Join-Path|Set-Acl|Get
 $fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('pc-setup-controller-module-boundary-'+[guid]::NewGuid().ToString('N'))
 $poisonModules=Join-Path $fixtureRoot 'CurrentUser/Modules'
 [void][IO.Directory]::CreateDirectory($poisonModules)
-$pwsh=if($IsWindows){Join-Path $PSHOME 'pwsh.exe'}else{Join-Path $PSHOME 'pwsh'}
+$poisonPath=Join-Path $fixtureRoot 'poison-bin'
+[void][IO.Directory]::CreateDirectory($poisonPath)
+[IO.File]::WriteAllText((Join-Path $poisonPath 'git.exe'),'poison-test-stub',[Text.UTF8Encoding]::new($false))
+$pwsh=if($IsWindows){Join-Path $env:ProgramW6432 'PowerShell/7/pwsh.exe'}else{Join-Path $PSHOME 'pwsh'}
+if(-not(Test-Path -LiteralPath $pwsh -PathType Leaf)){throw 'Fresh controller test requires the native x64 PowerShell executable.'}
 $info=[Diagnostics.ProcessStartInfo]::new();$info.FileName=$pwsh;$info.UseShellExecute=$false;$info.CreateNoWindow=$true;$info.RedirectStandardOutput=$true;$info.RedirectStandardError=$true
 $info.Environment['PSModulePath']=$poisonModules
+$info.Environment['PATH']=$poisonPath
 foreach($arg in @('-NoProfile','-NonInteractive','-File',$path,'-Action','Status','-ExpectedCommit',('0'*40),'-ExpectedControllerSha256',('0'*64),'-SelfTestModuleBoundary')){$info.ArgumentList.Add($arg)}
 $process=$null
 try{
     $process=[Diagnostics.Process]::Start($info)
     $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
     if(-not $process.WaitForExit(30000)){throw 'Controller module-boundary child timed out.'}
-    $actual=$stdout.GetAwaiter().GetResult().Trim();$errorText=$stderr.GetAwaiter().GetResult()
-    if($process.ExitCode -ne 0 -or $errorText -or $actual.Split([IO.Path]::PathSeparator) -contains $poisonModules){throw 'Fresh controller process retained the poisoned module directory.'}
-    $expectedModules=[Collections.Generic.List[string]]::new();$pwshModules=[IO.Path]::Combine($PSHOME,'Modules')
+    $lines=@($stdout.GetAwaiter().GetResult().Trim() -split "`r?`n");$errorText=$stderr.GetAwaiter().GetResult()
+    if($process.ExitCode -ne 0 -or $errorText -or $lines.Count -ne 3){throw 'Fresh controller self-test returned invalid output.'}
+    $actualModulePath=$lines[0].Substring('PSModulePath='.Length);$actualGit=$lines[1].Substring('GitExecutable='.Length);$actualPath=$lines[2].Substring('PATH='.Length)
+    if($actualModulePath.Split([IO.Path]::PathSeparator) -contains $poisonModules){throw 'Fresh controller process retained the poisoned module directory.'}
+    $expectedModules=[Collections.Generic.List[string]]::new();$testPwshHome=if($IsWindows){Split-Path -Parent $pwsh}else{$PSHOME};$pwshModules=[IO.Path]::Combine($testPwshHome,'Modules')
     if([IO.Directory]::Exists($pwshModules)){$expectedModules.Add($pwshModules)}
     if($IsWindows){$windowsModules=[IO.Path]::Combine([Environment]::SystemDirectory,'WindowsPowerShell','v1.0','Modules');if([IO.Directory]::Exists($windowsModules)){$expectedModules.Add($windowsModules)}}
-    if($actual -cne [string]::Join([IO.Path]::PathSeparator,$expectedModules)){throw 'Fresh controller process module path differs from the approved platform directories.'}
+    if($actualModulePath -cne [string]::Join([IO.Path]::PathSeparator,$expectedModules)){throw 'Fresh controller process module path differs from the approved platform directories.'}
+    if($IsWindows){
+        $expectedGit=[IO.Path]::Combine($env:ProgramW6432,'Git','cmd','git.exe')
+        if($actualGit -ine $expectedGit -or $actualPath -match [regex]::Escape($poisonPath)){throw 'Fresh controller process retained or selected the fake PATH executable.'}
+        $gitInfo=[Diagnostics.ProcessStartInfo]::new();$gitInfo.FileName=$pwsh;$gitInfo.UseShellExecute=$false;$gitInfo.CreateNoWindow=$true;$gitInfo.RedirectStandardOutput=$true;$gitInfo.RedirectStandardError=$true
+        $gitInfo.Environment['PSModulePath']=$poisonModules;$gitInfo.Environment['PATH']=$poisonPath
+        foreach($arg in @('-NoProfile','-NonInteractive','-File',$path,'-Action','Status','-ExpectedCommit',('0'*40),'-ExpectedControllerSha256',('0'*64),'-SelfTestTrustedGit')){$gitInfo.ArgumentList.Add($arg)}
+        $gitProcess=$null
+        try{
+            $gitProcess=[Diagnostics.Process]::Start($gitInfo);$gitOut=$gitProcess.StandardOutput.ReadToEndAsync();$gitErr=$gitProcess.StandardError.ReadToEndAsync()
+            if(-not $gitProcess.WaitForExit(30000)){throw 'Trusted Git ACL fixture timed out.'}
+            $gitLines=@($gitOut.GetAwaiter().GetResult().Trim() -split "`r?`n");$gitError=$gitErr.GetAwaiter().GetResult()
+            if($gitProcess.ExitCode -ne 0 -or $gitError -or $gitLines.Count -ne 3 -or $gitLines[0] -cne 'TrustedGit=pass' -or $gitLines[1].Substring('GitExecutable='.Length) -ine $expectedGit -or $gitLines[2].Substring('PATH='.Length) -match [regex]::Escape($poisonPath)){throw 'Controller trusted Git ACL check did not reject the fake PATH executable.'}
+        }finally{if($gitProcess){$gitProcess.Dispose()}}
+    }
 }finally{
     if($process){$process.Dispose()}
     $tempRoot=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
