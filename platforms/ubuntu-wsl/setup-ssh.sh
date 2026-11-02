@@ -41,7 +41,8 @@ chmod 600 "$home_dir/.ssh/authorized_keys"
 chown "$user:$(id -gn "$user")" "$home_dir/.ssh/authorized_keys"
 while IFS= read -r key || [[ -n "$key" ]]; do
   public=$(awk '{print $2}' <<< "$key")
-  if ! awk '{print $2}' "$home_dir/.ssh/authorized_keys" | grep -Fxq "$public"; then
+  # Preserve any existing restrictions on this key rather than adding an unrestricted duplicate.
+  if ! grep -Fq " $public" "$home_dir/.ssh/authorized_keys"; then
     printf '\n%s\n' "$key" >> "$home_dir/.ssh/authorized_keys"
   fi
 done < "$keys"
