@@ -464,7 +464,7 @@ url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-win-x64.zip"
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
 version = "1.4.0"
-aube = { path = ".mise/locks/mise.global/npm-earendil-works-pi-coding-agent/1.4.0", digest = "sha256:5d6d7804275e7c23df8985b3448a00f45919a1744e8fc091b3b27215e0dd326b" }
+aube = { path = ".mise/locks/mise.global/npm-earendil-works-pi-coding-agent/1.4.0", digest = "sha256:150e21eac41a689e33014fb3eaf623c042b0b885f65b4bc5b921fc1e58b81a29" }
 backend = "npm:@earendil-works/pi-coding-agent"
 specifiers = ["latest"]
 
@@ -679,7 +679,7 @@ url_api = "https://api.github.com/repos/supabase/cli/releases/assets/668850578"
 
 [[tools.vercel]]
 version = "65.9.0"
-aube = { path = ".mise/locks/mise.global/vercel/65.9.0~a6545071", digest = "sha256:ce0a2decf10406737abd69aac6c981b05ed2fe2fc25617eebc9e4b83e49eaf81" }
+aube = { path = ".mise/locks/mise.global/vercel/65.9.0~a6545071", digest = "sha256:daed52bf478bba8c6b887ad179964e136e283f32d3fb773c9b777c81e0c7ac49" }
 backend = "npm:vercel"
 specifiers = ["latest"]
 
