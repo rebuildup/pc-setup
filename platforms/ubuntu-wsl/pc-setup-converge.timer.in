@@ -1,0 +1,14 @@
+# managed-by: rebuildup/pc-setup platforms/ubuntu-wsl/install-converge.sh
+[Unit]
+Description=pc-setup converge timer (ADR-0016)
+
+[Timer]
+# First run shortly after the user manager starts, then every __INTERVAL__ seconds
+# after the previous run started. Missed runs while the user manager is down are
+# not replayed: converge is idempotent and the next tick reconciles the state.
+OnStartupSec=2min
+OnUnitActiveSec=__INTERVAL__s
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
