@@ -246,5 +246,148 @@ else {
 if (-not (git config --get user.name)) { Write-WarnLocal 'effective Git user.name is not configured' }
 if (-not (git config --get user.email)) { Write-WarnLocal 'effective Git user.email is not configured' }
 
+Write-Host "`nTool ownership (which executable wins, who owns it, which version)"
+# Answers three questions for each mise-managed tool, on two resolution paths:
+#   1. activated shell (`mise activate pwsh`): the winner must be a mise install or
+#      shim, and `mise which` must point at an installed binary.
+#   2. non-activation path (`pwsh -NoProfile`, Scheduled Task, IDE, GUI launch):
+#      the winner comes from the registry PATH only. A winner outside mise is a
+#      known shadowing duplicate; it is reported as WARN with its path and is
+#      never removed here (see platforms/windows-11/README.md, "PATH ownership").
+# Read-only: nothing is installed, activated in this session, or changed.
+$miseCommand = Get-Command mise -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $miseCommand) {
+    Write-Fail 'mise not found; cannot verify tool ownership'
+}
+else {
+    # Project mise.toml files in the repo are untrusted from here; ownership is a
+    # machine-global question, so every mise call below runs from the home dir.
+    Push-Location $env:USERPROFILE
+    $miseData = if ($env:MISE_DATA_DIR) { $env:MISE_DATA_DIR } else { Join-Path $env:LOCALAPPDATA 'mise' }
+    $miseOwnedPattern = '^' + [regex]::Escape($miseData.TrimEnd('\')) + '\\(shims|installs)\\'
+    $ownershipTools = @('gh', 'node', 'python', 'nvim', 'rg', 'fd', 'jq', 'bat', 'claude', 'codex', 'opencode', 'pi')
+
+    # Resolve every name in a child pwsh so the result does not depend on how
+    # this script was started. The child prints `name|path|path|...` lines.
+    $resolveScript = @'
+param($Names, $Activate)
+Set-Location $env:USERPROFILE
+if ($Activate) { mise activate pwsh | Out-String | Invoke-Expression }
+else {
+    # Rebuild PATH from the registry only: what a Scheduled Task, an IDE or a
+    # GUI launch sees. The parent session PATH may already carry mise entries.
+    $env:Path = ((
+        [Environment]::GetEnvironmentVariable('Path', 'Machine'),
+        [Environment]::GetEnvironmentVariable('Path', 'User')
+    ) -join ';')
+    $env:Path = [Environment]::ExpandEnvironmentVariables($env:Path)
+}
+foreach ($n in $Names) {
+    $all = @(Get-Command $n -All -CommandType Application -ErrorAction SilentlyContinue | ForEach-Object { $_.Source })
+    "$n|" + ($all -join '|')
+}
+'@
+    $resolveFile = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-resolve-$([guid]::NewGuid()).ps1"
+    try {
+        Set-Content -LiteralPath $resolveFile -Value $resolveScript -Encoding UTF8
+        $pwshForChild = (Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+        if (-not $pwshForChild) { throw 'pwsh not found' }
+        $resolved = @{}
+        foreach ($mode in 'activated', 'registry') {
+            $activate = if ($mode -eq 'activated') { '$true' } else { '$false' }
+            $lines = & $pwshForChild -NoProfile -Command "& '$resolveFile' -Names @($(($ownershipTools | ForEach-Object { "'$_'" }) -join ',')) -Activate $activate" 2>$null
+            $resolved[$mode] = @{}
+            foreach ($line in $lines) {
+                $parts = $line -split '\|'
+                $resolved[$mode][$parts[0]] = @($parts | Select-Object -Skip 1 | Where-Object { $_ })
+            }
+        }
+
+        $currentVersions = @{}
+        try {
+            $current = (& mise ls --current --json 2>$null) -join "`n" | ConvertFrom-Json
+            foreach ($prop in $current.PSObject.Properties) {
+                $entry = @($prop.Value) | Select-Object -First 1
+                if ($entry -and $entry.PSObject.Properties['version']) { $currentVersions[$prop.Name] = [string]$entry.version }
+            }
+        }
+        catch { Write-WarnLocal "mise ls --current --json could not be read: $($_.Exception.Message)" }
+
+        $shadowing = New-Object System.Collections.Generic.List[string]
+        foreach ($name in $ownershipTools) {
+            $activatedWinner = $resolved['activated'][$name] | Select-Object -First 1
+            $registryWinner = $resolved['registry'][$name] | Select-Object -First 1
+            $whichOutput = (& mise which $name 2>$null | Select-Object -First 1)
+            $whichPath = if ($whichOutput) { [string]$whichOutput } else { $null }
+
+            if (-not $activatedWinner) { Write-Fail "$name does not resolve in an activated shell"; continue }
+            if ($activatedWinner -notmatch $miseOwnedPattern) {
+                Write-Fail "$name wins from $activatedWinner in an activated shell; expected a mise install or shim"
+            }
+            elseif (-not $whichPath -or -not (Test-Path -LiteralPath $whichPath)) {
+                Write-Fail "$name resolves to mise ($activatedWinner) but `mise which $name` has no installed binary"
+            }
+            else {
+                $versionText = ''
+                $versionEntry = $currentVersions.Keys | Where-Object { $_ -eq $name -or $_ -match "[:/]$([regex]::Escape($name))$" -or $_ -match "[:/]$([regex]::Escape($name))-" } | Select-Object -First 1
+                if ($versionEntry) { $versionText = " (mise $versionEntry $($currentVersions[$versionEntry]))" }
+                Write-Ok "$name activated -> $activatedWinner [mise]$versionText"
+            }
+
+            if ($registryWinner -and $registryWinner -notmatch $miseOwnedPattern) {
+                [void]$shadowing.Add("$name -> $registryWinner")
+            }
+            elseif (-not $registryWinner) {
+                [void]$shadowing.Add("$name -> (unresolved without activation)")
+            }
+        }
+        if ($shadowing.Count -gt 0) {
+            Write-WarnLocal "without mise activation (pwsh -NoProfile, Scheduled Task, IDE) these tools resolve outside mise: $($shadowing -join '; '). Retained duplicates are listed in platforms/windows-11/README.md (PATH ownership)."
+        }
+        else {
+            Write-Ok 'every checked tool resolves to mise even without activation'
+        }
+    }
+    catch {
+        Write-Fail "tool ownership check failed: $($_.Exception.Message)"
+    }
+    finally {
+        Remove-Item -LiteralPath $resolveFile -ErrorAction SilentlyContinue
+    }
+
+    # Rust: report which manager owns the winning cargo/rustc. Only shape is
+    # asserted here; the toolchain homes are checked in the Rust section.
+    foreach ($rustTool in 'cargo', 'rustc') {
+        $rustWinner = (Get-Command $rustTool -All -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+        if (-not $rustWinner) { continue }
+        $owner = if ($rustWinner -match $miseOwnedPattern) { 'mise' } elseif ($rustWinner -match '\\\.cargo\\bin\\') { 'rustup proxy (.cargo\bin)' } else { 'other' }
+        Write-Ok "$rustTool wins from $rustWinner (owner: $owner)"
+    }
+
+    # Orphan shims: a shim whose tool has no active version fails at run time
+    # with "No version is set for shim". Every shim must resolve to an installed tool.
+    $shimDir = Join-Path $miseData 'shims'
+    if (Test-Path -LiteralPath $shimDir) {
+        $declaredCargo = @($currentVersions.Keys | Where-Object { $_ -like 'cargo:*' })
+        $orphans = New-Object System.Collections.Generic.List[string]
+        foreach ($shim in Get-ChildItem -LiteralPath $shimDir -Filter '*.exe' -ErrorAction SilentlyContinue) {
+            $shimName = [System.IO.Path]::GetFileNameWithoutExtension($shim.Name)
+            # Capture the whole output before reading the exit code:
+            # `Select-Object -First 1` stops the pipeline early and leaves
+            # $LASTEXITCODE unreliable.
+            $whichResult = @(& mise which $shimName 2>&1)
+            $whichExit = $LASTEXITCODE
+            if ($whichExit -ne 0 -or -not $whichResult) { [void]$orphans.Add($shimName) }
+        }
+        if ($orphans.Count -gt 0) {
+            Write-WarnLocal "orphan mise shims (no active version; declare the tool in mise.global.toml or remove the shim): $($orphans -join ', ')"
+        }
+        else {
+            Write-Ok "no orphan mise shims ($($declaredCargo.Count) cargo: tool(s) active)"
+        }
+    }
+    Pop-Location
+}
+
 Write-Host "`nResult: $Failures failure(s), $Warnings warning(s)"
 if ($Failures -ne 0) { exit 1 }

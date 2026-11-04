@@ -258,3 +258,22 @@ snapshotはevidenceであり、検出した全appを自動的にdesired stateへ
 password / token / API key / cookie / license secret / private keyはrepositoryへ保存しない。
 
 portable secretはInfisicalがsource of truth。Tailscale provisioning の provider pointer / required key / forwarding contract は `tailscale.psd1` に置き、OAuth client secret value は Infisical だけに保持する。各サービスのinteractive login / licensingは必要に応じて実機で行う。
+
+### PATH ownership
+
+どの実行ファイルが選ばれるかは「どの経路で起動したか」で決まる。管理者は次の規則で割り当てる。
+
+| 経路 | PATH の出どころ | 勝つ実行ファイル |
+|---|---|---|
+| `mise activate pwsh` 済みの shell | mise が install dir / shim を PATH 先頭へ差し込む | mise 管理のもの |
+| 非 activation (`pwsh -NoProfile`、Scheduled Task、IDE、GUI 起動) | registry の Machine PATH → User PATH の順 | registry 上で先に並ぶもの |
+
+- mise 管理のツールを activation なしで使う必要がある経路 (Scheduled Task など) は、`mise exec -- <tool>` か shim の絶対パス (`%LOCALAPPDATA%\mise\shims\<tool>.exe`) を使う。PATH の並びに依存しない。
+- registry PATH に置く mise 由来の最小集合は `%LOCALAPPDATA%\mise\shims` だけ (User PATH)。mise の install dir は activation が差し込むもので、registry には置かない。mise の data dir の外にある Rust home (`%USERPROFILE%\.cargo\bin`) も registry PATH には置かない (ADR-0015)。
+- Machine PATH は User PATH より先に評価される。そのため、Machine PATH にある `Program Files` 配下の同名 binary は、User PATH の shim より先に勝つ。User 側の編集ではこれを直せない。
+- registry PATH を編集するときは、編集前の値 (Machine/User とも、展開前の生の値) を `%USERPROFILE%\.local\state\pc-setup\backup-<timestamp>.txt` に保存し、そのファイルに復旧コマンドを書き残す。編集は完全一致の重複 entry の削除に限る。
+- 同名の重複 binary は自動では削除しない。残すものと理由:
+  - `Program Files` の `gh` / `node` / `nvim`、chocolatey の `rg`: それぞれの installer が管理し、アンインストール経路を持つ。削除は installer 側の操作であり、PATH の整理ではない。mise が activation 済みの shell では mise 側が勝つので実害は出ない。
+  - `%APPDATA%\npm` の `claude.cmd`、`%USERPROFILE%\.local\bin\claude.exe`、`%USERPROFILE%\.bun\bin` の `codex` / `opencode`: ほかの npm / bun global package と同じディレクトリにあるため、PATH entry の削除では解消できない。個別に uninstall する場合は各 package manager の操作として別途行う。
+  - `WindowsApps` (App execution alias) と `WinGet\Links`: GUI アプリや vendor updater が使う。`mise` 本体は `WinGet\Links` から解決される。
+- `verify.ps1` の "Tool ownership" は、activation 済み shell で mise が勝つこと (FAIL)、非 activation で mise の外に解決されるもの (WARN、名前と解決先を列挙)、`mise which` が実在する binary を指すこと、version を確認する。shim だけが残って tool が宣言されていない orphan shim も WARN にする。
