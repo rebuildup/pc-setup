@@ -171,13 +171,8 @@ try {
         if ($homeValue -match 'mise\\(rustup|cargo)$') { Write-Ok "$homeName -> $homeValue" } else { Write-Fail "$homeName is not the mise home: $homeValue" }
     }
 
-    # A leftover legacy home is reported, never failed: it is retained until a
-    # reviewed removal (backup first).
-    $legacyRustup = Join-Path $HOME '.rustup'
-    $legacyCargo = Join-Path $HOME '.cargo'
-    foreach ($legacy in $legacyRustup, $legacyCargo) {
-        if (Test-Path -LiteralPath $legacy) { Write-WarnLocal "legacy Rust home $legacy is present (informational): orphaned but inert while RUSTUP_HOME/CARGO_HOME point at the mise data dir; retained on purpose. Removal is a reviewed change; see platforms/windows-11/README.md" }
-    }
+    # Legacy %USERPROFILE%\.rustup / .cargo are reported by the Tool ownership
+    # section (informational WARN); they are retained until a reviewed removal.
 
     # A shim-triggered install is what broke the legacy rustup home before.
     $autoInstallExcluded = (& mise settings get auto_install_disable_tools 2>$null) -join ' '
