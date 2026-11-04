@@ -265,13 +265,23 @@ run_verify() {
     return 0
   fi
 
+  # verify checks tools by name (rustc, cargo, ...), which only resolve inside the
+  # mise environment. A bare LaunchAgent has a fixed PATH without mise shims, so
+  # verify runs under `mise exec`. Missing mise is a documented skip, not a failure.
+  # MISE_EXEC_AUTO_INSTALL=0 keeps verify from installing anything: a missing tool
+  # shows up as a verify failure instead of a silent install.
+  if ! command -v mise >/dev/null 2>&1; then
+    record verify skipped "mise not found on PATH; verify not run"
+    return 0
+  fi
+
   # stdin is closed so a sudo prompt fails instead of hanging a background run.
   local rc=0
-  if bash "$verify_script" </dev/null >>"$log_file" 2>&1; then
-    record verify ok "verify passed"
+  if MISE_EXEC_AUTO_INSTALL=0 mise -C "$HOME" exec -- bash "$verify_script" </dev/null >>"$log_file" 2>&1; then
+    record verify ok "verify passed (inside mise exec)"
   else
     rc=$?
-    record verify fail "verify exited $rc; see $log_file"
+    record verify fail "verify exited $rc under mise exec; see $log_file"
   fi
 }
 

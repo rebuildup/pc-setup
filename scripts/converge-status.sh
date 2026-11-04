@@ -43,28 +43,84 @@ repo_facts() {
   printf '%s.dirty\t%s\n' "$prefix" "$dirty"
 }
 
-# stale_processes: one line per process whose executable lives under the mise
-# install tree but is not the version `mise where` reports as current.
-# Output: <stale|unresolved> TAB pid TAB binary TAB expected-or-reason
+# stale_processes: classifies processes whose executable lives under the mise
+# install tree. The tool id comes from `mise ls --json`, which lists every
+# installed version with its install_path. Install directory names are never
+# translated back into tool ids (npm-opencode-cli is not npm:@opencode/cli).
+# Each executable is matched against the install paths, longest prefix first.
+#
+# Output, one line per finding:
+#   process TAB stale|unresolved TAB pid TAB tool TAB binary TAB expected-or-reason
+#   stale:      the executable belongs to a known install that is not the active
+#               version of its tool; the reason is the active install path.
+#   unresolved: the executable is under the install tree but matches no install.
+# A failed `mise ls --json` is reported as a process-scan line, not as processes.
 stale_processes() {
-  local pid exe _rest rel tool after_tool ver root expected
-  ps -axww -o pid=,args= | while read -r pid exe _rest; do
-    case "$exe" in
-      "$mise_install_prefix"*) ;;
-      *) continue ;;
-    esac
-    rel="${exe#"$mise_install_prefix"}"
-    tool="${rel%%/*}"
-    after_tool="${rel#*/}"
-    ver="${after_tool%%/*}"
-    root="$mise_install_prefix$tool/$ver"
-    expected="$(mise -C "$HOME" where "$tool" </dev/null 2>/dev/null || true)"
-    if [[ -z "$expected" ]]; then
-      printf 'unresolved\t%s\t%s\tmise where could not resolve %s\n' "$pid" "$exe" "$tool"
-    elif [[ "$expected" != "$root" ]]; then
-      printf 'stale\t%s\t%s\t%s\n' "$pid" "$exe" "$expected"
-    fi
-  done
+  python3 -I - "$mise_install_prefix" "$HOME" <<'PY'
+import json
+import subprocess
+import sys
+
+install_root = sys.argv[1]
+home = sys.argv[2]
+
+
+def emit(kind, pid, tool, binary, detail):
+    print("\t".join(["process", kind, str(pid), tool, binary, detail]))
+
+
+try:
+    listing = subprocess.run(
+        ["mise", "-C", home, "ls", "--json"],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    tools = json.loads(listing.stdout)
+except (OSError, subprocess.CalledProcessError, ValueError) as exc:
+    print("process-scan\terror\tmise ls --json failed: " + type(exc).__name__)
+    sys.exit(0)
+
+# (install path with trailing slash, tool id, install path) for every known install.
+installs = []
+active_by_tool = {}
+for tool, entries in tools.items():
+    for entry in entries:
+        path = entry.get("install_path")
+        if not path:
+            continue
+        installs.append((path.rstrip("/") + "/", tool, path))
+        if entry.get("active"):
+            active_by_tool[tool] = path
+installs.sort(key=lambda item: len(item[0]), reverse=True)
+
+ps = subprocess.run(
+    ["ps", "-axww", "-o", "pid=,args="],
+    capture_output=True,
+    text=True,
+    check=True,
+)
+for line in ps.stdout.splitlines():
+    fields = line.split(None, 1)
+    if len(fields) != 2:
+        continue
+    pid, args = fields
+    # Only the executable path is read; arguments are never recorded.
+    exe = args.split(" ", 1)[0]
+    if not exe.startswith(install_root):
+        continue
+    match = next((item for item in installs if exe.startswith(item[0])), None)
+    if match is None:
+        emit("unresolved", pid, "", exe, "no mise install matches this path")
+        continue
+    _, tool, matched_path = match
+    current = active_by_tool.get(tool)
+    if current is None:
+        emit("stale", pid, tool, exe, "no active version of " + tool)
+    elif matched_path != current:
+        emit("stale", pid, tool, exe, current)
+PY
 }
 
 facts_tmp="$(mktemp "${TMPDIR:-/tmp}/converge-facts.XXXXXX")"
@@ -86,7 +142,7 @@ trap 'rm -f "$facts_tmp"' EXIT
     printf 'mise.outdated_count\t-1\n'
   fi
 
-  stale_processes | sed 's/^/process\t/'
+  stale_processes
 } >"$facts_tmp"
 
 if [[ "$mode" == --write ]]; then
@@ -102,10 +158,20 @@ facts_path, steps_path, run_path, out_path = sys.argv[1:5]
 
 facts = {}
 processes = []
+scan_errors = []
 for line in Path(facts_path).read_text(encoding="utf-8").splitlines():
     if line.startswith("process\t"):
-        _, kind, pid, binary, detail = line.split("\t", 4)
-        processes.append({"kind": kind, "pid": int(pid), "binary": binary, "detail": detail})
+        _, kind, pid, tool, binary, detail = line.split("\t", 5)
+        processes.append({
+            "kind": kind,
+            "pid": int(pid),
+            "tool": tool,
+            "binary": binary,
+            "detail": detail,
+        })
+        continue
+    if line.startswith("process-scan\t"):
+        scan_errors.append(line.split("\t", 2)[2])
         continue
     key, _, value = line.partition("\t")
     facts[key] = value
@@ -130,6 +196,8 @@ if run_path_obj.exists():
         key, _, value = line.partition("=")
         last_run[key] = value
 
+for message in scan_errors:
+    errors.append("process-scan: " + message)
 if facts.get("mise.outdated_count") == "-1":
     errors.append("mise-outdated: mise outdated failed; drift count unknown")
 
@@ -160,10 +228,21 @@ report = {
     "last_converge": last_run,
     "steps": steps,
     "stale_processes": [
-        {"pid": p["pid"], "binary": p["binary"], "expected_current": p["detail"]} for p in stale
+        {
+            "pid": p["pid"],
+            "tool": p["tool"],
+            "binary": p["binary"],
+            "expected_current": p["detail"],
+        }
+        for p in stale
     ],
     "unresolved_processes": [
-        {"pid": p["pid"], "binary": p["binary"], "reason": p["detail"]} for p in unresolved
+        {
+            "pid": p["pid"],
+            "binary": p["binary"],
+            "reason": p["detail"],
+        }
+        for p in unresolved
     ],
     "errors": errors,
 }
@@ -220,7 +299,8 @@ for s in r["steps"]:
     print(f"  {s['step']:<16} {s['status']:<8} {s['detail']}")
 print(f"stale processes: {len(r['stale_processes'])} (detect-only; nothing was signalled)")
 for p in r["stale_processes"]:
-    print(f"  pid {p['pid']}  {p['binary']}  ->  current {p['expected_current']}")
+    print(f"  pid {p['pid']}  {p['tool']}  {p['binary']}  ->  current {p['expected_current']}")
+print(f"unresolved processes: {len(r['unresolved_processes'])}")
 for p in r["unresolved_processes"]:
     print(f"  pid {p['pid']}  {p['binary']}  (unresolved: {p['reason']})")
 print(f"errors: {len(r['errors'])}")

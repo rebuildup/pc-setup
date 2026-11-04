@@ -207,38 +207,91 @@ function Invoke-Verify {
         Add-Step 'verify' 'skipped' 'no verify.ps1 in the deploy checkout'
         return
     }
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $verify *>&1 | ForEach-Object { Write-Log ([string]$_) }
-    if ($LASTEXITCODE -eq 0) {
-        Add-Step 'verify' 'ok' 'verify passed'
+    # verify checks tools by name (rustc, cargo, ...). The Scheduled Task has no
+    # mise activation, so verify runs inside `mise exec`. A missing mise is a
+    # documented skip, not a failure. MISE_EXEC_AUTO_INSTALL=0: verify never installs.
+    $mise = Get-Command mise -ErrorAction SilentlyContinue
+    if (-not $mise) {
+        Add-Step 'verify' 'skipped' 'mise not found on PATH; verify not run'
+        return
+    }
+    $env:MISE_EXEC_AUTO_INSTALL = '0'
+    try {
+        & mise -C $env:USERPROFILE exec -- powershell.exe -NoProfile -ExecutionPolicy Bypass -File $verify *>&1 | ForEach-Object { Write-Log ([string]$_) }
+        $code = $LASTEXITCODE
+    } finally {
+        Remove-Item Env:\MISE_EXEC_AUTO_INSTALL -ErrorAction SilentlyContinue
+    }
+    if ($code -eq 0) {
+        Add-Step 'verify' 'ok' 'verify passed (inside mise exec)'
     } else {
-        Add-Step 'verify' 'fail' ('verify exited ' + $LASTEXITCODE + '; see ' + $script:LogFile)
+        Add-Step 'verify' 'fail' ('verify exited ' + $code + ' under mise exec; see ' + $script:LogFile)
     }
 }
 
-# Stale processes: executables under the mise install tree that are not the
-# version `mise where` reports as current. Detect only; nothing is signalled.
+# Reads a property that may be absent (Set-StrictMode 2.0 throws on missing ones).
+function Get-JsonField {
+    param($Object, [string]$Name)
+    $prop = $Object.PSObject.Properties[$Name]
+    if ($prop) { return $prop.Value }
+    return $null
+}
+
+# Every installed mise version with its tool id and install path, from
+# `mise ls --json`. Returns $null when mise cannot list. Tool ids come from the
+# JSON keys, so install directory names are never translated back into tool ids.
+function Get-MiseInstalls {
+    $raw = & mise -C $env:USERPROFILE ls --json 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $raw) { return $null }
+    $tools = (@($raw) -join "`n") | ConvertFrom-Json
+    $installs = New-Object System.Collections.ArrayList
+    foreach ($prop in $tools.PSObject.Properties) {
+        foreach ($entry in @($prop.Value)) {
+            $path = [string](Get-JsonField $entry 'install_path')
+            if (-not $path) { continue }
+            [void]$installs.Add([pscustomobject]@{
+                tool   = $prop.Name
+                path   = $path.Replace('/', '\').TrimEnd('\')
+                active = [bool](Get-JsonField $entry 'active')
+            })
+        }
+    }
+    return ,$installs
+}
+
+# Stale processes: executables under the mise install tree that belong to a known
+# install which is not the active version of its tool. Each executable is matched
+# against the install paths longest-prefix-first. An executable under the tree that
+# matches no install is unresolved. Detect only; nothing is signalled.
 function Get-StaleProcesses {
-    $installRoot = Join-Path (Join-Path $env:LOCALAPPDATA 'mise') 'installs'
+    $installRoot = (Join-Path (Join-Path $env:LOCALAPPDATA 'mise') 'installs').TrimEnd('\') + '\'
+    $installs = Get-MiseInstalls
+    if ($null -eq $installs) { throw 'mise ls --json failed; process scan not run' }
+    $activeByTool = @{}
+    foreach ($i in $installs) { if ($i.active) { $activeByTool[$i.tool] = $i.path } }
+    $sorted = @($installs | Sort-Object { $_.path.Length } -Descending)
+
     $results = New-Object System.Collections.ArrayList
     $procs = Get-CimInstance -ClassName Win32_Process -ErrorAction SilentlyContinue
     foreach ($p in $procs) {
-        $exe = [string]$p.ExecutablePath
+        $exe = ([string]$p.ExecutablePath).Replace('/', '\')
         if (-not $exe -or -not $exe.StartsWith($installRoot, [System.StringComparison]::OrdinalIgnoreCase)) { continue }
-        $rel = $exe.Substring($installRoot.Length).TrimStart('\', '/')
-        $parts = $rel.Split([char[]]@('\', '/'))
-        if ($parts.Count -lt 2) { continue }
-        $tool = $parts[0]
-        $root = Join-Path (Join-Path $installRoot $parts[0]) $parts[1]
-        $expected = ''
-        $where = & mise where $tool 2>$null
-        if ($LASTEXITCODE -eq 0 -and $where) { $expected = ([string]($where | Select-Object -First 1)).Trim() }
-        if (-not $expected) {
-            [void]$results.Add([pscustomobject]@{ kind = 'unresolved'; pid = [int]$p.ProcessId; binary = $exe; detail = ('mise where could not resolve ' + $tool) })
-        } elseif ($expected.TrimEnd('\') -ine $root.TrimEnd('\')) {
-            [void]$results.Add([pscustomobject]@{ kind = 'stale'; pid = [int]$p.ProcessId; binary = $exe; detail = $expected })
+        $found = $null
+        foreach ($i in $sorted) {
+            if ($exe.StartsWith($i.path + '\', [System.StringComparison]::OrdinalIgnoreCase)) { $found = $i; break }
+        }
+        if ($null -eq $found) {
+            [void]$results.Add([pscustomobject]@{ kind = 'unresolved'; pid = [int]$p.ProcessId; tool = ''; binary = $exe; detail = 'no mise install matches this path' })
+            continue
+        }
+        $current = $activeByTool[$found.tool]
+        if ($null -eq $current) {
+            [void]$results.Add([pscustomobject]@{ kind = 'stale'; pid = [int]$p.ProcessId; tool = $found.tool; binary = $exe; detail = ('no active version of ' + $found.tool) })
+        } elseif ($found.path -ine $current) {
+            [void]$results.Add([pscustomobject]@{ kind = 'stale'; pid = [int]$p.ProcessId; tool = $found.tool; binary = $exe; detail = $current })
         }
     }
-    return $results
+    return ,$results
 }
 
 function Write-StatusReport {
@@ -281,7 +334,7 @@ function Write-StatusReport {
         verify          = $verifyObj
         last_converge   = [pscustomobject]@{ started = $script:RunStarted; finished = (Get-IsoNow); exit = $Exit; log = $script:LogFile; script = $PSCommandPath }
         steps           = @($script:Steps)
-        stale_processes = @($stale | Where-Object { $_.kind -eq 'stale' } | ForEach-Object { [pscustomobject]@{ pid = $_.pid; binary = $_.binary; expected_current = $_.detail } })
+        stale_processes = @($stale | Where-Object { $_.kind -eq 'stale' } | ForEach-Object { [pscustomobject]@{ pid = $_.pid; tool = $_.tool; binary = $_.binary; expected_current = $_.detail } })
         unresolved_processes = @($stale | Where-Object { $_.kind -eq 'unresolved' } | ForEach-Object { [pscustomobject]@{ pid = $_.pid; binary = $_.binary; reason = $_.detail } })
         errors          = @($errors)
     }
