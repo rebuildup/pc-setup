@@ -238,15 +238,40 @@ sync_dotfiles() {
   fi
 
   if [[ -x "$dotfiles_dir/script/link" ]]; then
-    if "$dotfiles_dir/script/link" >>"$log_file" 2>&1; then
+    # Keep link's own output apart so the first conflict line can go into the step
+    # detail (status.json readers see why without opening the log). The text is
+    # copied to the log as before. Only the "conflict " prefix that script/link
+    # writes is matched; nothing else is parsed.
+    local link_out
+    link_out="$(mktemp "${TMPDIR:-/tmp}/converge-link.XXXXXX")"
+    if "$dotfiles_dir/script/link" >"$link_out" 2>&1; then
+      cat "$link_out" >>"$log_file"
+      rm -f "$link_out"
       record dotfiles-link ok "script/link is idempotent and reported success"
     else
       rc=$?
-      record dotfiles-link error "script/link exited $rc; see $log_file"
+      cat "$link_out" >>"$log_file"
+      local conflict=""
+      conflict="$(grep -m1 '^conflict ' "$link_out" 2>/dev/null | cut -c1-200 || true)"
+      rm -f "$link_out"
+      if [[ -n "$conflict" ]]; then
+        record dotfiles-link error "script/link exited $rc; $conflict; see $log_file"
+      else
+        record dotfiles-link error "script/link exited $rc; see $log_file"
+      fi
     fi
   else
     record dotfiles-link error "$dotfiles_dir/script/link is missing or not executable"
   fi
+}
+
+# WSL detection, the same test platforms/ubuntu-wsl/verify.sh uses. The guard is
+# needed because that verify.sh does not refuse a non-WSL Linux host: it only
+# warns and then runs its WSL checks. This converge target is WSL2 only, so any
+# other Linux host is skipped instead of being verified against the wrong platform.
+is_wsl() {
+  [[ -n "${WSL_DISTRO_NAME:-}" || -n "${WSL_INTEROP:-}" ]] \
+    || grep -qiE '(microsoft|wsl)' /proc/sys/kernel/osrelease 2>/dev/null
 }
 
 run_verify() {
@@ -258,6 +283,14 @@ run_verify() {
   local verify_script=""
   case "$(uname -s)" in
     Darwin) verify_script="$deploy_dir/platforms/macos/verify.sh" ;;
+    Linux)
+      if is_wsl; then
+        verify_script="$deploy_dir/platforms/ubuntu-wsl/verify.sh"
+      else
+        record verify skipped "Linux host is not WSL; no verify for this platform"
+        return 0
+      fi
+      ;;
   esac
 
   if [[ -z "$verify_script" || ! -f "$verify_script" ]]; then

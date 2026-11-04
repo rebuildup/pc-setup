@@ -189,11 +189,20 @@ function Invoke-DotfilesSync {
     }
     # -Apply is adoption-first in link.ps1: it creates absent links and never
     # replaces an existing file or directory.
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $link -Apply *>&1 | ForEach-Object { Write-Log ([string]$_) }
+    # Output is kept so the first conflict line goes into the step detail; the full
+    # text still goes to the log. Only the "conflict " lines link.ps1 writes are read.
+    $linkOut = @(& powershell.exe -NoProfile -ExecutionPolicy Bypass -File $link -Apply *>&1 | ForEach-Object { [string]$_ })
+    $linkOut | ForEach-Object { Write-Log $_ }
     if ($LASTEXITCODE -eq 0) {
         Add-Step 'dotfiles-link' 'ok' 'link.ps1 -Apply reported success'
     } else {
-        Add-Step 'dotfiles-link' 'error' ('link.ps1 exited ' + $LASTEXITCODE + '; see ' + $script:LogFile)
+        $conflict = @($linkOut | Where-Object { $_ -match '^conflict\s' } | Select-Object -First 1)
+        $why = ''
+        if ($conflict.Count -gt 0) {
+            $why = '; ' + ([string]$conflict[0]).Trim()
+            if ($why.Length -gt 200) { $why = $why.Substring(0, 200) }
+        }
+        Add-Step 'dotfiles-link' 'error' ('link.ps1 exited ' + $LASTEXITCODE + $why + '; see ' + $script:LogFile)
     }
 }
 
