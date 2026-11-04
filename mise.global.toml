@@ -73,7 +73,13 @@ neovim = "latest"
 # Windows PowerShell is WinGet-managed (Microsoft.PowerShell); a second mise copy
 # would shadow it with an older shim.
 powershell = { version = "7.6.6", os = ["linux", "macos"] }
-"npm:@mariozechner/pi-coding-agent" = "latest"
+# Pi moved from @mariozechner/pi-coding-agent to @earendil-works/pi-coding-agent
+# on 2026-05-07. 1.4.0 sends the x-opencode-session header required by OpenCode
+# Go; the old package stops at 0.73.1 and is no longer updated.
+"npm:@earendil-works/pi-coding-agent" = "latest"
+# OMP (oh-my-pi) is the Worker harness replacing the dotfiles launcher's old Pi
+# routes. Native Pi above stays installed for rollback/native use.
+oh-my-pi = "latest"
 "npm:playwright" = "latest"
 ruby = "4"
 
