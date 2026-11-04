@@ -489,6 +489,35 @@ aube = { path = ".mise/locks/mise.global/npm-playwright/1.64.1", digest = "sha25
 backend = "npm:playwright"
 specifiers = ["latest"]
 
+[[tools.oh-my-pi]]
+version = "18.16.0"
+backend = "github:can1357/oh-my-pi"
+specifiers = ["latest"]
+
+[tools.oh-my-pi."platforms.linux-x64"]
+checksum = "sha256:6498ed785bab00d2926e0387e0ec02362d6d45f1c3d0d1b57c1618b7f95c9264"
+checksum_source = "mise-versions"
+url = "https://github.com/can1357/oh-my-pi/releases/download/v18.16.0/omp-linux-x64"
+url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/702972275"
+
+[tools.oh-my-pi."platforms.macos-arm64"]
+checksum = "sha256:d4a10d97488d6054d2b18198bd24f461079952c7e0fb75ba66336ca0df0cb99e"
+checksum_source = "mise-versions"
+url = "https://github.com/can1357/oh-my-pi/releases/download/v18.16.0/omp-darwin-arm64"
+url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/702972282"
+
+[tools.oh-my-pi."platforms.macos-x64"]
+checksum = "sha256:abd62d315b66314f0f635d537407037e7b0d06782513d8035669db5ef744242d"
+checksum_source = "mise-versions"
+url = "https://github.com/can1357/oh-my-pi/releases/download/v18.16.0/omp-darwin-x64"
+url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/702972279"
+
+[tools.oh-my-pi."platforms.windows-x64"]
+checksum = "sha256:c249a9ed0a57c748fb1247d8ee9e2d0fe1b13229266ce74d8810a76a591e21fc"
+checksum_source = "mise-versions"
+url = "https://github.com/can1357/oh-my-pi/releases/download/v18.16.0/omp-windows-x64.exe"
+url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/702972270"
+
 [[tools.pnpm]]
 version = "12.16.1"
 backend = "aqua:pnpm/pnpm"

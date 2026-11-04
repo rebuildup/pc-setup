@@ -55,6 +55,9 @@ powershell = { version = "7.6.6", os = ["linux", "macos"] }
 # on 2026-05-07. 1.4.0 sends the x-opencode-session header required by OpenCode
 # Go; the old package stops at 0.73.1 and is no longer updated.
 "npm:@earendil-works/pi-coding-agent" = "latest"
+# OMP (oh-my-pi) is the Worker harness replacing the dotfiles launcher's old Pi
+# routes. Native Pi above stays installed for rollback/native use.
+oh-my-pi = "latest"
 "npm:playwright" = "latest"
 ruby = "4"
 
