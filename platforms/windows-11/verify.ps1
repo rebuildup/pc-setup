@@ -364,6 +364,13 @@ foreach ($n in $Names) {
         Write-Ok "$rustTool wins from $rustWinner (owner: $owner)"
     }
 
+    # Legacy Rust homes are orphaned but inert once RUSTUP_HOME/CARGO_HOME live
+    # under the mise data dir; they are retained until a reviewed removal
+    # (platforms/windows-11/README.md), so this is informational only.
+    foreach ($legacy in (Join-Path $env:USERPROFILE '.rustup'), (Join-Path $env:USERPROFILE '.cargo')) {
+        if (Test-Path -LiteralPath $legacy) { Write-WarnLocal "legacy Rust home $legacy is present (informational): retained on purpose; removal procedure in platforms/windows-11/README.md" }
+    }
+
     # Orphan shims: a shim whose tool has no active version fails at run time
     # with "No version is set for shim". Every shim must resolve to an installed tool.
     $shimDir = Join-Path $miseData 'shims'
