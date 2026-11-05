@@ -842,6 +842,9 @@ jobs:
             Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN, Env:MISE_DATA_DIR, Env:MISE_CACHE_DIR, Env:MISE_STATE_DIR, Env:MISE_CONFIG_DIR, Env:MISE_TRUSTED_CONFIG_PATHS -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
+          # The control run above ends with a failing native command on purpose; the
+          # step's exit code is the last native exit code, so reset it.
+          $global:LASTEXITCODE = 0
 
       - name: Validate Visual Studio capability check
         shell: pwsh
