@@ -23,7 +23,7 @@ Write-Host 'ok      Windows form uses %MISE_CREDENTIAL_HOST%'
 
 # The shared file keeps the Unix form; a Windows-only string here would make the
 # Unix machines fail instead. Match the assignment, not the prose around it.
-$sourceCommand = [regex]::Match($sourceText, '(?m)^credential_command\s*=.*$').Value
+$sourceCommand = [regex]::Match($sourceText, '(?m)^credential_command\s*=.*$').Value.TrimEnd("`r")
 if ($sourceCommand -ne 'credential_command = ''gh auth token --hostname "$MISE_CREDENTIAL_HOST"''') {
     throw "mise.global.toml must carry the portable `$.` form, got: $sourceCommand"
 }
