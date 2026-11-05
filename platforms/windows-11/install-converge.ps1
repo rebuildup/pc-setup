@@ -24,10 +24,25 @@ $ErrorActionPreference = 'Stop'
 
 $taskName = 'pc-setup-converge'
 $marker = 'managed-by: rebuildup/pc-setup platforms/windows-11/install-converge.ps1'
+# Write-Error is terminating under $ErrorActionPreference = 'Stop', which made the
+# `exit 1` after it unreachable and left callers reading a stale $LASTEXITCODE. Errors
+# are written to stderr directly (same pattern as powershell-path.ps1).
+function Stop-WithError {
+    param([string]$Message)
+    [Console]::Error.WriteLine($Message)
+    exit 1
+}
+
+if (-not $env:LOCALAPPDATA) { Stop-WithError 'LOCALAPPDATA is not set; cannot place the pc-setup state directory.' }
 $localRoot = Join-Path $env:LOCALAPPDATA 'pc-setup'
-$deployDir = if ($env:PC_SETUP_DEPLOY_DIR) { $env:PC_SETUP_DEPLOY_DIR } else { Join-Path $localRoot 'deploy' }
+# Absolute path: the task starts in System32, so a relative path would be baked in
+# and fail on every scheduled run without any visible error (the window is hidden).
+$deployDir = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($(if ($env:PC_SETUP_DEPLOY_DIR) { $env:PC_SETUP_DEPLOY_DIR } else { Join-Path $localRoot "deploy" }))
 $repoUrl = if ($env:PC_SETUP_REPO_URL) { $env:PC_SETUP_REPO_URL } else { 'https://github.com/rebuildup/pc-setup.git' }
-$userId = "$env:USERDOMAIN\$env:USERNAME"
+# DOMAIN\USER from the environment is unreliable on Microsoft/Entra accounts. The
+# identity name is what Task Scheduler resolves, for the principal and the logon trigger.
+$userId = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+if (-not $userId) { Stop-WithError 'could not determine the current Windows identity.' }
 
 function Get-ManagedTask {
     Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
@@ -46,8 +61,7 @@ if ($Uninstall) {
         exit 0
     }
     if (-not (Test-ManagedTask $existing)) {
-        Write-Error "refusing to remove unmanaged scheduled task: $taskName"
-        exit 1
+        Stop-WithError "refusing to remove unmanaged scheduled task: $taskName"
     }
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
     Write-Host "removed scheduled task $taskName"
@@ -55,24 +69,23 @@ if ($Uninstall) {
 }
 
 if ($null -ne $existing -and -not (Test-ManagedTask $existing)) {
-    Write-Error "refusing to overwrite unmanaged scheduled task: $taskName"
-    exit 1
+    Stop-WithError "refusing to overwrite unmanaged scheduled task: $taskName"
 }
 
 if (-not $ConvergeScript) {
     if (-not (Test-Path -LiteralPath (Join-Path $deployDir '.git'))) {
         New-Item -ItemType Directory -Force -Path (Split-Path -Parent $deployDir) | Out-Null
         & git clone --quiet --branch main --single-branch $repoUrl $deployDir
-        if ($LASTEXITCODE -ne 0) { Write-Error "clone of $repoUrl failed"; exit 1 }
+        if ($LASTEXITCODE -ne 0) { Stop-WithError "clone of $repoUrl failed" }
         Write-Host "cloned main into $deployDir"
     }
     $ConvergeScript = Join-Path (Join-Path (Join-Path $deployDir 'platforms') 'windows-11') 'converge.ps1'
 }
 
 if (-not (Test-Path -LiteralPath $ConvergeScript)) {
-    Write-Error "converge script not found: $ConvergeScript. Until the deployment checkout contains platforms/windows-11/converge.ps1, pass -ConvergeScript."
-    exit 1
+    Stop-WithError "converge script not found: $ConvergeScript. Until the deployment checkout contains platforms/windows-11/converge.ps1, pass -ConvergeScript."
 }
+$ConvergeScript = (Resolve-Path -LiteralPath $ConvergeScript).Path
 
 $logDir = Join-Path (Join-Path $localRoot 'state') 'logs'
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
