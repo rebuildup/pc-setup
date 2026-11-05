@@ -1,5 +1,7 @@
 # Windows SSH 接続 PoC
 
+継続利用のための専用OS起動管理は[task手順](TASK.md)を参照。通常のStartは引き続き一接続の前面debug方式であり、boot時起動の証明にはしない。
+
 既存 VPN 上で Windows のローカル管理者へ専用公開鍵で接続できることだけを検証する。既存 `sshd` service、`C:\ProgramData\ssh`、既存鍵、DefaultShell、VPN 登録、WSL、Infisical は変更しない。恒久 service 化や開発ノード登録は接続検証後の別工程とする。
 
 今回の候補は UUU / `100.118.123.62`、TCP `22222`。接続元は操作者の VPN IPv4 **1 個**を明示する。VPN の通信認可も接続元→対象の当該 port だけに制限する。Windows Firewall の追加ルールだけでは、既存の広い許可ルールを狭められない。ただし daemon 自体は指定 VPN address のみに bind する。
