@@ -1,12 +1,10 @@
 # Renders the machine-global mise config for native Windows.
 #
 # mise.global.toml is the machine-wide config on every OS, and this file has to
-# stay free of anything only one OS can honour. Two settings cannot carry an
-# `os` condition because they are `[settings]` keys rather than tools or
-# packages, so they are rewritten into the Windows copy of the config instead:
+# stay free of anything only one OS can honour. One setting cannot carry an `os`
+# condition because it is a `[settings]` key rather than a tool or package, so it
+# is rewritten into the Windows copy of the config instead:
 #
-#   * `disable_tools` keeps mise from touching the rustup installation, which is
-#     canonical on Windows.
 #   * `credential_command` is executed by mise's *default inline shell*, which
 #     is `sh -o errexit -c` on Unix and `cmd /c` on Windows. mise performs no
 #     expansion of the command string itself; it only exports
@@ -16,31 +14,16 @@
 #     lookup fails there. Rewriting it to the `%MISE_CREDENTIAL_HOST%` form is
 #     the only difference the two platforms need.
 #
+# History: this renderer used to inject `disable_tools = ["rust"]` so Windows
+# never let mise touch the (assumed) standalone rustup installation. That machine
+# had no standalone rustup, so the guard only hid mise's own rustup + stable
+# toolchain and made `cargo` unreachable. Rust is mise-managed on Windows too as
+# of 2026-11-04; see platforms/windows-11/README.md.
+#
 # The functions here have no side effects and are dot-sourced by
 # apply-global-mise.ps1 so that they can be exercised directly in CI.
 
 Set-StrictMode -Version Latest
-
-function Add-WindowsRustGuard {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]
-        [string]$Text
-    )
-
-    if ($Text -match '(?m)^\s*disable_tools\s*=') { return $Text }
-
-    $guard = "# Windows: rustup is canonical; mise must never install or upgrade Rust.`ndisable_tools = [`"rust`"]`n"
-    $anchor = [regex]::Match($Text, '(?m)^idiomatic_version_file_enable_tools\s*=.*\r?\n')
-    if ($anchor.Success) {
-        return $Text.Insert($anchor.Index + $anchor.Length, $guard)
-    }
-    $settings = [regex]::Match($Text, '(?m)^\[settings\].*\r?\n')
-    if ($settings.Success) {
-        return $Text.Insert($settings.Index + $settings.Length, $guard)
-    }
-    return $Text.TrimEnd() + "`n`n[settings]`n" + $guard
-}
 
 function Set-WindowsCredentialCommand {
     [CmdletBinding()]
@@ -88,5 +71,38 @@ function ConvertTo-WindowsMiseConfig {
         [string]$Text
     )
 
-    return Set-WindowsCredentialCommand (Add-WindowsRustGuard -Text $Text)
+    $rendered = Set-WindowsCredentialCommand -Text $Text
+    return Add-WindowsRustHomes -Text $rendered
+}
+
+# Windows keeps exactly one rustup home and one Cargo home, both owned by mise
+# under %LOCALAPPDATA%\mise. `[env]` values cannot carry an `os` condition, and
+# {{env.LOCALAPPDATA}} does not exist on Linux/macOS, so they are rendered here.
+# `auto_install_disable_tools` keeps a shim from installing a toolchain by
+# itself; install it explicitly with `mise install rust`.
+function Add-WindowsRustHomes {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string]$Text
+    )
+
+    $newline = if ($Text.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $lines = [System.Collections.Generic.List[string]]($Text -split "`r?`n")
+
+    $settingsAt = $lines.FindIndex({ param($l) $l -match '^\s*\[settings\]\s*$' })
+    if ($settingsAt -ge 0 -and -not ($Text -match '(?m)^\s*auto_install_disable_tools\s*=')) {
+        $lines.Insert($settingsAt + 1, 'auto_install_disable_tools = ["rust"]')
+    }
+
+    if (-not ($Text -match '(?m)^\s*\[env\]\s*$')) {
+        while ($lines.Count -gt 0 -and $lines[$lines.Count - 1] -eq '') { $lines.RemoveAt($lines.Count - 1) }
+        $lines.Add('')
+        $lines.Add('[env]')
+        foreach ($name in 'MISE_RUSTUP_HOME', 'RUSTUP_HOME') { $lines.Add("$name = '{{env.LOCALAPPDATA}}\mise\rustup'") }
+        foreach ($name in 'MISE_CARGO_HOME', 'CARGO_HOME') { $lines.Add("$name = '{{env.LOCALAPPDATA}}\mise\cargo'") }
+        $lines.Add('')
+    }
+
+    return ($lines -join $newline)
 }

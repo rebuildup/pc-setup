@@ -11,8 +11,18 @@ $sourceText = [System.IO.File]::ReadAllText($source)
 $out = ConvertTo-WindowsMiseConfig -Text $sourceText
 [System.IO.File]::WriteAllText($renderedPath, $out, (New-Object System.Text.UTF8Encoding($false)))
 
-Write-Host '--- rendered credential_command / guards ---'
-($out -split "`n") | Where-Object { $_ -match '^(credential_command|disable_tools)' }
+Write-Host '--- rendered credential_command ---'
+($out -split "`n") | Where-Object { $_ -match '^credential_command' }
+
+# Rust is mise-managed on Windows too (see platforms/windows-11/README.md); the
+# renderer must never re-inject the old guard that hid `cargo` from PATH.
+if ($out -match '(?m)^\s*disable_tools\s*=') { throw 'rendered Windows config must not disable tools' }
+Write-Host 'ok      no disable_tools guard rendered'
+foreach ($line in 'auto_install_disable_tools = ["rust"]', "CARGO_HOME = '{{env.LOCALAPPDATA}}\mise\cargo'", "RUSTUP_HOME = '{{env.LOCALAPPDATA}}\mise\rustup'") {
+    if (-not $out.Contains($line)) { throw "rendered Windows config is missing: $line" }
+}
+if ($sourceText -match '(?m)^\[env\]') { throw 'shared mise.global.toml must not carry Windows-only [env]' }
+Write-Host 'ok      Windows rust homes rendered; shared source stays portable'
 
 # The rewrite has to replace the command, not the key that carries it: a bare
 # `gh auth token ...` line is not TOML and mise would reject the whole config.
