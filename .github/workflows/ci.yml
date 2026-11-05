@@ -742,6 +742,7 @@ jobs:
           $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-rust-$([guid]::NewGuid())"
           New-Item -ItemType Directory -Path $root | Out-Null
           $oldPath = $env:PATH
+          $realLocalAppData = $env:LOCALAPPDATA
 
           try {
             # Generate the Windows copy of the global config (fake mise: the
@@ -758,16 +759,87 @@ jobs:
             $env:PATH = $oldPath
             $text = Get-Content -LiteralPath $generated -Raw
 
-            if ($text -match '(?m)^\s*disable_tools\s*=') { throw 'Windows config must not disable the rust tool (ADR-0015).' }
+            if ($text -match '(?m)^\s*disable_tools\s*=\s*\[[^\]]*"rust"') { throw 'Windows config must not disable the rust tool (ADR-0015).' }
             if ($text -notmatch '(?m)^auto_install_disable_tools\s*=\s*\["rust"\]') { throw 'Windows config must exclude rust from automatic installs.' }
             if ($text -notmatch '(?m)^rust\s*=\s*"stable"') { throw 'rust = "stable" must be declared without an os condition.' }
-            foreach ($line in "RUSTUP_HOME = '{{env.LOCALAPPDATA}}\mise\rustup'", "CARGO_HOME = '{{env.LOCALAPPDATA}}\mise\cargo'") {
-              if (-not $text.Contains($line)) { throw "Windows config lost: $line" }
+            foreach ($pair in @(@('RUSTUP_HOME', 'rustup'), @('CARGO_HOME', 'cargo'))) {
+              $name = $pair[0]; $dir = $pair[1]
+              $homePattern = '(?m)^\s*' + $name + '\s*=\s*[''"]\{\{env\.LOCALAPPDATA\}\}(?:\\\\|\\)mise(?:\\\\|\\)' + $dir + '[''"]'
+              if ($text -notmatch $homePattern) { throw "Windows config does not pin $name to LOCALAPPDATA\mise\$dir." }
             }
+
+            # Behavioral guard. The text assertions above only prove the key is
+            # written; these prove mise honors it. `auto_install_disable_tools`
+            # gates the AUTO-install path (a shim or `mise exec` installing a
+            # missing tool), not an explicit `mise install rust`, which stays the
+            # sanctioned route (ADR-0015). So this does not use `install --dry-run`:
+            # that reports `rust@stable would install` with or without the setting.
+            # The mise version is pinned so a CI run is reproducible; bumping the
+            # pin is how this check is re-baselined against a newer mise.
+            $zip = Join-Path $root 'mise.zip'
+            Invoke-WebRequest -Uri 'https://github.com/jdx/mise/releases/download/v2026.10.25/mise-v2026.10.25-windows-x64.zip' -OutFile $zip
+            Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $root 'mise-dist')
+            $mise = (Get-ChildItem -Path (Join-Path $root 'mise-dist') -Recurse -Filter mise.exe | Select-Object -First 1).FullName
+
+            # Isolation: mise state, the config trust list, and LOCALAPPDATA (which
+            # the generated [env] RUSTUP_HOME/CARGO_HOME templates expand) all point
+            # at the throwaway root, so nothing touches a real toolchain.
+            $isolatedLocal = Join-Path $root 'localappdata'
+            New-Item -ItemType Directory -Path $isolatedLocal | Out-Null
+            $env:MISE_DATA_DIR = Join-Path $root 'data'
+            $env:MISE_CACHE_DIR = Join-Path $root 'cache'
+            $env:MISE_STATE_DIR = Join-Path $root 'state'
+            $env:MISE_CONFIG_DIR = Join-Path $root 'cfgdir'
+            $env:MISE_TRUSTED_CONFIG_PATHS = $root
+            $realLocalAppData = $env:LOCALAPPDATA
+            $env:LOCALAPPDATA = $isolatedLocal
+            $project = Join-Path $root 'project'
+            New-Item -ItemType Directory -Path $project | Out-Null
+
+            # Runs mise with a native-stderr-safe error preference (Windows
+            # PowerShell 5.1 turns native stderr into a terminating error) and
+            # returns stdout+stderr as one string.
+            function Invoke-IsolatedMise([string]$Config, [string[]]$MiseArgs) {
+              $previousPreference = $ErrorActionPreference
+              $ErrorActionPreference = 'Continue'
+              $env:MISE_GLOBAL_CONFIG_FILE = $Config
+              Push-Location $project
+              try { return ((& $mise @MiseArgs 2>&1 | ForEach-Object { [string]$_ }) -join "`n") }
+              finally { Pop-Location; $ErrorActionPreference = $previousPreference }
+            }
+
+            # 1. mise must know the key and report rust in it. An unknown key or an
+            #    absent setting prints no value.
+            $setting = Invoke-IsolatedMise $generated @('settings', 'get', 'auto_install_disable_tools')
+            if ($setting -notmatch 'rust') { throw "mise does not report rust in auto_install_disable_tools:`n$setting" }
+
+            # Trimmed configs: the generated settings and [env], plus only Rust.
+            $settingsPart = ($text -split '(?m)^\[tools\]')[0]
+            $envMatch = [regex]::Match($text, '(?ms)^\[env\].*?(?=^\[|\z)')
+            if (-not $envMatch.Success) { throw 'Generated Windows config has no [env] section.' }
+            $guardedConfig = Join-Path $root 'guarded.toml'
+            ($settingsPart + "[tools]`nrust = `"stable`"`n`n" + $envMatch.Value) | Set-Content -LiteralPath $guardedConfig
+
+            # 2. With the guard, an auto-install is refused and nothing is installed.
+            $guarded = Invoke-IsolatedMise $guardedConfig @('exec', '--', 'rustc', '--version')
+            if ($guarded -notmatch 'auto-install is disabled') { throw "mise did not refuse the Rust auto-install:`n$guarded" }
+            $installsAfterGuarded = Test-Path -LiteralPath (Join-Path $env:MISE_DATA_DIR 'installs')
+            if ($installsAfterGuarded) { throw 'mise created an installs dir despite the auto-install guard.' }
+
+            # 3. Sensitivity control: with the guard removed and a nonexistent Rust
+            #    version (rustup rejects the name immediately, so nothing downloads),
+            #    mise must attempt the install, i.e. NOT print the refusal.
+            $controlConfig = Join-Path $root 'control.toml'
+            $controlText = (Get-Content -LiteralPath $guardedConfig -Raw) -replace '(?m)^auto_install_disable_tools\s*=.*\r?\n', '' -replace '(?m)^rust\s*=\s*"stable"', 'rust = "0.0.0-nonexistent-bogus"'
+            if ($controlText -match 'auto_install_disable_tools') { throw 'Control config still carries the guard; the sensitivity check is invalid.' }
+            Set-Content -LiteralPath $controlConfig -Value $controlText
+            $control = Invoke-IsolatedMise $controlConfig @('exec', '--', 'rustc', '--version')
+            if ($control -match 'auto-install is disabled') { throw "Control config was refused too; the guard check is not sensitive:`n$control" }
           }
           finally {
             $env:PATH = $oldPath
-            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN -ErrorAction SilentlyContinue
+            if ($realLocalAppData) { $env:LOCALAPPDATA = $realLocalAppData }
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN, Env:MISE_DATA_DIR, Env:MISE_CACHE_DIR, Env:MISE_STATE_DIR, Env:MISE_CONFIG_DIR, Env:MISE_TRUSTED_CONFIG_PATHS -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
