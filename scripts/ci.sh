@@ -507,3 +507,6 @@ else
 fi
 
 printf 'All repository checks passed.\n'
+
+printf 'Checking macOS devnode LaunchAgent lifecycle...\n'
+python3 scripts/test-macos-devnode-service.py

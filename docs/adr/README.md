@@ -25,6 +25,8 @@
 | [ADR-0019](./ADR-0019.md) | Accepted | 専用WSLは非root SSHとWindows gatewayで接続する |
 | [ADR-0020](./ADR-0020.md) | Accepted | WSL gatewayは対話ログオン後に安全に再調整する |
 
+| [ADR-0018](./ADR-0018.md) | Accepted | macOS専用開発ノードの待受をユーザーLaunchAgentで管理する |
+
 新しい ADR は `ADR-NNNN.md` の連番で追加します。既存 decision を置換する場合は旧 ADR の status と `Superseded by` も更新します。
 
 - [ADR-0015](ADR-0015.md): Headscale control plane の独立 VPS cohost PoC

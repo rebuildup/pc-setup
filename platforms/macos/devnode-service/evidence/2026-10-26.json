@@ -1,0 +1,80 @@
+{
+  "checkedAt": "2026-10-26T06:32:13.020247+00:00",
+  "sourceCommit": "7e4fb8d48dce41ba5cc3419d822cb1078aaf97a6",
+  "osVersion": "27.0.1",
+  "herdrVersion": "0.9.5",
+  "status": {
+    "instanceId": "14f29b3f-cda1-4acf-9f18-26d35f8d6074",
+    "owned": true,
+    "jobs": [
+      {
+        "role": "ssh",
+        "loaded": true,
+        "state": "running",
+        "pid": 77271
+      },
+      {
+        "role": "herdr",
+        "loaded": true,
+        "state": "running",
+        "pid": 77274
+      }
+    ]
+  },
+  "processes": [
+    {
+      "role": "ssh",
+      "pid": 77271,
+      "parentPid": 1,
+      "uid": 501
+    },
+    {
+      "role": "herdr",
+      "pid": 77274,
+      "parentPid": 1,
+      "uid": 501
+    }
+  ],
+  "applyStarted": [
+    "ssh",
+    "herdr"
+  ],
+  "secondApplyStarted": [],
+  "sshListener": "100.83.203.34:22223",
+  "hostFingerprint": "SHA256:JxZZce4cTdp9nNOSeqb/xBP955yC/bjIO6h9AfwY5ig",
+  "recovery": {
+    "initialSource": "612ceac",
+    "initialFailure": "nested launchctl coalition state parsed as job state; both workers failed closed",
+    "ownedRemoveSucceeded": true,
+    "logsRetained": true,
+    "reappliedSource": "7e4fb8d"
+  },
+  "notVerified": [
+    "OS reboot",
+    "Logout/login recovery",
+    "Windows-to-Mac SSH/Herdr after LaunchAgent migration",
+    "Hostile same-user process isolation"
+  ],
+  "localHerdrE2E": {
+    "managedPaneEnvironmentChecked": true,
+    "environmentFlagForged": false,
+    "workspace": "launchagent-local-verification",
+    "pane": "w4:p1",
+    "agent": "launchagent_check",
+    "kind": "codex",
+    "codexVersion": "0.164.0",
+    "startInteractiveReady": true,
+    "firstPromptDone": true,
+    "firstAssistantNonce": "LAUNCHAGENT_E2E_72c91e613de74a5c8bd7d93e8504ff2c",
+    "clientDetachedAndNewClientAttached": true,
+    "sameAgentSessionAndPane": true,
+    "reconnectPromptDone": true,
+    "reconnectAssistantNonce": "LAUNCHAGENT_RECONNECT_faa726dfc30b469098308f2c85aef98f",
+    "comparison": "Exact assistant paragraph after joining renderer hard-wrap continuation lines; prompt echo not accepted",
+    "daemonStoppedForTest": false,
+    "rawReadSHA256": {
+      "launchagent-read.json": "8a6f61d35ceb062dd138f92a6606121480903e3d818e7d20d59aec502026df64",
+      "launchagent-reconnect-read.txt": "c672967f850a40bc56087b905cc51ef67ebef07a13881883cb878902d94326d5"
+    }
+  }
+}
