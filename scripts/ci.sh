@@ -134,6 +134,13 @@ if grep -Eq '^[[:space:]]*colima start' platforms/macos/containers/verify.sh; th
   exit 1
 fi
 
+# Pins issue #162's fix: the git identity check must stay include-aware.
+# `--global` alone does not expand [include], so a machine whose identity lives
+# in ~/.gitconfig.local was warned about as unconfigured (a false warning).
+printf 'Checking the Ubuntu/WSL git identity check is include-aware...\n'
+grep -Fq 'git config --global --includes --get user.name' platforms/ubuntu-wsl/verify.sh
+grep -Fq 'git config --global --includes --get user.email' platforms/ubuntu-wsl/verify.sh
+
 # mise resolves [bootstrap.packages] itself. Prove on this host that the resolved
 # set equals the set declared for this OS, which is what keeps a macOS-only entry
 # from reaching Windows and Linux.
