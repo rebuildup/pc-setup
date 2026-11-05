@@ -473,6 +473,9 @@ grep -Fq 'cannot modify the parent shell PATH' bootstrap.sh
 grep -Fq 'source ~/.bashrc' bootstrap.sh
 grep -Fq 'bootstrap.sh | bash && source ~/.bashrc' platforms/ubuntu-wsl/README.md
 
+printf 'Checking limited worker runtime installation...\n'
+python3 scripts/test-worker-runtime.py
+
 printf 'Checking WSL SSH runtime and host identity...\n'
 bash scripts/test-windows-worker-ssh-runtime.sh
 bash scripts/test-windows-worker-key-transaction.sh
