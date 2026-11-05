@@ -20,6 +20,10 @@ param(
     [string]$DeployDir = $(if ($env:PC_SETUP_DEPLOY_DIR) { $env:PC_SETUP_DEPLOY_DIR } else { Join-Path (Join-Path $env:LOCALAPPDATA 'pc-setup') 'deploy' }),
     [string]$RepoUrl = $(if ($env:PC_SETUP_REPO_URL) { $env:PC_SETUP_REPO_URL } else { 'https://github.com/rebuildup/pc-setup.git' }),
     [string]$DotfilesDir = $(if ($env:DOTFILES_DIR) { $env:DOTFILES_DIR } else { Join-Path $env:USERPROFILE '.dotfiles' }),
+    # Expected origin of the dotfiles checkout. Same source as scripts/sync-dotfiles.sh
+    # (DOTFILES_REPO_URL, default below). The checkout is refused, and its link.ps1 is
+    # never run, when its origin differs.
+    [string]$DotfilesRepoUrl = $(if ($env:DOTFILES_REPO_URL) { $env:DOTFILES_REPO_URL } else { 'https://github.com/rebuildup/dotfiles.git' }),
     [string]$StateDir = $(if ($env:PC_SETUP_STATE_DIR) { $env:PC_SETUP_STATE_DIR } else { Join-Path (Join-Path $env:LOCALAPPDATA 'pc-setup') 'state' })
 )
 
@@ -39,15 +43,23 @@ function Get-IsoNow {
     (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 }
 
+# status.json is a shareable report (ADR-0016 section 5: no tokens). Remote URLs can
+# carry userinfo (https://user:token@host/...), so it is removed wherever text is
+# recorded: the log file and every step detail.
+function Protect-Text {
+    param([string]$Text)
+    return ($Text -replace '://[^/@\s]+@', '://***@')
+}
+
 function Write-Log {
     param([string]$Message)
-    Add-Content -LiteralPath $script:LogFile -Value $Message -Encoding UTF8
+    Add-Content -LiteralPath $script:LogFile -Value (Protect-Text $Message) -Encoding UTF8
 }
 
 function Add-Step {
     # Detail strings are authored here. Raw tool output goes to the log file.
     param([string]$Step, [string]$Status, [string]$Detail)
-    $clean = $Detail -replace "[`t`r`n]", ' '
+    $clean = Protect-Text ($Detail -replace "[`t`r`n]", ' ')
     [void]$script:Steps.Add([pscustomobject]@{ at = (Get-IsoNow); step = $Step; status = $Status; detail = $clean })
     Write-Host ('{0,-16} {1,-8} {2}' -f $Step, $Status, $clean)
 }
@@ -56,6 +68,12 @@ function Add-Step {
 # captured, not thrown, because the script runs with ErrorActionPreference=Continue.
 function Invoke-Git {
     param([string]$Dir, [string[]]$GitArgs)
+    # A missing git is an expected degraded state, not an exception: it must not
+    # escape and skip the status report.
+    if (-not (Get-Command git -CommandType Application -ErrorAction SilentlyContinue)) {
+        Write-Log 'git not found on PATH'
+        return [pscustomobject]@{ Code = 127; Output = @('git not found on PATH') }
+    }
     $output = & git -C $Dir @GitArgs 2>&1
     $code = $LASTEXITCODE
     foreach ($line in @($output)) { Write-Log ([string]$line) }
@@ -69,13 +87,34 @@ function Get-GitValue {
     return (($result.Output | Select-Object -First 1) -as [string]).Trim()
 }
 
-function Test-GitDirty {
+# 'clean', 'dirty', or 'unknown' (git itself failed, e.g. a corrupt repository or a
+# missing git). A failed `git status` prints errors, which must never read as
+# "dirty files"; callers treat unknown as an error, not as clean.
+function Get-GitState {
     param([string]$Dir)
     $result = Invoke-Git -Dir $Dir -GitArgs @('status', '--porcelain')
-    return @($result.Output | Where-Object { $_ -ne '' }).Count -gt 0
+    if ($result.Code -ne 0) { return 'unknown' }
+    if (@($result.Output | Where-Object { $_ -ne '' }).Count -gt 0) { return 'dirty' }
+    return 'clean'
+}
+
+# Report value for a checkout: $false when it is not a checkout, $null when unknown.
+function Get-GitDirtyReport {
+    param([string]$Dir)
+    if (-not (Test-Path -LiteralPath (Join-Path $Dir '.git'))) { return $false }
+    switch (Get-GitState $Dir) {
+        'dirty' { return $true }
+        'clean' { return $false }
+        default { return $null }
+    }
 }
 
 function Sync-Deploy {
+    # git is required for every step below; say so once instead of failing obscurely.
+    if (-not (Get-Command git -CommandType Application -ErrorAction SilentlyContinue)) {
+        Add-Step 'deploy-sync' 'error' 'git not found on PATH; deploy checkout not synced'
+        return
+    }
     if (-not (Test-Path -LiteralPath $DeployDir)) {
         $parent = Split-Path -Parent $DeployDir
         New-Item -ItemType Directory -Force -Path $parent | Out-Null
@@ -104,7 +143,12 @@ function Sync-Deploy {
         return
     }
     # Refuse rather than reset or stash: local edits are someone's work.
-    if (Test-GitDirty $DeployDir) {
+    $deployState = Get-GitState $DeployDir
+    if ($deployState -eq 'unknown') {
+        Add-Step 'deploy-sync' 'error' 'git status failed in the deploy checkout; not updated and dependent steps skipped'
+        return
+    }
+    if ($deployState -eq 'dirty') {
         Add-Step 'deploy-sync' 'skipped' 'deploy checkout has local changes; not updated and dependent steps skipped'
         return
     }
@@ -161,16 +205,50 @@ function Invoke-MiseApply {
     }
 }
 
+# Derived from current state, not from a previous run: dsh is pending when
+# `npm:@deepseek-ai/dsh` is installed on this machine but the deployed
+# mise.global.toml does not declare it (it exists only in an unmerged PR; ADR-0016).
+# Same rule as the bash converge. Counts toward exit code 3.
+function Test-DshDeclaration {
+    if (-not $script:DeployOk) { return }
+    if (-not (Get-Command mise -CommandType Application -ErrorAction SilentlyContinue)) { return }
+    $installs = $null
+    try { $installs = Get-MiseInstalls } catch { $installs = $null }
+    if ($null -eq $installs) { return }
+    $dshInstalled = @($installs | Where-Object { $_.tool -eq 'npm:@deepseek-ai/dsh' }).Count -gt 0
+    if (-not $dshInstalled) { return }
+    $declared = Join-Path $DeployDir 'mise.global.toml'
+    $declaredText = if (Test-Path -LiteralPath $declared) { Get-Content -LiteralPath $declared -Raw } else { '' }
+    if ($declaredText -notmatch 'deepseek-ai/dsh') {
+        Add-Step 'dsh-declaration' 'pending' 'npm:@deepseek-ai/dsh is installed but not declared by the deployed mise.global.toml (declared only in unmerged PR #154); dsh is no longer managed by main'
+    }
+}
+
 function Invoke-DotfilesSync {
-    if ((Test-Path -LiteralPath (Join-Path $DotfilesDir '.git')) -and (Test-GitDirty $DotfilesDir)) {
-        Add-Step 'dotfiles-sync' 'skipped' ($DotfilesDir + ' has local changes; sync and link skipped')
-        return
+    $dotfilesPresent = Test-Path -LiteralPath (Join-Path $DotfilesDir '.git')
+    if ($dotfilesPresent) {
+        $dotfilesState = Get-GitState $DotfilesDir
+        if ($dotfilesState -eq 'unknown') {
+            Add-Step 'dotfiles-sync' 'error' ('git status failed in ' + $DotfilesDir + '; sync and link skipped')
+            return
+        }
+        if ($dotfilesState -eq 'dirty') {
+            Add-Step 'dotfiles-sync' 'skipped' ($DotfilesDir + ' has local changes; sync and link skipped')
+            return
+        }
     }
     if (-not $script:DeployOk) {
         Add-Step 'dotfiles-sync' 'skipped' 'deploy checkout not converged in this run; sync and link skipped'
         return
     }
-    if (Test-Path -LiteralPath (Join-Path $DotfilesDir '.git')) {
+    if ($dotfilesPresent) {
+        # link.ps1 from this checkout is executed below, so the origin is validated
+        # first (same rule as scripts/sync-dotfiles.sh): no fetch, no merge, no link.
+        $dotfilesOrigin = Get-GitValue $DotfilesDir @('remote', 'get-url', 'origin')
+        if ($dotfilesOrigin -ne $DotfilesRepoUrl) {
+            Add-Step 'dotfiles-sync' 'error' ("dotfiles origin is '" + $dotfilesOrigin + "', expected " + $DotfilesRepoUrl + '; sync and link skipped')
+            return
+        }
         $fetch = Invoke-Git -Dir $DotfilesDir -GitArgs @('fetch', '--quiet', 'origin', 'main')
         $merge = Invoke-Git -Dir $DotfilesDir -GitArgs @('merge', '--quiet', '--ff-only', 'origin/main')
         if ($fetch.Code -ne 0 -or $merge.Code -ne 0) {
@@ -258,6 +336,8 @@ function Get-MiseInstalls {
         foreach ($entry in @($prop.Value)) {
             $path = [string](Get-JsonField $entry 'install_path')
             if (-not $path) { continue }
+            $isInstalled = Get-JsonField $entry 'installed'
+            if ($null -ne $isInstalled -and -not [bool]$isInstalled) { continue }
             [void]$installs.Add([pscustomobject]@{
                 tool   = $prop.Name
                 path   = $path.Replace('/', '\').TrimEnd('\')
@@ -306,21 +386,29 @@ function Get-StaleProcesses {
 function Write-StatusReport {
     param([int]$Exit)
     New-Item -ItemType Directory -Force -Path $StateDir | Out-Null
-    $drift = & mise outdated 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        $drift = @($drift | Where-Object { $_ -and $_.ToString().Trim() -ne '' })
-        $outdatedCount = $drift.Count
-    } else {
-        $outdatedCount = -1
+    # A missing mise is an expected state (Invoke-Verify documents it as a skip). It
+    # must not escape, nor leave a stale $LASTEXITCODE to be read as success.
+    $outdatedCount = -1
+    if (Get-Command mise -CommandType Application -ErrorAction SilentlyContinue) {
+        $drift = & mise outdated 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $drift = @($drift | Where-Object { $_ -and $_.ToString().Trim() -ne '' })
+            $outdatedCount = $drift.Count
+        }
     }
 
+    $miseConfigTarget = if ($env:MISE_GLOBAL_CONFIG_FILE) { $env:MISE_GLOBAL_CONFIG_FILE } else { Join-Path (Join-Path (Join-Path $env:USERPROFILE '.config') 'mise') 'config.toml' }
     $deployHead = Get-GitValue $DeployDir @('rev-parse', 'HEAD')
     $dotHead = Get-GitValue $DotfilesDir @('rev-parse', 'HEAD')
     $errors = New-Object System.Collections.ArrayList
     # The process scan must never block the report: a failure is recorded as an error.
     $stale = @()
     try {
-        $stale = @(Get-StaleProcesses)
+        # Get-StaleProcesses returns the list wrapped (`,$results`); assign first, then
+        # enumerate. @(Get-StaleProcesses) would yield one element (the list itself),
+        # and `$_.kind` on it throws under Set-StrictMode.
+        $staleResult = Get-StaleProcesses
+        $stale = @($staleResult)
     } catch {
         [void]$errors.Add('stale-process-scan: ' + $_.Exception.Message)
     }
@@ -337,9 +425,11 @@ function Write-StatusReport {
         schema          = 1
         platform        = 'windows-11'
         generated_at    = (Get-IsoNow)
-        deploy          = [pscustomobject]@{ present = (Test-Path -LiteralPath (Join-Path $DeployDir '.git')); path = $DeployDir; branch = (Get-GitValue $DeployDir @('symbolic-ref', '--quiet', '--short', 'HEAD')); head = $deployHead; dirty = (Test-GitDirty $DeployDir) }
-        dotfiles        = [pscustomobject]@{ present = (Test-Path -LiteralPath (Join-Path $DotfilesDir '.git')); path = $DotfilesDir; branch = (Get-GitValue $DotfilesDir @('symbolic-ref', '--quiet', '--short', 'HEAD')); head = $dotHead; dirty = ((Test-Path -LiteralPath (Join-Path $DotfilesDir '.git')) -and (Test-GitDirty $DotfilesDir)) }
-        mise            = [pscustomobject]@{ outdated_count = $outdatedCount }
+        deploy          = [pscustomobject]@{ present = (Test-Path -LiteralPath (Join-Path $DeployDir '.git')); path = $DeployDir; branch = (Get-GitValue $DeployDir @('symbolic-ref', '--quiet', '--short', 'HEAD')); head = $deployHead; dirty = (Get-GitDirtyReport $DeployDir) }
+        dotfiles        = [pscustomobject]@{ present = (Test-Path -LiteralPath (Join-Path $DotfilesDir '.git')); path = $DotfilesDir; branch = (Get-GitValue $DotfilesDir @('symbolic-ref', '--quiet', '--short', 'HEAD')); head = $dotHead; dirty = (Get-GitDirtyReport $DotfilesDir) }
+        # config_target: on Windows the machine-global config is a rendered COPY (not a
+        # symlink into the deploy checkout as on POSIX); this is the path mise reads.
+        mise            = [pscustomobject]@{ config_target = $miseConfigTarget; outdated_count = $outdatedCount }
         verify          = $verifyObj
         last_converge   = [pscustomobject]@{ started = $script:RunStarted; finished = (Get-IsoNow); exit = $Exit; log = $script:LogFile; script = $PSCommandPath }
         steps           = @($script:Steps)
@@ -361,6 +451,7 @@ function Invoke-Main {
 
     Sync-Deploy
     Invoke-MiseApply
+    Test-DshDeclaration
     Invoke-DotfilesSync
     Invoke-Verify
 
