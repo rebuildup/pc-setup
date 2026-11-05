@@ -535,6 +535,34 @@ jobs:
             throw 'bootstrap.ps1 must invoke the selected mise CommandInfo directly.'
           }
 
+          # The Tool ownership list in verify.ps1 hand-duplicates names from
+          # mise.global.toml. Every name must map to a [tools] key, directly or
+          # through the alias table (the command name differs from the mise key).
+          $ownershipMatch = [regex]::Match($verify, '(?m)^\s*\$ownershipTools\s*=\s*@\(([^)]*)\)')
+          if (-not $ownershipMatch.Success) { throw 'verify.ps1 must define $ownershipTools as @(...) for the Tool ownership check.' }
+          $ownershipNames = @([regex]::Matches($ownershipMatch.Groups[1].Value, "'([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+          if ($ownershipNames.Count -eq 0) { throw 'verify.ps1 $ownershipTools is empty.' }
+          $ownershipAliases = @{
+            'ripgrep' = 'rg'
+            'neovim' = 'nvim'
+            'npm:@opencode/cli' = 'opencode'
+            'npm:@earendil-works/pi-coding-agent' = 'pi'
+          }
+          $globalToolsText = Get-Content -LiteralPath ./mise.global.toml -Raw
+          $toolKeys = New-Object System.Collections.Generic.List[string]
+          $inTools = $false
+          foreach ($tomlLine in ($globalToolsText -split "`r?`n")) {
+            if ($tomlLine -match '^\s*\[tools\]\s*$') { $inTools = $true; continue }
+            if ($tomlLine -match '^\s*\[tools\.("?)([^\]"]+)\1(\.[^\]]*)?\]\s*$') { [void]$toolKeys.Add($Matches[2]); continue }
+            if ($tomlLine -match '^\s*\[') { $inTools = $false; continue }
+            if ($inTools -and $tomlLine -match '^\s*("?)([^"=\s]+)\1\s*=') { [void]$toolKeys.Add($Matches[2]) }
+          }
+          $mappedNames = @($toolKeys | ForEach-Object { if ($ownershipAliases.ContainsKey($_)) { $ownershipAliases[$_] } else { $_ } })
+          $unmappedNames = @($ownershipNames | Where-Object { $mappedNames -notcontains $_ })
+          if ($unmappedNames.Count -gt 0) {
+            throw "verify.ps1 Tool ownership names with no mise.global.toml [tools] key (or alias): $($unmappedNames -join ', ')"
+          }
+
       - name: Validate best-effort Windows desktop apps
         shell: pwsh
         run: |
@@ -725,13 +753,50 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
-      # ADR-0015: mise owns the Rust toolchain on Windows too. The 2026-10-17
-      # incident (a shim auto-installing rust@stable over a hand-installed rustup
-      # toolchain) is now prevented by excluding Rust from automatic installs and
-      # by pinning the rustup/Cargo homes under the mise data dir, not by hiding
-      # Rust from mise. Only the rendered config is checked here; nothing is
-      # installed.
-      - name: Validate the Windows mise config manages Rust under mise homes
+      # Regression: `mise run` on Windows invokes this script with
+      # `powershell.exe` (Windows PowerShell 5.1), which turns a native
+      # command's stderr into a terminating NativeCommandError. mise reports
+      # its progress on stderr, so the apply aborted on the first progress
+      # line. The fake mise below writes to stderr on purpose.
+      - name: Validate global mise apply under Windows PowerShell 5.1
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-mise-ps51-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $target = Join-Path $root 'config.toml'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+          $oldPath = $env:PATH
+
+          try {
+            "@echo off`r`necho mise by @jdx - installing 1 tool 1>&2`r`nexit /b 0" |
+              Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd')
+            $env:PATH = "$fakeBin;$oldPath"
+            $env:MISE_GLOBAL_CONFIG_FILE = $target
+            $env:MISE_GITHUB_TOKEN = 'ci-placeholder'
+
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File ./scripts/apply-global-mise.ps1
+            if ($LASTEXITCODE -ne 0) {
+              throw "apply-global-mise.ps1 failed under Windows PowerShell 5.1 (exit $LASTEXITCODE)."
+            }
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      # Rust is mise-managed on Windows as of 2026-11-04 (see
+      # platforms/windows-11/README.md). The earlier guard existed for the
+      # 2026-10-17 incident, where mise fought a *standalone* rustup installation
+      # and left rustc.exe/cargo.exe deleted; the machine no longer permits that
+      # coexistence, so the guard and its regression expectation are gone.
+      # PowerShell must still stay WinGet-only on Windows. Everything runs in
+      # throwaway MISE_*/RUSTUP_HOME/CARGO_HOME directories and uses
+      # `install --dry-run`, so no real toolchain is ever touched.
+      - name: Validate Rust and PowerShell handling on Windows
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -742,11 +807,11 @@ jobs:
           $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-rust-$([guid]::NewGuid())"
           New-Item -ItemType Directory -Path $root | Out-Null
           $oldPath = $env:PATH
-          $realLocalAppData = $env:LOCALAPPDATA
+          $repo = (Get-Location).Path
 
           try {
-            # Generate the Windows copy of the global config (fake mise: the
-            # apply script's `mise install` must not run for real here).
+            # 1. Generate the Windows copy of the global config (fake mise: the
+            #    apply script's `mise install` must not run for real here).
             $fakeBin = Join-Path $root 'fakebin'
             New-Item -ItemType Directory -Path $fakeBin | Out-Null
             "@echo off`r`nexit /b 0" | Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd')
@@ -758,93 +823,54 @@ jobs:
             Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN
             $env:PATH = $oldPath
             $text = Get-Content -LiteralPath $generated -Raw
+            if ($text -match '(?m)^\s*disable_tools\s*=') { throw 'Windows config must not disable tools.' }
+            if ($text -notmatch '(?m)^rust\s*=\s*"stable"') { throw 'rust must be declared without an os condition.' }
 
-            if ($text -match '(?m)^\s*disable_tools\s*=\s*\[[^\]]*"rust"') { throw 'Windows config must not disable the rust tool (ADR-0015).' }
-            if ($text -notmatch '(?m)^auto_install_disable_tools\s*=\s*\["rust"\]') { throw 'Windows config must exclude rust from automatic installs.' }
-            if ($text -notmatch '(?m)^rust\s*=\s*"stable"') { throw 'rust = "stable" must be declared without an os condition.' }
-            foreach ($pair in @(@('RUSTUP_HOME', 'rustup'), @('CARGO_HOME', 'cargo'))) {
-              $name = $pair[0]; $dir = $pair[1]
-              $homePattern = '(?m)^\s*' + $name + '\s*=\s*[''"]\{\{env\.LOCALAPPDATA\}\}(?:\\\\|\\)mise(?:\\\\|\\)' + $dir + '[''"]'
-              if ($text -notmatch $homePattern) { throw "Windows config does not pin $name to LOCALAPPDATA\mise\$dir." }
-            }
-
-            # Behavioral guard. The text assertions above only prove the key is
-            # written; these prove mise honors it. `auto_install_disable_tools`
-            # gates the AUTO-install path (a shim or `mise exec` installing a
-            # missing tool), not an explicit `mise install rust`, which stays the
-            # sanctioned route (ADR-0015). So this does not use `install --dry-run`:
-            # that reports `rust@stable would install` with or without the setting.
-            # The mise version is pinned so a CI run is reproducible; bumping the
-            # pin is how this check is re-baselined against a newer mise.
+            # 2. Real mise, fully isolated.
             $zip = Join-Path $root 'mise.zip'
-            Invoke-WebRequest -Uri 'https://github.com/jdx/mise/releases/download/v2026.10.25/mise-v2026.10.25-windows-x64.zip' -OutFile $zip
+            Invoke-WebRequest -Uri 'https://github.com/jdx/mise/releases/download/v2026.9.11/mise-v2026.9.11-windows-x64.zip' -OutFile $zip
             Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $root 'mise-dist')
             $mise = (Get-ChildItem -Path (Join-Path $root 'mise-dist') -Recurse -Filter mise.exe | Select-Object -First 1).FullName
 
-            # Isolation: mise state, the config trust list, and LOCALAPPDATA (which
-            # the generated [env] RUSTUP_HOME/CARGO_HOME templates expand) all point
-            # at the throwaway root, so nothing touches a real toolchain.
-            $isolatedLocal = Join-Path $root 'localappdata'
-            New-Item -ItemType Directory -Path $isolatedLocal | Out-Null
             $env:MISE_DATA_DIR = Join-Path $root 'data'
             $env:MISE_CACHE_DIR = Join-Path $root 'cache'
             $env:MISE_STATE_DIR = Join-Path $root 'state'
             $env:MISE_CONFIG_DIR = Join-Path $root 'cfgdir'
             $env:MISE_TRUSTED_CONFIG_PATHS = $root
-            $realLocalAppData = $env:LOCALAPPDATA
-            $env:LOCALAPPDATA = $isolatedLocal
+            $env:RUSTUP_HOME = Join-Path $root 'rustup'
+            $env:CARGO_HOME = Join-Path $root 'cargo'
+
             $project = Join-Path $root 'project'
             New-Item -ItemType Directory -Path $project | Out-Null
+            "[tools]`nrust = `"1.85.0`"" | Set-Content -LiteralPath (Join-Path $project 'mise.toml')
+            "[toolchain]`nchannel = `"1.85.0`"" | Set-Content -LiteralPath (Join-Path $project 'rust-toolchain.toml')
 
-            # Runs mise with a native-stderr-safe error preference (Windows
-            # PowerShell 5.1 turns native stderr into a terminating error) and
-            # returns stdout+stderr as one string.
-            function Invoke-IsolatedMise([string]$Config, [string[]]$MiseArgs) {
-              $previousPreference = $ErrorActionPreference
-              $ErrorActionPreference = 'Continue'
+            # Trimmed config: the generated [settings] plus only the entries
+            # under test (Rust, PowerShell, and a Rust-dependent cargo tool).
+            $settings = ($text -split '(?m)^\[tools\]')[0]
+            $entries = $text -split "`r?`n" | Where-Object { $_ -match '^(rust|powershell|"cargo:cargo-clean-all")\s*=' }
+            if (@($entries).Count -lt 3) { throw "Expected rust, powershell and cargo-clean-all entries, got: $($entries -join ' | ')" }
+            $trimmed = Join-Path $root 'trimmed.toml'
+            ($settings + "[tools]`n" + ($entries -join "`n") + "`n") | Set-Content -LiteralPath $trimmed
+
+            function Get-DryRun([string]$Config) {
               $env:MISE_GLOBAL_CONFIG_FILE = $Config
               Push-Location $project
-              try { return ((& $mise @MiseArgs 2>&1 | ForEach-Object { [string]$_ }) -join "`n") }
-              finally { Pop-Location; $ErrorActionPreference = $previousPreference }
+              try { return (& $mise install --dry-run 2>&1 | Out-String) } finally { Pop-Location }
             }
 
-            # 1. mise must know the key and report rust in it. An unknown key or an
-            #    absent setting prints no value.
-            $setting = Invoke-IsolatedMise $generated @('settings', 'get', 'auto_install_disable_tools')
-            if ($setting -notmatch 'rust') { throw "mise does not report rust in auto_install_disable_tools:`n$setting" }
-
-            # Trimmed configs: the generated settings and [env], plus only Rust.
-            $settingsPart = ($text -split '(?m)^\[tools\]')[0]
-            $envMatch = [regex]::Match($text, '(?ms)^\[env\].*?(?=^\[|\z)')
-            if (-not $envMatch.Success) { throw 'Generated Windows config has no [env] section.' }
-            $guardedConfig = Join-Path $root 'guarded.toml'
-            ($settingsPart + "[tools]`nrust = `"stable`"`n`n" + $envMatch.Value) | Set-Content -LiteralPath $guardedConfig
-
-            # 2. With the guard, an auto-install is refused and nothing is installed.
-            $guarded = Invoke-IsolatedMise $guardedConfig @('exec', '--', 'rustc', '--version')
-            if ($guarded -notmatch 'auto-install is disabled') { throw "mise did not refuse the Rust auto-install:`n$guarded" }
-            $installsAfterGuarded = Test-Path -LiteralPath (Join-Path $env:MISE_DATA_DIR 'installs')
-            if ($installsAfterGuarded) { throw 'mise created an installs dir despite the auto-install guard.' }
-
-            # 3. Sensitivity control: with the guard removed and a nonexistent Rust
-            #    version (rustup rejects the name immediately, so nothing downloads),
-            #    mise must attempt the install, i.e. NOT print the refusal.
-            $controlConfig = Join-Path $root 'control.toml'
-            $controlText = (Get-Content -LiteralPath $guardedConfig -Raw) -replace '(?m)^auto_install_disable_tools\s*=.*\r?\n', '' -replace '(?m)^rust\s*=\s*"stable"', 'rust = "0.0.0-nonexistent-bogus"'
-            if ($controlText -match 'auto_install_disable_tools') { throw 'Control config still carries the guard; the sensitivity check is invalid.' }
-            Set-Content -LiteralPath $controlConfig -Value $controlText
-            $control = Invoke-IsolatedMise $controlConfig @('exec', '--', 'rustc', '--version')
-            if ($control -match 'auto-install is disabled') { throw "Control config was refused too; the guard check is not sensitive:`n$control" }
+            # Rust must be installable on Windows (the whole point of dropping
+            # the guard); PowerShell must stay excluded.
+            $windowsDryRun = Get-DryRun $trimmed
+            if ($windowsDryRun -notmatch 'rust@') { throw "mise must install Rust on Windows:`n$windowsDryRun" }
+            if ($windowsDryRun -match 'powershell@') { throw "mise would install PowerShell on Windows:`n$windowsDryRun" }
           }
           finally {
             $env:PATH = $oldPath
-            if ($realLocalAppData) { $env:LOCALAPPDATA = $realLocalAppData }
-            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN, Env:MISE_DATA_DIR, Env:MISE_CACHE_DIR, Env:MISE_STATE_DIR, Env:MISE_CONFIG_DIR, Env:MISE_TRUSTED_CONFIG_PATHS -ErrorAction SilentlyContinue
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN -ErrorAction SilentlyContinue
+            Set-Location $repo
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
-          # The control run above ends with a failing native command on purpose; the
-          # step's exit code is the last native exit code, so reset it.
-          $global:LASTEXITCODE = 0
 
       - name: Validate Visual Studio capability check
         shell: pwsh

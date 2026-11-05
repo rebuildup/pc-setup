@@ -79,6 +79,23 @@ Write-Host "synced  $TargetConfig <- $SourceConfig"
 if (Test-Path -LiteralPath $SourceLock) {
     Copy-Item -LiteralPath $SourceLock -Destination $TargetLock -Force
     Write-Host "synced  $TargetLock <- $SourceLock"
+
+    # The lock references its dependency sidecars by a path relative to the
+    # lock file (`aube = { path = ".mise/locks/mise.global/<tool>/<version>" }`).
+    # On POSIX the lock is a symlink into the repository, so mise resolves those
+    # paths against the repository root and finds them. Windows copies the lock
+    # instead, so mise resolves them against the copy's directory and every
+    # locked install fails with "dependency sidecar ... path not found". Copy
+    # the sidecar tree next to the lock to keep both platforms equivalent.
+    $SourceSidecars = Join-Path $RepoRoot '.mise'
+    $TargetSidecars = Join-Path (Split-Path -Parent $TargetLock) '.mise'
+    if (Test-Path -LiteralPath $SourceSidecars) {
+        if (Test-Path -LiteralPath $TargetSidecars) {
+            Remove-Item -LiteralPath $TargetSidecars -Recurse -Force
+        }
+        Copy-Item -LiteralPath $SourceSidecars -Destination $TargetSidecars -Recurse -Force
+        Write-Host "synced  $TargetSidecars <- $SourceSidecars"
+    }
 }
 elseif (Test-Path -LiteralPath $TargetLock) {
     Remove-Item -LiteralPath $TargetLock -Force
@@ -91,6 +108,12 @@ function Prepare-MiseGitHubAuth {
     }
 
     Push-Location $HOME
+    # Windows PowerShell 5.1 turns a native command's stderr into a
+    # terminating NativeCommandError while $ErrorActionPreference is 'Stop'.
+    # mise reports its progress on stderr, so every native call below has to
+    # run with the preference relaxed and is judged by its exit code instead.
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     try {
         & mise install gh
         if ($LASTEXITCODE -ne 0) {
@@ -116,6 +139,7 @@ function Prepare-MiseGitHubAuth {
         Write-Host 'ok      mise GitHub authentication prepared from gh'
     }
     finally {
+        $ErrorActionPreference = $previousPreference
         Pop-Location
     }
 }
@@ -123,6 +147,8 @@ function Prepare-MiseGitHubAuth {
 Prepare-MiseGitHubAuth
 
 Push-Location $HOME
+$previousPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 try {
     $installArgs = @('install')
     if (Test-Path -LiteralPath $TargetLock) {
@@ -131,12 +157,15 @@ try {
     }
 
     & mise @installArgs
-    if ($LASTEXITCODE -ne 0) {
-        exit $LASTEXITCODE
-    }
+    $installExitCode = $LASTEXITCODE
 }
 finally {
+    $ErrorActionPreference = $previousPreference
     Pop-Location
+}
+
+if ($installExitCode -ne 0) {
+    exit $installExitCode
 }
 
 Write-Host 'Machine-global mise tools are installed.'

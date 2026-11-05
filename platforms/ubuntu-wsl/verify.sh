@@ -187,13 +187,20 @@ if command -v claude >/dev/null 2>&1; then
   warn "Claude Code login is interactive; run: claude and confirm the active account"
 fi
 
-if git config --global --get user.name >/dev/null 2>&1; then
+# `--global` alone does not expand [include] directives, so a machine whose
+# identity lives in ~/.gitconfig.local (included from the managed ~/.gitconfig)
+# was reported as unconfigured. Measured on the dotfiles layout:
+#   git config --global --get user.name              -> exit 1 (include not resolved)
+#   git config --global --includes --get user.name   -> returns the value
+# A machine with no identity at all still exits 1 with --includes, so the
+# warning (and only that warning) is preserved.
+if git config --global --includes --get user.name >/dev/null 2>&1; then
   ok "global Git user.name is configured"
 else
   warn "global Git user.name is not configured"
 fi
 
-if git config --global --get user.email >/dev/null 2>&1; then
+if git config --global --includes --get user.email >/dev/null 2>&1; then
   ok "global Git user.email is configured"
 else
   warn "global Git user.email is not configured"

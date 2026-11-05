@@ -102,17 +102,13 @@ OSごとにWinGet packageを重複宣言せず、`mise.global.toml [tools]` を�
 
 ### Rust on Windows
 
-Windows の Rust も mise が管理する (ADR-0015)。toolchain を選ぶ層は mise だけで、rustup は mise の rust backend が使う置き場所として残る。
+Windows の Rust も mise が管理する。`mise.global.toml` の `rust = "stable"` は全 OS 共通で、`core:rust` backend が rustup を前提に toolchain を入れる。
 
-- `mise.global.toml` の `rust = "stable"` は全 OS 共通。Windows だけの例外扱いはしない。
-- Windows 用の config (`scripts/windows-mise-config.ps1` が描画) は `[env]` で rustup home と Cargo home を mise の data dir に固定する。
-  - `RUSTUP_HOME` / `MISE_RUSTUP_HOME` = `%LOCALAPPDATA%\mise\rustup`
-  - `CARGO_HOME` / `MISE_CARGO_HOME` = `%LOCALAPPDATA%\mise\cargo`
-- 同じ config は `auto_install_disable_tools = ["rust"]` を持つ。shim を 1 回呼んだだけで background の toolchain install が始まらない。導入と更新は `mise install rust` / `mise install rust@<version>` で行う。
-- 旧 `%USERPROFILE%\.rustup` と `%USERPROFILE%\.cargo` は廃止する。`%USERPROFILE%\.cargo\bin` は User PATH から外し、mise が作る shim に同じ proxy を作らせる。PATH 上の優先順位は mise shim が先になる。
-- toolchain 選択の優先順位は project の `mise.toml` → `rust-toolchain.toml` → global の `rust = "stable"`。mise は `RUSTUP_TOOLCHAIN` を export するので、rustup 互換の選択になる。
-- Rust CLI (cargo-tauri / wasm-pack / just / llmfit / rtk / cargo-ndk / cargo-generate / cargo-compete / cargo-cleaner / cargo-update / rust-mcp-filesystem) は `mise.global.toml` の `cargo:` tool として宣言する。`cargo install` による個別インストールはしない。
-- `verify.ps1` は mise 経由の実行で実バイナリを確認する。
+- 旧 policy (`scripts/apply-global-mise.ps1` が Windows 用 copy に `disable_tools = ["rust"]` を注入) は 2026-11-04 に破棄した。当該 machine には rustup.rs の standalone rustup が存在せず、guard は mise 自身の rustup + stable toolchain を PATH から隠すだけで、`cargo` / `rustc` が一切使えない状態を招いていた。
+- 2026-10-17 の incident (mise shim を 1 回呼んだだけで既存 rustup toolchain の `rustc.exe` / `cargo.exe` が消えた) は standalone rustup と mise Rust の**併用**で起きた。guard の代わりに併用を禁止する: standalone rustup (`~/.cargo/bin`) をこの machine に入れない。Rust の正本は mise だけであり、入れ替え時は必ず `platforms/windows-11/verify.ps1` で実バイナリを確認する。
+- プロジェクトの `mise.toml` / `rust-toolchain.toml` の pin は `idiomatic_version_file_enable_tools = ["rust"]` により machine-global の `stable` より優先される。
+- `cargo:cargo-clean-all` など Rust 依存の cargo backend tool は `depends = ["rust"]` で Rust を要求する。
+- `verify.ps1` は `rustup run stable rustc/cargo` で実バイナリを確認する。
 
 ### Optional apps and pending items
 
@@ -262,3 +258,37 @@ snapshotはevidenceであり、検出した全appを自動的にdesired stateへ
 password / token / API key / cookie / license secret / private keyはrepositoryへ保存しない。
 
 portable secretはInfisicalがsource of truth。Tailscale provisioning の provider pointer / required key / forwarding contract は `tailscale.psd1` に置き、OAuth client secret value は Infisical だけに保持する。各サービスのinteractive login / licensingは必要に応じて実機で行う。
+
+### PATH ownership
+
+どの実行ファイルが選ばれるかは「どの経路で起動したか」で決まる。管理者は次の規則で割り当てる。
+
+| 経路 | PATH の出どころ | 勝つ実行ファイル |
+|---|---|---|
+| `mise activate pwsh` 済みの shell | mise が install dir / shim を PATH 先頭へ差し込む | mise 管理のもの |
+| 非 activation (`pwsh -NoProfile`、Scheduled Task、IDE、GUI 起動) | registry の Machine PATH → User PATH の順 | registry 上で先に並ぶもの |
+
+- mise 管理のツールを activation なしで使う必要がある経路 (Scheduled Task など) は、`mise exec -- <tool>` か shim の絶対パス (`%LOCALAPPDATA%\mise\shims\<tool>.exe`) を使う。PATH の並びに依存しない。
+- registry PATH に置く mise 由来の最小集合は `%LOCALAPPDATA%\mise\shims` だけ (User PATH)。mise の install dir は activation が差し込むもので、registry には置かない。mise の data dir の外にある Rust home (`%USERPROFILE%\.cargo\bin`) も registry PATH には置かない (ADR-0015)。
+- Machine PATH は User PATH より先に評価される。そのため、Machine PATH にある `Program Files` 配下の同名 binary は、User PATH の shim より先に勝つ。User 側の編集ではこれを直せない。
+- registry PATH を編集するときは、編集前の値 (Machine/User とも、展開前の生の値) を `%USERPROFILE%\.local\state\pc-setup\backup-<timestamp>.txt` に保存し、そのファイルに復旧コマンドを書き残す。編集は完全一致の重複 entry の削除に限る。
+- 同名の重複 binary は自動では削除しない。残すものと理由:
+  - `Program Files` の `gh` / `node` / `nvim`、chocolatey の `rg`: それぞれの installer が管理し、アンインストール経路を持つ。削除は installer 側の操作であり、PATH の整理ではない。mise が activation 済みの shell では mise 側が勝つので実害は出ない。
+  - `%APPDATA%\npm` の `claude.cmd`、`%USERPROFILE%\.local\bin\claude.exe`、`%USERPROFILE%\.bun\bin` の `codex` / `opencode`: ほかの npm / bun global package と同じディレクトリにあるため、PATH entry の削除では解消できない。個別に uninstall する場合は各 package manager の操作として別途行う。
+  - `WindowsApps` (App execution alias) と `WinGet\Links`: GUI アプリや vendor updater が使う。`mise` 本体は `WinGet\Links` から解決される。
+- `verify.ps1` の "Tool ownership" は、activation 済み shell で mise が勝つこと (FAIL)、非 activation で mise の外に解決されるもの (WARN、名前と解決先を列挙)、`mise which` が実在する binary を指すこと、version を確認する。shim だけが残って tool が宣言されていない orphan shim も WARN にする。
+
+### Legacy `%USERPROFILE%\.rustup` / `%USERPROFILE%\.cargo` (orphaned, retained)
+
+ADR-0015 / #150 は Rust と Cargo の home を `%LOCALAPPDATA%\mise\{rustup,cargo}` に移す。旧 `%USERPROFILE%\.rustup` と `%USERPROFILE%\.cargo` は、移行後は参照されない (orphaned) が、そのまま残っていても害はない (inert)。削除は不可逆なので、この変更では削除せず**残す**。`verify.ps1` は存在を情報として WARN に出すだけで、FAIL にはしない。
+
+device-windows では、#150 の「旧 home は削除済み」は検証した別 devnode の話であり、この機では旧 dir が残っている。
+
+削除手順 (将来の reviewed change として実施する。先にバックアップ):
+
+1. 新 home が自立していることを確認する: `mise exec -- rustc --version`、`mise exec -- cargo --version`、`mise exec -- printenv RUSTUP_HOME CARGO_HOME` が `%LOCALAPPDATA%\mise\...` を返す。
+2. `mise.global.toml` の全 `cargo:` tool が新 home だけで入ることを確認する。別の一時 `MISE_DATA_DIR` で `mise install --locked` を通すか、`mise ls --current` で全 `cargo:` が `missing` でないことを確認する。
+3. バックアップ: `robocopy "$env:USERPROFILE\.cargo" "$env:USERPROFILE\.local\state\pc-setup\legacy-rust-<timestamp>\.cargo" /E` と、`.rustup` について同様。`.cargo\bin` の中身の一覧も控える。
+4. 旧 dir を削除する (`.cargo\bin` が registry PATH に無いことを再確認してから)。
+5. `verify.ps1` と `pwsh -NoProfile` での解決を再確認する。
+6. 復旧: バックアップの `.rustup` / `.cargo` を `%USERPROFILE%` へ `robocopy /E` で戻す。必要なら `.cargo\bin` を User PATH へ戻す。
