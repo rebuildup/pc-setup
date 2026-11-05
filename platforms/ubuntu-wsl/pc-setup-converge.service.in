@@ -1,0 +1,12 @@
+# managed-by: rebuildup/pc-setup platforms/ubuntu-wsl/install-converge.sh
+[Unit]
+Description=pc-setup converge (adopted state from origin/main, ADR-0016)
+Documentation=https://github.com/rebuildup/pc-setup/blob/main/docs/adr/ADR-0016.md
+
+[Service]
+Type=oneshot
+Environment="PATH=__PATH__"
+ExecStart=/bin/bash "__CONVERGE_SCRIPT__"
+# A converge run can wait on the network for a long mise install; keep the unit
+# bounded so a hung run cannot block the next timer tick forever.
+TimeoutStartSec=1h

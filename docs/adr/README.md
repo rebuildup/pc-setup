@@ -20,6 +20,7 @@
 | [ADR-0012](./ADR-0012.md) | Accepted | macOS keyboard baseline は hidutil と system LaunchDaemon で管理する |
 | [ADR-0013](./ADR-0013.md) | Accepted | macOS のコンテナ実行環境は Colima と Homebrew Docker CLI で管理する |
 | [ADR-0014](./ADR-0014.md) | Accepted | Orca は macOS の任意の worktree frontend とし、設定と Skill stub は Orca 自身が持つ |
+| [ADR-0016](./ADR-0016.md) | Accepted | 採用（train）・配備（converge）・シェル（activate のみ）を分離し、OS スケジューラで main を配備する |
 
 | [ADR-0021](./ADR-0021.md) | Accepted | Windows の Rust toolchain も mise が管理する |
 

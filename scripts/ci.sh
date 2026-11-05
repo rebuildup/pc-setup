@@ -463,6 +463,90 @@ if [[ "$locked_source_exports" -lt 2 ]]; then
   exit 1
 fi
 
+printf 'Checking converge contracts...\n'
+python3 - <<'PY'
+import re
+from pathlib import Path
+
+# Source-level contracts for scripts/converge.sh (ADR-0016). Comment lines are
+# ignored so documentation that names `mise upgrade` cannot trip the adoption check.
+source = Path("scripts/converge.sh").read_text(encoding="utf-8")
+code = "\n".join(line for line in source.splitlines() if not line.lstrip().startswith("#"))
+
+def require(needle, why):
+    if needle not in code:
+        raise SystemExit(f"converge.sh is missing {needle!r}: {why}")
+
+# Exit codes: 0 converged, 1 a step failed, 3 skipped or pending, 75 lock held.
+require("return 75", "lock held by another run must exit 75")
+if not re.search(r"exit_code_from_steps\(\) \{.*?return 1.*?return 3.*?\n\}", code, re.S):
+    raise SystemExit("exit_code_from_steps must map error/fail to 1 and skipped/pending to 3")
+require('exit "$rc"', "main must exit with the mapped code")
+
+# Lock lifecycle: atomic mkdir, released on every exit through the EXIT trap.
+for needle in ("acquire_lock() {", "release_lock() {", "trap finish_run EXIT", "trap - EXIT",
+               'mkdir "$lock_dir"', 'rm -rf "$lock_dir"'):
+    require(needle, "lock lifecycle")
+
+# Re-exec handoff: the deployed copy continues the same run with these variables.
+for needle in ("PC_SETUP_CONVERGE_REEXEC=1", "PC_SETUP_CONVERGE_DEPLOY_OK=1",
+               'PC_SETUP_CONVERGE_LOG="$log_file"', 'exec bash "$deployed"',
+               'PC_SETUP_CONVERGE_REEXEC:-0}" == 1'):
+    require(needle, "re-exec handoff")
+
+# Adoption ownership: converge only consumes committed state. It must never run
+# mise upgrade/lock or resolve latest; those belong to the update train (ADR-0010).
+forbidden = re.compile(r"\bmise(\s+-C\s+\S+)?\s+(upgrade|lock)\b|--latest|@latest\b")
+match = forbidden.search(code)
+if match:
+    raise SystemExit(f"converge.sh must not adopt new versions: found {match.group(0)!r}")
+require("MISE_LOCKED=1", "apply must consume the committed lock only")
+print("ok      converge exit codes, lock lifecycle, re-exec handoff, consume-only adoption")
+
+# Template contract: each template carries its managed-by marker, and the
+# placeholders it contains are exactly the keys its installer substitutes.
+placeholder = re.compile(r"__[A-Z_]+__")
+key_in_line = re.compile(r'"(__[A-Z_]+__)(?:"\s*:|=)')
+root = Path(".")
+
+def read(path):
+    return (root / path).read_text(encoding="utf-8")
+
+plist = "platforms/macos/dev.rebuildup.pc-setup.converge.plist.in"
+mac_installer = "platforms/macos/install-converge.sh"
+wsl_dir = "platforms/ubuntu-wsl"
+wsl_installer = f"{wsl_dir}/install-converge.sh"
+
+checks = [
+    (plist, mac_installer, None),
+    (f"{wsl_dir}/pc-setup-converge.service.in", wsl_installer, "pc-setup-converge.service.in"),
+    (f"{wsl_dir}/pc-setup-converge.timer.in", wsl_installer, "pc-setup-converge.timer.in"),
+]
+
+for template, installer, render_name in checks:
+    text = read(template)
+    installer_text = read(installer)
+    marker = f"managed-by: rebuildup/pc-setup {installer}"
+    if marker not in text:
+        raise SystemExit(f"{template} must carry the marker line: {marker}")
+    if render_name is None:
+        keys = set(key_in_line.findall(installer_text))
+    else:
+        # The WSL installer renders each template on its own line, so the keys
+        # are read from the render call for that template only.
+        render_lines = [ln for ln in installer_text.splitlines()
+                        if f"$template_dir/{render_name}" in ln and "render " in ln]
+        if len(render_lines) != 1:
+            raise SystemExit(f"{installer} must have exactly one render call for {render_name}")
+        keys = set(key_in_line.findall(render_lines[0]))
+    found = set(placeholder.findall(text))
+    if found != keys:
+        raise SystemExit(
+            f"{template} placeholders {sorted(found)} do not match installer keys {sorted(keys)}"
+        )
+    print(f"ok      {template} marker and placeholders match {installer}")
+PY
+
 printf 'Checking executable bits...\n'
 for script in "${shell_scripts[@]}"; do
   if [[ ! -x "$script" ]]; then
