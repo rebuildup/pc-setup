@@ -102,12 +102,12 @@ OSごとにWinGet packageを重複宣言せず、`mise.global.toml [tools]` を�
 
 ### Rust on Windows
 
-Windows の Rust toolchain の正本は既存の rustup (`rustup.rs`) であり、mise は Rust を管理しない。
+Windows の Rust も mise が管理する。`mise.global.toml` の `rust = "stable"` は全 OS 共通で、`core:rust` backend が rustup を前提に toolchain を入れる。
 
-- `mise.global.toml` の `rust` は `os = ["linux", "macos"]` に限定する。
-- `scripts/apply-global-mise.ps1` は Windows 用 copy に `disable_tools = ["rust"]` を追加する。プロジェクトの `mise.toml` や `rust-toolchain.toml` 由来の Rust 指定も mise は無視する。
-- 理由: mise が既存 rustup toolchain に対して `rust@stable` を自動 install し、競合でロールバックした結果 `rustc.exe` / `cargo.exe` が消えた実例がある。mise shim を 1 回呼ぶだけで起きた。
-- `cargo:cargo-clean-all` など Rust 依存の cargo backend tool は、Rust 自体を mise に要求しない。`cargo` は PATH 上の rustup proxy を使う。
+- 旧 policy (`scripts/apply-global-mise.ps1` が Windows 用 copy に `disable_tools = ["rust"]` を注入) は 2026-11-04 に破棄した。当該 machine には rustup.rs の standalone rustup が存在せず、guard は mise 自身の rustup + stable toolchain を PATH から隠すだけで、`cargo` / `rustc` が一切使えない状態を招いていた。
+- 2026-10-17 の incident (mise shim を 1 回呼んだだけで既存 rustup toolchain の `rustc.exe` / `cargo.exe` が消えた) は standalone rustup と mise Rust の**併用**で起きた。guard の代わりに併用を禁止する: standalone rustup (`~/.cargo/bin`) をこの machine に入れない。Rust の正本は mise だけであり、入れ替え時は必ず `platforms/windows-11/verify.ps1` で実バイナリを確認する。
+- プロジェクトの `mise.toml` / `rust-toolchain.toml` の pin は `idiomatic_version_file_enable_tools = ["rust"]` により machine-global の `stable` より優先される。
+- `cargo:cargo-clean-all` など Rust 依存の cargo backend tool は `depends = ["rust"]` で Rust を要求する。
 - `verify.ps1` は `rustup run stable rustc/cargo` で実バイナリを確認する。
 
 ### Optional apps and pending items
