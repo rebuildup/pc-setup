@@ -12,7 +12,7 @@ while IFS= read -r script; do
   shell_scripts+=("$script")
 done < <(
   {
-    find platforms scripts -type f -name '*.sh' -print
+    find platforms scripts infrastructure -type f -name '*.sh' -print
     printf '%s\n' bootstrap.sh
   } | sort
 )
@@ -85,6 +85,9 @@ for name in global_config.get("tools", {}):
             f"{name} belongs to [bootstrap.packages] with an os condition, not [tools]"
         )
 PY
+
+printf 'Checking Headscale materialization...\n'
+python3 infrastructure/headscale/test_materialize.py
 
 printf 'Checking ADR index...\n'
 python3 - <<'PY'

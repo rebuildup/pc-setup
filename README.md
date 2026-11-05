@@ -247,3 +247,7 @@ bootstrapが終了したことと、desired stateを満たしていることは�
 ```bash
 ./scripts/ci.sh
 ```
+
+## Infrastructure
+
+- [Headscale cohost PoC](infrastructure/headscale/README.md): 既存 Infisical VPS への独立 control plane。
