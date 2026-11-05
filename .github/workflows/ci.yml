@@ -535,6 +535,34 @@ jobs:
             throw 'bootstrap.ps1 must invoke the selected mise CommandInfo directly.'
           }
 
+          # The Tool ownership list in verify.ps1 hand-duplicates names from
+          # mise.global.toml. Every name must map to a [tools] key, directly or
+          # through the alias table (the command name differs from the mise key).
+          $ownershipMatch = [regex]::Match($verify, '(?m)^\s*\$ownershipTools\s*=\s*@\(([^)]*)\)')
+          if (-not $ownershipMatch.Success) { throw 'verify.ps1 must define $ownershipTools as @(...) for the Tool ownership check.' }
+          $ownershipNames = @([regex]::Matches($ownershipMatch.Groups[1].Value, "'([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+          if ($ownershipNames.Count -eq 0) { throw 'verify.ps1 $ownershipTools is empty.' }
+          $ownershipAliases = @{
+            'ripgrep' = 'rg'
+            'neovim' = 'nvim'
+            'npm:@opencode/cli' = 'opencode'
+            'npm:@earendil-works/pi-coding-agent' = 'pi'
+          }
+          $globalToolsText = Get-Content -LiteralPath ./mise.global.toml -Raw
+          $toolKeys = New-Object System.Collections.Generic.List[string]
+          $inTools = $false
+          foreach ($tomlLine in ($globalToolsText -split "`r?`n")) {
+            if ($tomlLine -match '^\s*\[tools\]\s*$') { $inTools = $true; continue }
+            if ($tomlLine -match '^\s*\[tools\.("?)([^\]"]+)\1(\.[^\]]*)?\]\s*$') { [void]$toolKeys.Add($Matches[2]); continue }
+            if ($tomlLine -match '^\s*\[') { $inTools = $false; continue }
+            if ($inTools -and $tomlLine -match '^\s*("?)([^"=\s]+)\1\s*=') { [void]$toolKeys.Add($Matches[2]) }
+          }
+          $mappedNames = @($toolKeys | ForEach-Object { if ($ownershipAliases.ContainsKey($_)) { $ownershipAliases[$_] } else { $_ } })
+          $unmappedNames = @($ownershipNames | Where-Object { $mappedNames -notcontains $_ })
+          if ($unmappedNames.Count -gt 0) {
+            throw "verify.ps1 Tool ownership names with no mise.global.toml [tools] key (or alias): $($unmappedNames -join ', ')"
+          }
+
       - name: Validate best-effort Windows desktop apps
         shell: pwsh
         run: |
