@@ -459,6 +459,14 @@ if [[ "$locked_source_exports" -lt 2 ]]; then
   exit 1
 fi
 
+if command -v pwsh >/dev/null 2>&1; then
+  printf 'Checking Windows SSH PoC syntax and contracts...\n'
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-ssh-poc.ps1
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-ssh-task.ps1
+else
+  printf 'Skipping Windows SSH PoC checks: pwsh is unavailable.\n'
+fi
+
 printf 'Checking executable bits...\n'
 for script in "${shell_scripts[@]}"; do
   if [[ ! -x "$script" ]]; then
