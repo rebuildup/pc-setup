@@ -462,6 +462,12 @@ url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-darwin-x64.tar.gz"
 checksum = "sha256:dcc60d59a0746999f99064a01c020445d54d84228c691cdbf25b49ac3b59150a"
 url = "https://nodejs.org/dist/v26.13.0/node-v26.13.0-win-x64.zip"
 
+[[tools."npm:@deepseek-ai/dsh"]]
+version = "0.2.0-rc.2"
+aube = { path = ".mise/locks/mise.global/npm-deepseek-ai-dsh/0.2.0-rc.2", digest = "sha256:0981e9dc0fbe078790bb8174ee3c1d6e9ec858952c58b8860570da13e0a55b9e" }
+backend = "npm:@deepseek-ai/dsh"
+specifiers = ["0.2.0-rc.2"]
+
 [[tools."npm:@earendil-works/pi-coding-agent"]]
 version = "1.5.0"
 aube = { path = ".mise/locks/mise.global/npm-earendil-works-pi-coding-agent/1.5.0", digest = "sha256:905e9068e3225e7c3051a744f0ff0a1f37d2ffb63d2ec98c645f8de6e6f68113" }

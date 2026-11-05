@@ -149,10 +149,10 @@ else {
     Write-Ok "pwsh -> $pwshX64"
 }
 
-Write-Host "`nRust (rustup is canonical on Windows)"
+Write-Host "`nRust (mise manages Rust on Windows; rustup runs underneath)"
 $rustup = Get-Command rustup -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $rustup) {
-    Write-WarnLocal 'rustup not found; install it from https://rustup.rs (mise does not manage Rust on Windows)'
+    Write-Fail 'rustup not found; run scripts/apply-global-mise.ps1 (mise manages Rust on Windows)'
 }
 else {
     # `rustup run` executes the real toolchain binaries, so a toolchain whose
@@ -162,7 +162,7 @@ else {
         if ($LASTEXITCODE -eq 0) { Write-Ok "rustup stable $tool -> $($versionOutput | Select-Object -First 1)" } else { Write-Fail "rustup stable $tool is broken: $($versionOutput | Select-Object -First 1)" }
     }
     $disabled = (& mise settings get disable_tools 2>$null) -join ' '
-    if ($disabled -match 'rust') { Write-Ok 'mise disable_tools includes rust' } else { Write-WarnLocal 'mise disable_tools does not include rust; re-run scripts/apply-global-mise.ps1' }
+    if ($disabled -match 'rust') { Write-Fail 'mise disable_tools includes rust; run scripts/apply-global-mise.ps1 (Rust is mise-managed on Windows)' } else { Write-Ok 'mise does not disable the rust tool' }
 }
 
 Write-Host "`nTailscale / WSL SSH"
@@ -223,6 +223,15 @@ foreach ($commandName in @(
     'claude','codex','opencode','wt','herdr',
     'gcloud','aws','supabase','vercel','npkill','ocr','cargo-clean-all','dotnet'
 )) { Test-CommandPresent -Name $commandName }
+
+Write-Host "`nmise-managed commands resolve to mise (no shadowing copy earlier in PATH)"
+$miseRoot = Join-Path $env:LOCALAPPDATA 'mise'
+foreach ($commandName in @('node','python','pnpm','bun','cargo','rustc','gh','rg','fd','fzf','jq','nvim','claude','codex','herdr','infisical')) {
+    $resolved = Get-Command $commandName -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $resolved) { continue }
+    if ($resolved.Source.StartsWith($miseRoot, [StringComparison]::OrdinalIgnoreCase)) { Write-Ok "$commandName -> mise" }
+    else { Write-Fail "$commandName resolves to $($resolved.Source), not mise; remove that copy (Machine PATH wins over User PATH)" }
+}
 
 $script:InstalledDisplayNames = @(Get-InstalledDisplayNames)
 

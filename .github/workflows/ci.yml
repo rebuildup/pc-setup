@@ -725,12 +725,15 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
-      # Regression for the 2026-10-17 incident: a plain mise command on Windows
-      # auto-installed rust@stable against the user's rustup toolchain and left
-      # rustc.exe/cargo.exe deleted. Everything runs in throwaway MISE_*/RUSTUP_HOME/
-      # CARGO_HOME directories and uses `install --dry-run`, so no real toolchain
-      # is ever touched.
-      - name: Validate mise never manages Rust or PowerShell on Windows
+      # Rust is mise-managed on Windows as of 2026-11-04 (see
+      # platforms/windows-11/README.md). The earlier guard existed for the
+      # 2026-10-17 incident, where mise fought a *standalone* rustup installation
+      # and left rustc.exe/cargo.exe deleted; the machine no longer permits that
+      # coexistence, so the guard and its regression expectation are gone.
+      # PowerShell must still stay WinGet-only on Windows. Everything runs in
+      # throwaway MISE_*/RUSTUP_HOME/CARGO_HOME directories and uses
+      # `install --dry-run`, so no real toolchain is ever touched.
+      - name: Validate Rust and PowerShell handling on Windows
         shell: pwsh
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -757,8 +760,8 @@ jobs:
             Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN
             $env:PATH = $oldPath
             $text = Get-Content -LiteralPath $generated -Raw
-            if ($text -notmatch '(?m)^disable_tools\s*=\s*\["rust"\]') { throw 'Windows config must set disable_tools = ["rust"].' }
-            if ($text -match '(?m)^rust\s*=\s*"') { throw 'rust must not be declared without an os condition.' }
+            if ($text -match '(?m)^\s*disable_tools\s*=') { throw 'Windows config must not disable tools.' }
+            if ($text -notmatch '(?m)^rust\s*=\s*"stable"') { throw 'rust must be declared without an os condition.' }
 
             # 2. Real mise, fully isolated.
             $zip = Join-Path $root 'mise.zip'
@@ -793,20 +796,11 @@ jobs:
               try { return (& $mise install --dry-run 2>&1 | Out-String) } finally { Pop-Location }
             }
 
-            $guarded = Get-DryRun $trimmed
-            if ($guarded -match 'rust@') { throw "mise would install Rust on Windows:`n$guarded" }
-            if ($guarded -match 'powershell@') { throw "mise would install PowerShell on Windows:`n$guarded" }
-
-            # Control: the pre-fix shape must trigger the install, otherwise this
-            # test could not have caught the incident.
-            $unguarded = Join-Path $root 'unguarded.toml'
-            "[tools]`nrust = `"stable`"`n`"cargo:cargo-clean-all`" = { version = `"latest`", depends = [`"rust`"] }`n" | Set-Content -LiteralPath $unguarded
-            $control = Get-DryRun $unguarded
-            if ($control -notmatch 'rust@') { throw "Control config did not report a Rust install; the test is not sensitive:`n$control" }
-
-            foreach ($dir in $env:RUSTUP_HOME, $env:CARGO_HOME) {
-              if (Test-Path -LiteralPath $dir) { throw "$dir was created; mise touched rustup." }
-            }
+            # Rust must be installable on Windows (the whole point of dropping
+            # the guard); PowerShell must stay excluded.
+            $windowsDryRun = Get-DryRun $trimmed
+            if ($windowsDryRun -notmatch 'rust@') { throw "mise must install Rust on Windows:`n$windowsDryRun" }
+            if ($windowsDryRun -match 'powershell@') { throw "mise would install PowerShell on Windows:`n$windowsDryRun" }
           }
           finally {
             $env:PATH = $oldPath
