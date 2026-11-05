@@ -12,7 +12,7 @@ while IFS= read -r script; do
   shell_scripts+=("$script")
 done < <(
   {
-    find platforms scripts -type f -name '*.sh' -print
+    find platforms scripts infrastructure -type f -name '*.sh' -print
     printf '%s\n' bootstrap.sh
   } | sort
 )
@@ -85,6 +85,9 @@ for name in global_config.get("tools", {}):
             f"{name} belongs to [bootstrap.packages] with an os condition, not [tools]"
         )
 PY
+
+printf 'Checking Headscale materialization...\n'
+python3 infrastructure/headscale/test_materialize.py
 
 printf 'Checking ADR index...\n'
 python3 - <<'PY'
@@ -458,6 +461,14 @@ locked_source_exports="$(grep -cF 'export PC_SETUP_MISE_SOURCE_LOCK_FILE' .githu
 if [[ "$locked_source_exports" -lt 2 ]]; then
   printf 'both apply-global-mise CI steps must pin PC_SETUP_MISE_SOURCE_LOCK_FILE\n' >&2
   exit 1
+fi
+
+if command -v pwsh >/dev/null 2>&1; then
+  printf 'Checking Windows SSH PoC syntax and contracts...\n'
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-ssh-poc.ps1
+  pwsh -NoProfile -NonInteractive -File scripts/test-windows-ssh-task.ps1
+else
+  printf 'Skipping Windows SSH PoC checks: pwsh is unavailable.\n'
 fi
 
 printf 'Checking executable bits...\n'
