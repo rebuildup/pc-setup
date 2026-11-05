@@ -35,11 +35,19 @@ now_iso() {
   date -u +%Y-%m-%dT%H:%M:%SZ
 }
 
+# redact_urls: drops userinfo from URLs (scheme://user:secret@host becomes
+# scheme://***@host). Remote URLs can carry a token; ADR-0016 §5 keeps credentials
+# out of the shareable status report, so every URL-bearing text passes through here.
+redact_urls() {
+  sed -E 's#([A-Za-z][A-Za-z0-9+.-]*://)[^/@[:space:]]+@#\1***@#g'
+}
+
 # record <step> <ok|skipped|error|fail|pending> <detail>
 # Detail strings are authored here. Raw tool output stays in the log file.
 record() {
   local step="$1" status="$2" detail="${3//$'\t'/ }"
   detail="${detail//$'\n'/ }"
+  detail="$(printf '%s' "$detail" | redact_urls)"
   printf '%s\t%s\t%s\t%s\n' "$(now_iso)" "$step" "$status" "$detail" >>"$steps_file"
   printf '%-16s %-8s %s\n' "$step" "$status" "$detail"
 }
@@ -86,12 +94,36 @@ release_lock() {
   fi
 }
 
+# git echoes remote URLs into the log. Redact the log in place before the status
+# report is written; the log itself stays local, but it must not hold a token.
+redact_log() {
+  [[ -f "$log_file" ]] || return 0
+  python3 -I - "$log_file" <<'PY' || true
+import os
+import re
+import sys
+import tempfile
+
+path = sys.argv[1]
+with open(path, encoding="utf-8", errors="replace") as fh:
+    text = fh.read()
+clean = re.sub(r"([A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@", r"\1***@", text)
+if clean != text:
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".redact.")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(clean)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, path)
+PY
+}
+
 # Runs on every exit, including failures, so the status report always reflects
 # the last attempt. The exit code of the script is preserved.
 finish_run() {
   local rc=$?
   trap - EXIT
   printf 'finished=%s\nexit=%s\n' "$(now_iso)" "$rc" >>"$run_file"
+  redact_log
   "$script_dir/converge-status.sh" --write >>"$log_file" 2>&1 || true
   release_lock
   exit "$rc"

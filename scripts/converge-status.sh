@@ -7,9 +7,21 @@
 # The report is detect-only. Stale processes are listed and never signalled.
 # It records paths, revisions, counts and step results, never environment
 # values, tokens, keys, or process arguments.
+#
+# The status.json schema is shared with platforms/windows-11/converge.ps1. Both
+# writers emit: schema, platform, generated_at, deploy, dotfiles, mise, verify,
+# last_converge (exit as an integer), steps, stale_processes, unresolved_processes,
+# errors. Platform ids match the platforms/ directory names: macos, ubuntu-wsl,
+# linux (a non-WSL Linux host), windows-11.
 set -euo pipefail
 
 mode="${1:---print}"
+
+# Validate the mode before anything else. Facts are gathered only for --write.
+case "$mode" in
+  --write|--print) ;;
+  *) printf 'usage: %s [--write|--print]\n' "$0" >&2; exit 2 ;;
+esac
 
 deploy_dir="${PC_SETUP_DEPLOY_DIR:-$HOME/.local/share/pc-setup/deploy}"
 dotfiles_dir="${DOTFILES_DIR:-$HOME/.dotfiles}"
@@ -20,6 +32,23 @@ run_file="$converge_dir/run.env"
 status_file="$state_dir/status.json"
 mise_config_path="$HOME/.config/mise/config.toml"
 mise_install_prefix="$HOME/.local/share/mise/installs/"
+
+# platform_id: the same ids the platform directories use. WSL is detected with the
+# same test as converge.sh and verify.sh, so a non-WSL Linux host is reported as linux.
+platform_id() {
+  case "$(uname -s)" in
+    Darwin) printf 'macos\n' ;;
+    Linux)
+      if [[ -n "${WSL_DISTRO_NAME:-}" || -n "${WSL_INTEROP:-}" ]] \
+        || grep -qiE '(microsoft|wsl)' /proc/sys/kernel/osrelease 2>/dev/null; then
+        printf 'ubuntu-wsl\n'
+      else
+        printf 'linux\n'
+      fi
+      ;;
+    *) uname -s | tr '[:upper:]' '[:lower:]' ;;
+  esac
+}
 
 # repo_facts <prefix> <path>: writes branch, head, and dirty flag for a checkout.
 repo_facts() {
@@ -45,28 +74,72 @@ repo_facts() {
 
 # stale_processes: classifies processes whose executable lives under the mise
 # install tree. The tool id comes from `mise ls --json`, which lists every
-# installed version with its install_path. Install directory names are never
-# translated back into tool ids (npm-opencode-cli is not npm:@opencode/cli).
-# Each executable is matched against the install paths, longest prefix first.
+# installed version with its install_path, so install directory names are never
+# translated into tool ids (npm-opencode-cli is not npm:@opencode/cli).
+#
+# Finding the executable of a process:
+#   - Linux: /proc/<pid>/exe, the kernel's real path. argv[0] is not used.
+#   - macOS: there is no /proc. argv[0] is used only when it is absolute and the
+#     install root appears in the command line. Otherwise (a bare name such as
+#     `node server.js`, or a path with spaces) `lsof -p <pid> -d txt` gives the real
+#     image path. A process that still cannot be resolved is counted and reported
+#     as a process-scan note. It is never silently treated as clean.
+#   - Kernel threads, shown as [name], have no executable and are skipped.
 #
 # Output, one line per finding:
 #   process TAB stale|unresolved TAB pid TAB tool TAB binary TAB expected-or-reason
+#   process-scan TAB error|note TAB message
 #   stale:      the executable belongs to a known install that is not the active
 #               version of its tool; the reason is the active install path.
 #   unresolved: the executable is under the install tree but matches no install.
-# A failed `mise ls --json` is reported as a process-scan line, not as processes.
 stale_processes() {
   python3 -I - "$mise_install_prefix" "$HOME" <<'PY'
+import ctypes
 import json
+import os
 import subprocess
 import sys
 
 install_root = sys.argv[1]
 home = sys.argv[2]
+# How the ps call below appears in its own output (argv joined by spaces).
+PS_SELF_ARGS = "ps -axww -o pid=,args="
 
 
 def emit(kind, pid, tool, binary, detail):
     print("\t".join(["process", kind, str(pid), tool, binary, detail]))
+
+
+def scan_error(message):
+    print("process-scan\terror\t" + message)
+
+
+PROC_PIDPATHINFO_MAXSIZE = 4096
+_libproc = None
+
+
+def image_path(pid):
+    """Real executable path of a process, or None when it cannot be determined."""
+    if os.path.isdir("/proc/self"):
+        try:
+            return os.readlink(f"/proc/{pid}/exe")
+        except OSError:
+            return None
+    # macOS: proc_pidpath(3) returns the kernel's executable path, the equivalent of
+    # /proc/<pid>/exe. The first txt mapping of lsof is not guaranteed to be the image.
+    global _libproc
+    try:
+        if _libproc is None:
+            _libproc = ctypes.CDLL("/usr/lib/libSystem.B.dylib")
+            _libproc.proc_pidpath.argtypes = [ctypes.c_int, ctypes.c_char_p, ctypes.c_uint32]
+            _libproc.proc_pidpath.restype = ctypes.c_int
+        buf = ctypes.create_string_buffer(PROC_PIDPATHINFO_MAXSIZE)
+        length = _libproc.proc_pidpath(int(pid), buf, PROC_PIDPATHINFO_MAXSIZE)
+    except (OSError, ValueError, AttributeError):
+        return None
+    if length <= 0:
+        return None
+    return buf.value.decode("utf-8", "replace")
 
 
 try:
@@ -74,12 +147,22 @@ try:
         ["mise", "-C", home, "ls", "--json"],
         stdin=subprocess.DEVNULL,
         capture_output=True,
-        text=True,
         check=True,
     )
-    tools = json.loads(listing.stdout)
+    tools = json.loads(listing.stdout.decode("utf-8", "replace"))
 except (OSError, subprocess.CalledProcessError, ValueError) as exc:
-    print("process-scan\terror\tmise ls --json failed: " + type(exc).__name__)
+    scan_error("mise ls --json failed: " + type(exc).__name__)
+    sys.exit(0)
+
+try:
+    ps = subprocess.run(
+        ["ps", "-axww", "-o", "pid=,args="],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        check=True,
+    )
+except (OSError, subprocess.CalledProcessError) as exc:
+    scan_error("ps failed: " + type(exc).__name__)
     sys.exit(0)
 
 # (install path with trailing slash, tool id, install path) for every known install.
@@ -95,38 +178,58 @@ for tool, entries in tools.items():
             active_by_tool[tool] = path
 installs.sort(key=lambda item: len(item[0]), reverse=True)
 
-ps = subprocess.run(
-    ["ps", "-axww", "-o", "pid=,args="],
-    capture_output=True,
-    text=True,
-    check=True,
-)
-for line in ps.stdout.splitlines():
-    fields = line.split(None, 1)
-    if len(fields) != 2:
-        continue
-    pid, args = fields
-    # Only the executable path is read; arguments are never recorded.
-    exe = args.split(" ", 1)[0]
-    if not exe.startswith(install_root):
-        continue
-    match = next((item for item in installs if exe.startswith(item[0])), None)
-    if match is None:
-        emit("unresolved", pid, "", exe, "no mise install matches this path")
-        continue
-    _, tool, matched_path = match
-    current = active_by_tool.get(tool)
-    if current is None:
-        emit("stale", pid, tool, exe, "no active version of " + tool)
-    elif matched_path != current:
-        emit("stale", pid, tool, exe, current)
+has_proc = os.path.isdir("/proc/self")
+unresolved_candidates = []
+try:
+    for raw in ps.stdout.decode("utf-8", "replace").splitlines():
+        fields = raw.strip().split(None, 1)
+        if len(fields) != 2:
+            continue
+        pid, args = fields
+        if args == PS_SELF_ARGS:
+            continue  # this scan's own ps child: it is in its own snapshot
+        argv0 = args.split(" ", 1)[0]
+        if argv0.startswith("["):
+            continue  # kernel thread: no executable image
+        absolute = argv0.startswith("/")
+        if absolute and install_root not in args and not has_proc:
+            continue  # macOS: an absolute argv0 that does not mention the install tree
+        exe = image_path(pid)
+        if exe is None:
+            # Linux: an absolute argv0 with no install root in it is not a candidate.
+            if has_proc and absolute and install_root not in args:
+                continue
+            unresolved_candidates.append((pid, argv0))
+            continue
+        if not exe.startswith(install_root):
+            continue
+        match = next((item for item in installs if exe.startswith(item[0])), None)
+        if match is None:
+            emit("unresolved", pid, "", exe, "no mise install matches this path")
+            continue
+        _, tool, matched_path = match
+        current = active_by_tool.get(tool)
+        if current is None:
+            emit("stale", pid, tool, exe, "no active version of " + tool)
+        elif matched_path != current:
+            emit("stale", pid, tool, exe, current)
+except Exception as exc:  # the report must still be written
+    scan_error("process scan aborted: " + type(exc).__name__)
+    sys.exit(0)
+
+if unresolved_candidates:
+    # Only pid and argv[0] are recorded, never the arguments.
+    first_pid, first_argv0 = unresolved_candidates[0]
+    print(
+        "process-scan\tnote\t"
+        f"{len(unresolved_candidates)} process(es) could not be resolved to an executable path "
+        f"(first: pid {first_pid}, argv0 {first_argv0!r}); their stale status is unknown"
+    )
 PY
 }
 
-facts_tmp="$(mktemp "${TMPDIR:-/tmp}/converge-facts.XXXXXX")"
-trap 'rm -f "$facts_tmp"' EXIT
-
-{
+# gather_facts: prints the fact lines consumed by the --write step below.
+gather_facts() {
   repo_facts deploy "$deploy_dir"
   repo_facts dotfiles "$dotfiles_dir"
 
@@ -142,23 +245,40 @@ trap 'rm -f "$facts_tmp"' EXIT
     printf 'mise.outdated_count\t-1\n'
   fi
 
-  stale_processes
-} >"$facts_tmp"
+  # A failed scan becomes a process-scan error line. It never stops the report.
+  stale_processes || printf 'process-scan\terror\tprocess scan did not run\n'
+}
 
 if [[ "$mode" == --write ]]; then
   mkdir -p "$state_dir"
-  python3 - "$facts_tmp" "$steps_file" "$run_file" "$status_file" <<'PY'
+  facts_tmp="$(mktemp "${TMPDIR:-/tmp}/converge-facts.XXXXXX")"
+  trap 'rm -f "$facts_tmp"' EXIT
+  gather_facts >"$facts_tmp"
+  platform="$(platform_id)"
+
+  # The report is written through a unique temp file in the same directory and
+  # then renamed. Concurrent writers can never publish mixed JSON.
+  python3 - "$facts_tmp" "$steps_file" "$run_file" "$status_file" "$platform" <<'PY'
 import datetime
 import json
 import os
+import re
 import sys
+import tempfile
 from pathlib import Path
 
-facts_path, steps_path, run_path, out_path = sys.argv[1:5]
+facts_path, steps_path, run_path, out_path, platform = sys.argv[1:6]
+
+URL_USERINFO = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@")
+
+
+def redact(text):
+    return URL_USERINFO.sub(r"\1***@", text)
+
 
 facts = {}
 processes = []
-scan_errors = []
+scan_messages = []
 for line in Path(facts_path).read_text(encoding="utf-8").splitlines():
     if line.startswith("process\t"):
         _, kind, pid, tool, binary, detail = line.split("\t", 5)
@@ -171,7 +291,7 @@ for line in Path(facts_path).read_text(encoding="utf-8").splitlines():
         })
         continue
     if line.startswith("process-scan\t"):
-        scan_errors.append(line.split("\t", 2)[2])
+        scan_messages.append(line.split("\t", 2)[2])
         continue
     key, _, value = line.partition("\t")
     facts[key] = value
@@ -183,23 +303,27 @@ steps_path_obj = Path(steps_path)
 if steps_path_obj.exists():
     for line in steps_path_obj.read_text(encoding="utf-8").splitlines():
         at, step, status, detail = (line.split("\t", 3) + ["", "", "", ""])[:4]
-        steps.append({"at": at, "step": step, "status": status, "detail": detail})
+        steps.append({"at": at, "step": step, "status": status, "detail": redact(detail)})
         if status in ("error", "fail", "pending", "skipped"):
-            errors.append(f"{step}: {detail}")
+            errors.append(f"{step}: {redact(detail)}")
         if step == "verify":
-            verify = {"status": status, "detail": detail, "at": at}
+            verify = {"status": status, "detail": redact(detail), "at": at}
 
 last_run = {}
 run_path_obj = Path(run_path)
 if run_path_obj.exists():
     for line in run_path_obj.read_text(encoding="utf-8").splitlines():
         key, _, value = line.partition("=")
-        last_run[key] = value
+        if key == "exit" and re.fullmatch(r"-?\d+", value):
+            last_run[key] = int(value)
+        else:
+            last_run[key] = redact(value)
 
-for message in scan_errors:
+for message in scan_messages:
     errors.append("process-scan: " + message)
 if facts.get("mise.outdated_count") == "-1":
     errors.append("mise-outdated: mise outdated failed; drift count unknown")
+
 
 def repo(prefix):
     if facts.get(f"{prefix}.present") != "true":
@@ -212,11 +336,13 @@ def repo(prefix):
         "dirty": facts.get(f"{prefix}.dirty") == "true",
     }
 
+
 stale = [p for p in processes if p["kind"] == "stale"]
 unresolved = [p for p in processes if p["kind"] == "unresolved"]
 
 report = {
     "schema": 1,
+    "platform": platform,
     "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "deploy": repo("deploy"),
     "dotfiles": repo("dotfiles"),
@@ -247,20 +373,21 @@ report = {
     "errors": errors,
 }
 
-tmp_path = out_path + ".tmp"
-with open(tmp_path, "w", encoding="utf-8") as fh:
-    json.dump(report, fh, indent=2, ensure_ascii=False)
-    fh.write("\n")
-os.chmod(tmp_path, 0o600)
-os.replace(tmp_path, out_path)
+out_dir = os.path.dirname(out_path) or "."
+fd, tmp_path = tempfile.mkstemp(dir=out_dir, prefix=".status.", suffix=".tmp")
+try:
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=2, ensure_ascii=False)
+        fh.write("\n")
+    os.chmod(tmp_path, 0o600)
+    os.replace(tmp_path, out_path)
+except BaseException:
+    if os.path.exists(tmp_path):
+        os.unlink(tmp_path)
+    raise
 print(f"wrote {out_path}")
 PY
   exit 0
-fi
-
-if [[ "$mode" != --print ]]; then
-  printf 'usage: %s [--write|--print]\n' "$0" >&2
-  exit 2
 fi
 
 if [[ ! -f "$status_file" ]]; then
@@ -279,6 +406,7 @@ def line(label, value):
     print(f"{label:<22} {value}")
 
 print(f"status generated       {r['generated_at']}")
+line("platform", r.get("platform", "unknown"))
 for name in ("deploy", "dotfiles"):
     info = r[name]
     if not info.get("present"):
