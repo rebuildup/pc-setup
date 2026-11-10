@@ -63,7 +63,7 @@ if not packages:
 
 for name, spec in packages.items():
     manager = name.split(":", 1)[0]
-    if manager not in {"brew", "brew-cask"}:
+    if manager not in {"brew", "brew-cask", "macos-app"}:
         raise SystemExit(f"unexpected manager for {name}: {manager}")
     if not isinstance(spec, dict) or "os" not in spec:
         raise SystemExit(f"{name} must declare an explicit os condition")
@@ -71,6 +71,17 @@ for name, spec in packages.items():
     declared = {os_value} if isinstance(os_value, str) else set(os_value)
     if declared != {"macos"}:
         raise SystemExit(f"{name} must apply to macOS only, got {sorted(declared)}")
+    if manager == "macos-app":
+        import re
+
+        if not isinstance(spec.get("version"), str) or spec["version"] == "latest":
+            raise SystemExit(f"{name} must use an explicit version")
+        if not isinstance(spec.get("url"), str) or not spec["url"].startswith("https://"):
+            raise SystemExit(f"{name} must have an HTTPS download URL")
+        if not re.fullmatch(r"[0-9a-fA-F]{64}", str(spec.get("sha256", ""))):
+            raise SystemExit(f"{name} must have a valid 64-character SHA-256")
+        if not isinstance(spec.get("artifact"), str) or not spec["artifact"].endswith(".app"):
+            raise SystemExit(f"{name} must name a macOS .app artifact")
 
 if any("docker-desktop" in name for name in packages):
     raise SystemExit(

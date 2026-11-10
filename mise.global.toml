@@ -125,8 +125,7 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 "brew-cask:google-chrome" = { version = "latest", os = "macos" }
 "brew-cask:firefox" = { version = "latest", os = "macos" }
 "brew-cask:stablyai/orca/orca" = { version = "latest", os = "macos" }
-# Official Antibody Software tap; macOS port of the Windows WizTree disk analyzer.
-"brew-cask:antibodysw/tap/wiztree" = { version = "latest", os = "macos" }
+
 "brew:ffmpeg" = { version = "latest", os = "macos" }
 "brew:zsh-autosuggestions" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
@@ -138,6 +137,18 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 # exists and makes every `docker pull` fail. This formula provides the same
 # Keychain-backed helper without Docker Desktop.
 "brew:docker-credential-helper" = { version = "latest", os = "macos" }
+
+# WizTreeMac v1.00 from the vendor's official DMG. The vendor Homebrew tap
+# currently uses version.tr() which mise's third-party cask evaluator rejects.
+# Verified URL + checksum source: antibodysw/homebrew-tap Casks/wiztree.rb.
+# macos-app is mise-owned and requires explicit version/checksum updates.
+[bootstrap.packages."macos-app:wiztreemac"]
+version = "1.00"
+url = "https://diskanalyzer.com/files/WizTreeMac_1_00.dmg"
+sha256 = "557395cc5fbc2c3acdd3e948352ed64d53ca9e11cff2045a74b6fe46a15ed15c"
+artifact = "WizTreeMac.app"
+adopt = true
+os = "macos"
 
 [settings.github]
 # mise resolves a GitHub token from this command when no MISE_GITHUB_TOKEN /
