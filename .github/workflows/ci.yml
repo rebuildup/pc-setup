@@ -17,6 +17,29 @@ permissions:
   contents: read
 
 jobs:
+  # Exercise the real macOS installer, not just TOML parsing on Linux.
+  # The previous WizTree tap definition passed static CI but failed at runtime.
+  wiztree-macos:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install mise
+        run: |
+          curl -fsSL https://mise.run | sh
+
+      - name: Install WizTreeMac from the pinned verified DMG
+        env:
+          MISE_GLOBAL_CONFIG_FILE: ${{ github.workspace }}/mise.global.toml
+          MISE_BREW_CASK_OPT_APPDIR: ${{ runner.temp }}/pc-setup-apps
+        run: |
+          set -euo pipefail
+          "$HOME/.local/bin/mise" -C "$HOME" bootstrap packages apply macos-app:wiztreemac --yes
+          test -d "$MISE_BREW_CASK_OPT_APPDIR/WizTreeMac.app"
+          "$HOME/.local/bin/mise" -C "$HOME" bootstrap packages status --json >/dev/null
+
   shell:
     runs-on: ubuntu-latest
     env:
