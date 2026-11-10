@@ -88,6 +88,29 @@ F1でのOnishi/QWERTY切替、Caps extra layer等は `platforms/macos/kanata` �
 
 KanataとKarabiner VirtualHID daemonはsystem LaunchDaemonとして起動する。詳細とTCC permission boundaryは [kanata/README.md](./kanata/README.md) を参照。
 
+## WizTreeMac
+
+[WizTreeMac](https://diskanalyzer.com/wiztreemac-vs-wiztree) は、macOS でディスク使用量を調査するために採用する GUI アプリ。Windows の WizTree に対応する公式 macOS 版である（[ADR-0022](../../docs/adr/ADR-0022.md)）。
+
+`mise.global.toml` の `brew-cask:antibodysw/tap/wiztree` を、macOS 限定の machine-global desired state として管理する。配布元が公開する Homebrew Tap `antibodysw/tap` の cask が、公式 `diskanalyzer.com` の DMG を検証して配置する。独立した `brew install` は canonical setup ではない。
+
+```bash
+mise bootstrap packages apply
+mise bootstrap packages status --json  # 未導入・不一致を確認
+test -d /Applications/WizTreeMac.app
+open -a WizTreeMac
+```
+
+### 手動の権限設定
+
+初回起動後、保護されたディレクトリまでスキャンする場合は **システム設定 → プライバシーとセキュリティ → フルディスクアクセス** で WizTreeMac を許可する。システム全体の root 権限が必要な場合は、アプリの Scan ボタンのドロップダウンから **Restart as Administrator** を選ぶ。両者は別の権限であり、bootstrap や CI から自動承認しない。
+
+インストール済みの `.app` を確認してもフルディスクアクセスの承認は証明できない。実機で保護領域のスキャンを実行して確認する。
+
+- 配布元: https://diskanalyzer.com/download
+- Homebrew Tap: https://github.com/antibodysw/homebrew-tap
+- mise cask backend: https://mise.jdx.dev/bootstrap/packages/brew-cask.html
+
 ## Orca
 
 [Orca](https://github.com/stablyai/orca) は、並列に動かすエージェントの worktree と terminal をまとめて扱う任意の GUI frontend である（[ADR-0014](../../docs/adr/ADR-0014.md)）。`mise bootstrap packages apply` が Homebrew cask で導入する。
