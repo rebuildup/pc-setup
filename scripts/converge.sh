@@ -301,6 +301,32 @@ sync_dotfiles() {
 # needed because that verify.sh does not refuse a non-WSL Linux host: it only
 # warns and then runs its WSL checks. This converge target is WSL2 only, so any
 # other Linux host is skipped instead of being verified against the wrong platform.
+# devices sync publishes Infisical /devices into generated SSH definitions and
+# Herdr machine registrations (dotfiles ADR-0013). It is a Bun script and also
+# needs the Infisical CLI, so the mise shims directory is added to the minimal
+# converge PATH. `mise exec` is deliberately not used here: it would resolve the
+# whole tool graph on every tick, and apply_mise already installed the lock.
+sync_devices() {
+  if [[ "$deploy_ok" != 1 ]]; then
+    record devices-sync skipped "deploy checkout not converged in this run; devices sync skipped"
+    return 0
+  fi
+
+  local devices_script="$dotfiles_dir/script/devices.ts"
+  if [[ ! -f "$devices_script" ]]; then
+    record devices-sync skipped "$devices_script is missing"
+    return 0
+  fi
+
+  local rc=0
+  if (cd "$dotfiles_dir" && PATH="$HOME/.local/share/mise/shims:$PATH" bun "$devices_script" sync </dev/null >>"$log_file" 2>&1); then
+    record devices-sync ok "devices sync converged"
+  else
+    rc=$?
+    record devices-sync error "devices sync exited $rc; see $log_file"
+  fi
+}
+
 is_wsl() {
   [[ -n "${WSL_DISTRO_NAME:-}" || -n "${WSL_INTEROP:-}" ]] \
     || grep -qiE '(microsoft|wsl)' /proc/sys/kernel/osrelease 2>/dev/null
@@ -379,6 +405,7 @@ main() {
 
   apply_mise
   sync_dotfiles
+  sync_devices
   run_verify
 
   local rc=0
