@@ -92,14 +92,20 @@ KanataとKarabiner VirtualHID daemonはsystem LaunchDaemonとして起動する�
 
 [WizTreeMac](https://diskanalyzer.com/wiztreemac-vs-wiztree) は、macOS でディスク使用量を調査するために採用する GUI アプリ。Windows の WizTree に対応する公式 macOS 版である（[ADR-0022](../../docs/adr/ADR-0022.md)）。
 
-`mise.global.toml` の `brew-cask:antibodysw/tap/wiztree` を、macOS 限定の machine-global desired state として管理する。配布元が公開する Homebrew Tap `antibodysw/tap` の cask が、公式 `diskanalyzer.com` の DMG を検証して配置する。独立した `brew install` は canonical setup ではない。
+`mise.global.toml` の `macos-app:wiztreemac` を macOS 限定の machine-global desired state として管理する。公式 `diskanalyzer.com` の DMG を mise が直接取得し、宣言した SHA-256 と照合してからアプリを配置する。Homebrew の別途導入は不要。
+
+公式 Homebrew Tap の `version.tr(".", "_")` は、mise 2026.10.25 の第三者Tap評価器では `Version` オブジェクトに未定義のため失敗した（[#172](https://github.com/rebuildup/pc-setup/issues/172)）。そのため `brew-cask:antibodysw/tap/wiztree` の宣言は採用せず、mise に備わる `macos-app` 管理へ変更した。
 
 ```bash
-mise bootstrap packages apply
+mise bootstrap packages apply macos-app:wiztreemac
 mise bootstrap packages status --json  # 未導入・不一致を確認
 test -d /Applications/WizTreeMac.app
 open -a WizTreeMac
 ```
+
+`macos-app` は自動的に新バージョンを検出しない。WizTreeMac の新リリースを採用する場合は、公式Tap/配布元の新しい DMG URL、version、SHA-256 を検証し、`mise.global.toml` を変更してから `mise bootstrap packages apply` を実行する。現在は公式Tap上の **1.00** を使用する。
+
+同じアプリが既に配置されていても同一の内容であれば `adopt = true` で管理下に移す。異なる内容の場合は上書きせず失敗する。
 
 ### 手動の権限設定
 
@@ -109,7 +115,7 @@ open -a WizTreeMac
 
 - 配布元: https://diskanalyzer.com/download
 - Homebrew Tap: https://github.com/antibodysw/homebrew-tap
-- mise cask backend: https://mise.jdx.dev/bootstrap/packages/brew-cask.html
+- mise macos-app backend: https://mise.jdx.dev/bootstrap/packages/macos-app.html
 
 ## Orca
 
