@@ -284,6 +284,46 @@ function Invoke-DotfilesSync {
     }
 }
 
+function Sync-Devices {
+    if (-not $script:DeployOk) {
+        Add-Step 'devices-sync' 'skipped' 'deploy checkout not converged in this run; devices sync skipped'
+        return
+    }
+    $devicesScript = Join-Path (Join-Path $DotfilesDir 'script') 'devices.ts'
+    if (-not (Test-Path -LiteralPath $devicesScript)) {
+        Add-Step 'devices-sync' 'skipped' ($devicesScript + ' is missing')
+        return
+    }
+    # devices is a Bun script and also needs the Infisical CLI. The converge task's
+    # PATH is minimal and does not include mise shims, so the shims directory is
+    # added for this call only. mise exec is not used because it resolves the whole
+    # tool graph on every tick, and the mise apply step already installed the lock.
+    $bun = Get-Command bun -CommandType Application -ErrorAction SilentlyContinue
+    if (-not $bun) {
+        Add-Step 'devices-sync' 'skipped' 'bun not found on PATH; devices sync skipped'
+        return
+    }
+    $previousPath = $env:PATH
+    $env:PATH = (Join-Path $env:LOCALAPPDATA 'mise\shims') + ';' + $env:PATH
+    $code = 0
+    try {
+        Push-Location $DotfilesDir
+        try {
+            & $bun.Source $devicesScript sync *>> $script:LogFile
+            $code = $LASTEXITCODE
+        } finally {
+            Pop-Location
+        }
+    } finally {
+        $env:PATH = $previousPath
+    }
+    if ($code -eq 0) {
+        Add-Step 'devices-sync' 'ok' 'devices sync converged'
+    } else {
+        Add-Step 'devices-sync' 'error' ('devices sync exited ' + $code + '; see ' + $script:LogFile)
+    }
+}
+
 function Invoke-Verify {
     if (-not $script:DeployOk) {
         Add-Step 'verify' 'skipped' 'deploy checkout not converged in this run'
@@ -453,6 +493,7 @@ function Invoke-Main {
     Invoke-MiseApply
     Test-DshDeclaration
     Invoke-DotfilesSync
+    Sync-Devices
     Invoke-Verify
 
     $hasError = @($script:Steps | Where-Object { $_.status -in @('error', 'fail') }).Count -gt 0
