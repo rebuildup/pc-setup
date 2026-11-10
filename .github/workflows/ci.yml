@@ -38,7 +38,6 @@ jobs:
           set -euo pipefail
           "$HOME/.local/bin/mise" -C "$HOME" bootstrap packages apply macos-app:wiztreemac --yes
           test -d "$MISE_BREW_CASK_OPT_APPDIR/WizTreeMac.app"
-          "$HOME/.local/bin/mise" -C "$HOME" bootstrap packages status --json >/dev/null
 
   shell:
     runs-on: ubuntu-latest
