@@ -11,7 +11,7 @@ idiomatic_version_file_enable_tools = ["rust"]
 
 [tools]
 node = "26"
-python = "3.15"
+python = "3.14"
 bun = "latest"
 pnpm = "latest"
 # mise manages Rust on every OS; the core:rust backend drives rustup underneath.
@@ -38,7 +38,12 @@ herdr = { version = "latest", os = ["linux", "macos"] }
 gcloud = { version = "latest", os = ["linux", "macos"] }
 aws-cli = { version = "latest", os = ["linux", "macos"] }
 supabase = "latest"
-vercel = { version = "latest", depends = ["node"] }
+# Vercel CLI is deliberately not in the machine-global baseline. Its npm
+# dependency graph fails mise's default npm supply-chain policy
+# (trustPolicy=no-downgrade), and exempting it would mean listing dozens of
+# @vercel/* packages and would disable that check for Vercel's whole future
+# dependency graph. Machines that need it install it in the project instead.
+# See ADR-0023.
 
 "npm:npkill" = { version = "latest", depends = ["node"] }
 
@@ -73,7 +78,7 @@ shellcheck = "latest"
 neovim = "latest"
 # Windows PowerShell is WinGet-managed (Microsoft.PowerShell); a second mise copy
 # would shadow it with an older shim.
-powershell = { version = "7.6.9", os = ["linux", "macos"] }
+powershell = { version = "7.6.6", os = ["linux", "macos"] }
 # Pi moved from @mariozechner/pi-coding-agent to @earendil-works/pi-coding-agent
 # on 2026-05-07. 1.4.0 sends the x-opencode-session header required by OpenCode
 # Go; the old package stops at 0.73.1 and is no longer updated.
@@ -86,7 +91,6 @@ powershell = { version = "7.6.9", os = ["linux", "macos"] }
 oh-my-pi = "latest"
 "npm:playwright" = "latest"
 ruby = "4"
-"npm:devin" = "latest"
 
 [tools."github:herdrdev/herdr"]
 version = "latest"
@@ -126,7 +130,8 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 "brew-cask:google-chrome" = { version = "latest", os = "macos" }
 "brew-cask:firefox" = { version = "latest", os = "macos" }
 "brew-cask:stablyai/orca/orca" = { version = "latest", os = "macos" }
-"brew-cask:swiftbar" = { version = "latest", os = "macos" }
+# Official Antibody Software tap; macOS port of the Windows WizTree disk analyzer.
+"brew-cask:antibodysw/tap/wiztree" = { version = "latest", os = "macos" }
 "brew:ffmpeg" = { version = "latest", os = "macos" }
 "brew:zsh-autosuggestions" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
@@ -138,13 +143,6 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 # exists and makes every `docker pull` fail. This formula provides the same
 # Keychain-backed helper without Docker Desktop.
 "brew:docker-credential-helper" = { version = "latest", os = "macos" }
-
-[bootstrap.packages."macos-app:wiztree"]
-version = "1.00"
-url = "https://diskanalyzer.com/files/WizTreeMac_1_00.dmg"
-sha256 = "557395cc5fbc2c3acdd3e948352ed64d53ca9e11cff2045a74b6fe46a15ed15c"
-artifact = "WizTreeMac.app"
-os = "macos/arm64"
 
 [settings.github]
 # mise resolves a GitHub token from this command when no MISE_GITHUB_TOKEN /

@@ -85,11 +85,13 @@ OSに依存しにくい開発CLI/runtimeは一度だけ宣言する。
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
 - Google Cloud CLI / AWS CLI
-- Supabase CLI / Vercel CLI
+- Supabase CLI
 - ripgrep / fd / fzf / jq / bat / gdu
 - ShellCheck / Neovim
 
 Open Code Review は npm trust policy を迂回せず、公式 `alibaba/open-code-review` GitHub Release のplatform binaryをmiseから導入する。詳細は [ADR-0007](./docs/adr/ADR-0007.md) を参照。
+
+Vercel CLI は npm の trust policy を通らないため baseline に含めない。必要なマシンは project 側で導入する。詳細は [ADR-0023](./docs/adr/ADR-0023.md) を参照。
 
 `mise.global.toml` は `~/.config/mise/config.toml` として適用されます。project固有versionは各projectの `mise.toml` / Flake / toolchain file等が上書きします。Rustは `idiomatic_version_file_enable_tools = ["rust"]` によりmiseが `rust-toolchain.toml` を読むため、projectの `rust-toolchain.toml` と `mise.toml` の `rust` のどちらでも、machine-globalの `stable` より優先されます。
 

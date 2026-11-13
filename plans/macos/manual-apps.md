@@ -78,8 +78,9 @@ ChgKey itself is Windows-specific and is not a macOS candidate.
 Windows-specific utilities such as these are not inherited merely because they exist in the Windows profile:
 
 - PowerToys
-- WizTree
 - Microsoft PC Manager
 - ChgKey
 
 If an equivalent macOS capability is actually needed, select it based on the Mac workflow rather than manufacturing a one-to-one replacement list.
+
+WizTree is no longer an excluded Windows-only utility: its official macOS version, WizTreeMac, has been explicitly adopted into the active macOS baseline via `mise.global.toml`. See [the macOS guide](../../platforms/macos/README.md#wiztreemac) and [ADR-0022](../../docs/adr/ADR-0022.md).

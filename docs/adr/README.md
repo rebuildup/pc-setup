@@ -23,5 +23,7 @@
 | [ADR-0016](./ADR-0016.md) | Accepted | 採用（train）・配備（converge）・シェル（activate のみ）を分離し、OS スケジューラで main を配備する |
 
 | [ADR-0021](./ADR-0021.md) | Accepted | Windows の Rust toolchain も mise が管理する |
+| [ADR-0022](./ADR-0022.md) | Accepted | macOS のWizTreeMacを公式Tap経由でmise管理する |
+| [ADR-0023](./ADR-0023.md) | Accepted | Vercel CLI は machine-global baseline に含めない |
 
 新しい ADR は `ADR-NNNN.md` の連番で追加します。既存 decision を置換する場合は旧 ADR の status と `Superseded by` も更新します。
