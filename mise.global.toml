@@ -86,6 +86,7 @@ powershell = { version = "7.6.9", os = ["linux", "macos"] }
 oh-my-pi = "latest"
 "npm:playwright" = "latest"
 ruby = "4"
+"npm:devin" = "latest"
 
 [tools."github:herdrdev/herdr"]
 version = "latest"
