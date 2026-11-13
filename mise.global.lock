@@ -774,16 +774,6 @@ checksum_source = "mise-versions"
 url = "https://github.com/supabase/cli/releases/download/v3.0.0/supabase_windows_amd64.tar.gz"
 url_api = "https://api.github.com/repos/supabase/cli/releases/assets/701655820"
 
-[[tools.vercel]]
-version = "65.10.0"
-aube = { path = ".mise/locks/mise.global/vercel/65.10.0~a6545071", digest = "sha256:3b5f58856b05ec57c20a90c8cb4c30383cc4534b223f49f7d8b778480e2b8af9" }
-backend = "npm:vercel"
-specifiers = ["latest"]
-
-[tools.vercel.options]
-allow_builds = '["esbuild"]'
-trust_policy_excludes = '["undici"]'
-
 [[tools.worktrunk]]
 version = "0.81.0"
 backend = "packslip:github.com/max-sixty/worktrunk"

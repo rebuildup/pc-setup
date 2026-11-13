@@ -38,7 +38,12 @@ herdr = { version = "latest", os = ["linux", "macos"] }
 gcloud = { version = "latest", os = ["linux", "macos"] }
 aws-cli = { version = "latest", os = ["linux", "macos"] }
 supabase = "latest"
-vercel = { version = "latest", depends = ["node"] }
+# Vercel CLI is deliberately not in the machine-global baseline. Its npm
+# dependency graph fails mise's default npm supply-chain policy
+# (trustPolicy=no-downgrade), and exempting it would mean listing dozens of
+# @vercel/* packages and would disable that check for Vercel's whole future
+# dependency graph. Machines that need it install it in the project instead.
+# See ADR-0023.
 
 "npm:npkill" = { version = "latest", depends = ["node"] }
 

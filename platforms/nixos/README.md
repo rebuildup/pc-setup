@@ -82,7 +82,8 @@ Portable user CLI baseline (`mise.global.toml`):
 - Claude Code / Codex / OpenCode
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all / gdu
-- Google Cloud CLI / AWS CLI / Supabase CLI / Vercel CLI
+- Google Cloud CLI / AWS CLI
+- Supabase CLI
 
 Worktrunk の Bash integration も Home Manager で宣言します。
 
