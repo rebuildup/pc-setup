@@ -221,7 +221,7 @@ foreach ($commandName in @(
     'git','gh','infisical','pwsh','code','node','python','pnpm','bun','rustc','cargo',
     'rg','fd','fzf','jq','bat','gdu','shellcheck','nvim',
     'claude','codex','opencode','wt','herdr',
-    'gcloud','aws','supabase','vercel','npkill','ocr','cargo-clean-all','dotnet'
+    'gcloud','aws','supabase','npkill','ocr','cargo-clean-all','dotnet'
 )) { Test-CommandPresent -Name $commandName }
 
 Write-Host "`nmise-managed commands resolve to mise (no shadowing copy earlier in PATH)"

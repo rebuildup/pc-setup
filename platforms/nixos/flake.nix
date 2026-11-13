@@ -134,7 +134,6 @@
         "gcloud"
         "aws"
         "supabase"
-        "vercel"
         "npkill"
         "ocr"
         "cargo-clean-all"

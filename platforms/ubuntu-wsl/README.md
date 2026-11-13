@@ -61,7 +61,8 @@ Portable developer tools are declared once in `mise.global.toml`, which is linke
 - Claude Code / Codex / OpenCode
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
-- Google Cloud CLI / AWS CLI / Supabase CLI / Vercel CLI
+- Google Cloud CLI / AWS CLI
+- Supabase CLI
 - ripgrep / fd / fzf / jq / bat / gdu
 - ShellCheck / Neovim
 

@@ -411,6 +411,18 @@ grep -Fq -- '--locked' scripts/apply-global-mise.sh
 grep -Fq 'PC_SETUP_MISE_SOURCE_LOCK_FILE' scripts/apply-global-mise.ps1
 grep -Fq -- "'--locked'" scripts/apply-global-mise.ps1
 
+# The train's failure point is npm dependency resolution, which `--dry-run`
+# skips. CI has to resolve for real or it stays green while the train is red
+# (issue #175), so the dry-run-only invocation must not come back.
+if grep -Fq 'lock --global --bump --dry-run' .github/workflows/ci.yml; then
+  printf 'CI must resolve the npm dependency graph for real, not with --dry-run\n' >&2
+  exit 1
+fi
+
+# A hand-edited or stale lock can carry policy options the declared config no
+# longer sets, and that stale lock is what a fresh machine installs from.
+python3 scripts/check-mise-policy-sync.py .
+
 printf 'Checking GitHub credential_command portability contract...\n'
 python3 - <<'PY'
 import tomllib

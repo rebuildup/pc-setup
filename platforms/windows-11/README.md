@@ -96,7 +96,7 @@ OSごとにWinGet packageを重複宣言せず、`mise.global.toml [tools]` を�
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
 - Google Cloud CLI / AWS CLI
-- Supabase CLI / Vercel CLI
+- Supabase CLI
 - ripgrep / fd / fzf / jq / bat / gdu
 - ShellCheck / Neovim
 
