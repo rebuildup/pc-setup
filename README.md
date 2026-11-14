@@ -81,7 +81,7 @@ OSに依存しにくい開発CLI/runtimeは一度だけ宣言する。
 - Node.js 24 / pnpm / Bun
 - Python / Rust
 - GitHub CLI / Infisical CLI
-- Claude Code / Codex / OpenCode
+- Claude Code / Codex / OpenCode / Devin
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
 - Google Cloud CLI / AWS CLI

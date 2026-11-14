@@ -38,7 +38,7 @@ Cross-machine developer CLI/runtime requirements are inherited from root `mise.t
 
 - GitHub CLI / Infisical
 - Node.js / Python / pnpm / Bun / Rust
-- Claude Code / Codex / OpenCode / Worktrunk / Herdr
+- Claude Code / Codex / OpenCode / Devin / Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
 - Google Cloud CLI / AWS CLI
 - Supabase CLI

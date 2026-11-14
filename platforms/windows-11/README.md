@@ -92,7 +92,7 @@ OSごとにWinGet packageを重複宣言せず、`mise.global.toml [tools]` を�
 - Node.js / pnpm / Bun
 - Python / Rust
 - GitHub CLI / Infisical
-- Claude Code / Codex / OpenCode
+- Claude Code / Codex / OpenCode / Devin
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
 - Google Cloud CLI / AWS CLI
