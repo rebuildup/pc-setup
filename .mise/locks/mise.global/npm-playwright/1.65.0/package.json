@@ -2,6 +2,6 @@
   "name": "mise-npm-install",
   "private": true,
   "dependencies": {
-    "npkill": "0.12.2"
+    "playwright": "1.65.0"
   }
 }
