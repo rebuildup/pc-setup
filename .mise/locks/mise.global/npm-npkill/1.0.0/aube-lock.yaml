@@ -1,0 +1,72 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      npkill:
+        specifier: 1.0.0
+        version: 1.0.0
+
+packages:
+
+  ansi-escapes@7.3.0:
+    resolution: {integrity: sha512-BvU8nYgGQBxcmMuEeUEmNTvrMVjJNSH7RgW24vXexN4Ven6qCvy4TntnvlnwnMLTVlcRQQdbRY8NKnaIoeWDNg==}
+    engines: {node: '>=18'}
+
+  environment@1.1.0:
+    resolution: {integrity: sha512-xUtoPkMggbz0MPyPiIWr1Kp4aeWJjDZ6SMvURhimjdZgsRuDplF5/s9hcgGhyXMhs+6vpnuoiZ2kFiu3FMnS8Q==}
+    engines: {node: '>=18'}
+
+  is-unicode-supported@2.1.0:
+    resolution: {integrity: sha512-mE00Gnza5EEB3Ds0HfMyllZzbBrmLOX3vfWoj9A9PEnTfratQ/BcaJOuMhnkhjXvb2+FkY3VuHqtAGpTPmglFQ==}
+    engines: {node: '>=18'}
+
+  npkill@1.0.0:
+    resolution: {integrity: sha512-J42ZL6UyQU21uev7mVAK+hX3hglE3VRwZzPyZIk8rE9NgVvw2qlTzYMqkyboPMUiRd/6hrYAAeK6IvhGwVmi+A==}
+    engines: {node: '>=20.19.0'}
+    hasBin: true
+
+  open-file-explorer@1.0.2:
+    resolution: {integrity: sha512-U4p+VW5uhtgK5W7qSsRhKioYAHCiTX9PiqV4ZtAFLMGfQ3QhppaEevk8k8+DSjM6rgc1yNIR2nttDuWfdNnnJQ==}
+
+  picocolors@1.1.1:
+    resolution: {integrity: sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA==}
+
+  rxjs@7.8.2:
+    resolution: {integrity: sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==}
+
+  tslib@2.9.1:
+    resolution: {integrity: sha512-a4Ux9VKuIMHsOS7ENbEq6hK2ZGYIT27Rtl0E4eD9KqwxhKiQeMZE/9xb3IdYwWaSOyIBQLExhQgXDTYoiCxnWA==}
+
+snapshots:
+
+  ansi-escapes@7.3.0:
+    dependencies:
+      environment: 1.1.0
+
+  environment@1.1.0: {}
+
+  is-unicode-supported@2.1.0: {}
+
+  npkill@1.0.0:
+    dependencies:
+      ansi-escapes: 7.3.0
+      is-unicode-supported: 2.1.0
+      open-file-explorer: 1.0.2
+      picocolors: 1.1.1
+      rxjs: 7.8.2
+
+  open-file-explorer@1.0.2: {}
+
+  picocolors@1.1.1: {}
+
+  rxjs@7.8.2:
+    dependencies:
+      tslib: 2.9.1
+
+  tslib@2.9.1: {}
