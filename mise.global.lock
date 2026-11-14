@@ -541,6 +541,12 @@ specifiers = ["latest"]
 [tools."npm:@opencode/cli".options]
 allow_builds = '["@opencode/cli"]'
 
+[[tools."npm:devin"]]
+version = "3000.12.43"
+aube = { path = ".mise/locks/mise.global/npm-devin/3000.12.43", digest = "sha256:fc78c4afed8cdda85c53d44218ebce66f3131fbe5130d94e2becec46057cb5a1" }
+backend = "npm:devin"
+specifiers = ["latest"]
+
 [[tools."npm:npkill"]]
 version = "0.12.2"
 aube = { path = ".mise/locks/mise.global/npm-npkill/0.12.2", digest = "sha256:cdba46b49c7a7692224c6e3965f0426ddefd384ce44f45069aba74a129374212" }

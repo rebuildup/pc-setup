@@ -129,6 +129,7 @@
         "claude"
         "codex"
         "opencode"
+        "devin"
         "wt"
         "herdr"
         "gcloud"

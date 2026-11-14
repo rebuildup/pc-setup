@@ -89,6 +89,10 @@ powershell = { version = "7.6.6", os = ["linux", "macos"] }
 # OMP (oh-my-pi) is the Worker harness replacing the dotfiles launcher's old Pi
 # routes. Native Pi above stays installed for rollback/native use.
 oh-my-pi = "latest"
+# Devin CLI (Cognition) runs locally in the terminal; the npm package ships a
+# Node launcher plus a per-platform native binary as an optional dependency, so
+# it follows the same npm channel as OpenCode.
+"npm:devin" = { version = "latest", depends = ["node"] }
 "npm:playwright" = "latest"
 ruby = "4"
 

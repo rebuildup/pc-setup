@@ -58,7 +58,7 @@ Portable developer tools are declared once in `mise.global.toml`, which is linke
 
 - Node.js / Python / pnpm / Bun / Rust
 - GitHub CLI / Infisical CLI
-- Claude Code / Codex / OpenCode
+- Claude Code / Codex / OpenCode / Devin
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
 - Google Cloud CLI / AWS CLI

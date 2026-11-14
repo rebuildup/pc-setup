@@ -81,6 +81,7 @@ commands=(
   rust-analyzer
   claude
   opencode
+  devin
   wt
   herdr
   gcloud
