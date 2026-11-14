@@ -220,7 +220,7 @@ Write-Host "`nCommand capabilities"
 foreach ($commandName in @(
     'git','gh','infisical','pwsh','code','node','python','pnpm','bun','rustc','cargo',
     'rg','fd','fzf','jq','bat','gdu','shellcheck','nvim',
-    'claude','codex','opencode','wt','herdr',
+    'claude','codex','opencode','devin','wt','herdr',
     'gcloud','aws','supabase','npkill','ocr','cargo-clean-all','dotnet'
 )) { Test-CommandPresent -Name $commandName }
 
@@ -279,7 +279,7 @@ else {
         # Command names, not mise keys. platforms/windows-11 CI asserts each name
         # maps to a mise.global.toml [tools] key (with an alias for names such as
         # ripgrep -> rg), so this list cannot silently drift from the config.
-        $ownershipTools = @('gh', 'node', 'python', 'nvim', 'rg', 'fd', 'jq', 'bat', 'claude', 'codex', 'opencode', 'pi')
+        $ownershipTools = @('gh', 'node', 'python', 'nvim', 'rg', 'fd', 'jq', 'bat', 'claude', 'codex', 'opencode', 'devin', 'pi')
 
         # Resolve every name in a child pwsh so the result does not depend on how
         # this script was started. The child prints `name|path|path|...` lines.

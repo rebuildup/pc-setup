@@ -47,7 +47,7 @@ pc-setup の system profile 適用後は `nix-command` / `flakes` が恒久的�
 
 NixOSではgeneric Linux binaryをbare hostから直接実行できないため、このmise install phaseだけはFlakeが用意する一時FHS compatibility environment内で実行します。bootstrap中は `MISE_ALL_COMPILE=0`（Node/Pythonもcompile=false）として、miseのNixOS source-build fallbackではなくprebuilt artifactを使用します。これによりBun / rustup / Node等のinstaller child processも同じFHS environment内で動作します。
 
-install 後は `user-baseline` package を persistent out-link `~/.local/state/pc-setup/nix-user-baseline` として構築します。この package は `claude` / `opencode` / `node` / `cargo` / `gcloud` 等の command wrapper を持ち、各 command を FHS environment 内の `mise -C "$PWD" exec` へ渡します。これにより system profile / nix-ld 適用前でも通常 shell からCLIを実行でき、project-local mise configも反映されます。
+install 後は `user-baseline` package を persistent out-link `~/.local/state/pc-setup/nix-user-baseline` として構築します。この package は `claude` / `opencode` / `devin` / `node` / `cargo` / `gcloud` 等の command wrapper を持ち、各 command を FHS environment 内の `mise -C "$PWD" exec` へ渡します。これにより system profile / nix-ld 適用前でも通常 shell からCLIを実行でき、project-local mise configも反映されます。
 
 Bash は `~/.config/pc-setup/shell-init.bash` を source し、この wrapper baseline を PATH に追加します。bootstrap は parent shell の環境を変更できないため、wrapper 構築直後に必ず次の案内を表示します。verify が失敗してもこの案内は再表示されます。
 
@@ -79,7 +79,7 @@ Portable user CLI baseline (`mise.global.toml`):
 
 - Node.js / pnpm / Bun / Rust
 - GitHub CLI
-- Claude Code / Codex / OpenCode
+- Claude Code / Codex / OpenCode / Devin
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all / gdu
 - Google Cloud CLI / AWS CLI

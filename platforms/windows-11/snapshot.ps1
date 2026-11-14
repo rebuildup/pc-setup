@@ -87,7 +87,7 @@ $versionOutput | Out-File -Encoding utf8 (Join-Path $target 'command-versions.tx
 # Every PATH hit per command, in resolution order. The first hit wins, so a
 # second entry is a shadowed duplicate (another package manager, a stale .cmd
 # shim, ...). This is evidence for reconciling, not a list of things to remove.
-$shadowTargets = 'claude','opencode','bun','infisical','gh','node','npm','mise','pwsh','codex','herdr','git','python','rustc','cargo','tailscale'
+$shadowTargets = 'claude','opencode','devin','bun','infisical','gh','node','npm','mise','pwsh','codex','herdr','git','python','rustc','cargo','tailscale'
 $shadowReport = foreach ($name in $shadowTargets) {
     $hits = @(Get-Command $name -All -ErrorAction SilentlyContinue |
         Where-Object { $_.CommandType -in 'Application', 'ExternalScript' })

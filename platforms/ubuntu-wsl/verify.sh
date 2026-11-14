@@ -54,6 +54,7 @@ snapshot() {
   printf 'worktrunk=%s\n' "$(first_line wt --version)"
   printf 'claude=%s\n' "$(first_line claude --version)"
   printf 'opencode=%s\n' "$(first_line opencode --version)"
+  printf 'devin=%s\n' "$(first_line devin --version)"
   printf 'shellcheck=%s\n' "$(first_line shellcheck --version)"
   printf 'python=%s\n' "$(first_line python3 --version)"
   printf 'cmake=%s\n' "$(first_line cmake --version)"
@@ -61,7 +62,7 @@ snapshot() {
 }
 
 if [[ "$SNAPSHOT" -eq 1 ]]; then
-  required=(git gh rg fd fzf jq bat gdu bun rustc cargo wt claude opencode shellcheck python3 cmake clang)
+  required=(git gh rg fd fzf jq bat gdu bun rustc cargo wt claude opencode devin shellcheck python3 cmake clang)
   for cmd in "${required[@]}"; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
       printf 'Cannot create complete snapshot: missing command %s\n' "$cmd" >&2
@@ -156,6 +157,7 @@ commands=(
   cargo-clean-all
   claude
   opencode
+  devin
   shellcheck
   python3
   cmake
