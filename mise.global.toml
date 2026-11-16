@@ -135,7 +135,10 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 "brew-cask:firefox" = { version = "latest", os = "macos" }
 "brew-cask:stablyai/orca/orca" = { version = "latest", os = "macos" }
 # Official Antibody Software tap; macOS port of the Windows WizTree disk analyzer.
-"brew-cask:antibodysw/tap/wiztree" = { version = "latest", os = "macos" }
+# antibodysw/homebrew-tap#1 fixes `version.tr` -> `version.to_s.tr`, which mise's
+# cask metadata evaluator requires; point at the rebuildup fork until upstream
+# merges, then switch back to antibodysw/tap.
+"brew-cask:rebuildup/tap/wiztree" = { version = "latest", os = "macos" }
 "brew:ffmpeg" = { version = "latest", os = "macos" }
 "brew:zsh-autosuggestions" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
