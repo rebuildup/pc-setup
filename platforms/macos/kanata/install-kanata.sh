@@ -114,6 +114,7 @@ PY
 
 sudo install -o root -g wheel -m 0644   "$source_dir/org.pqrs.Karabiner-VirtualHIDDevice-Daemon.plist"   "$driver_plist"
 sudo install -o root -g wheel -m 0644 "$tmp_plist" "$kanata_plist"
+sudo install -o root -g wheel -m 0644 "$source_dir/dev.rebuildup.pc-setup.kanata.newsyslog.conf" "/etc/newsyslog.d/dev.rebuildup.pc-setup.kanata.conf"
 
 sudo /bin/launchctl bootout "system/$driver_label" >/dev/null 2>&1 || true
 sudo /bin/launchctl bootstrap system "$driver_plist"
