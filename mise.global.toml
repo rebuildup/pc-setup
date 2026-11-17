@@ -135,10 +135,7 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 "brew-cask:firefox" = { version = "latest", os = "macos" }
 "brew-cask:stablyai/orca/orca" = { version = "latest", os = "macos" }
 # Official Antibody Software tap; macOS port of the Windows WizTree disk analyzer.
-# antibodysw/homebrew-tap#1 fixes `version.tr` -> `version.to_s.tr`, which mise's
-# cask metadata evaluator requires; point at the rebuildup fork until upstream
-# merges, then switch back to antibodysw/tap.
-"brew-cask:rebuildup/tap/wiztree" = { version = "latest", os = "macos" }
+"brew-cask:antibodysw/tap/wiztree" = { version = "latest", os = "macos" }
 "brew:ffmpeg" = { version = "latest", os = "macos" }
 "brew:zsh-autosuggestions" = { version = "latest", os = "macos" }
 "brew:colima" = { version = "latest", os = "macos" }
@@ -150,6 +147,13 @@ windows-arm64 = { asset_pattern = "opencodereview-windows-arm64.exe" }
 # exists and makes every `docker pull` fail. This formula provides the same
 # Keychain-backed helper without Docker Desktop.
 "brew:docker-credential-helper" = { version = "latest", os = "macos" }
+
+[bootstrap.brew.taps]
+# antibodysw/homebrew-tap#1 fixes `version.tr` -> `version.to_s.tr`, which mise's
+# cask metadata evaluator requires. Resolve the official tap name from the
+# rebuildup fork (same cask plus the fix) until upstream merges; then delete
+# this section.
+"antibodysw/tap" = "https://github.com/rebuildup/homebrew-tap"
 
 [settings.github]
 # mise resolves a GitHub token from this command when no MISE_GITHUB_TOKEN /
