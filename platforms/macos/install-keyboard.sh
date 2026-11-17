@@ -39,7 +39,10 @@ sudo /bin/launchctl bootstrap system "$target_plist"
 sudoers_target="/etc/sudoers.d/pc-setup-verify"
 tmp_sudoers="$(mktemp -t pc-setup-sudoers)"
 trap 'rm -f "$tmp_sudoers"' EXIT
-sed "s/__USERNAME__/$(id -un)/" "$source_dir/dev.rebuildup.pc-setup.verify.sudoers.in" >"$tmp_sudoers"
+# The installer itself runs under sudo, so `id -un` would render `root`.
+# SUDO_USER carries the invoking user; fall back to id -un for direct root runs.
+sudoers_user="${SUDO_USER:-$(id -un)}"
+sed "s/__USERNAME__/$sudoers_user/" "$source_dir/dev.rebuildup.pc-setup.verify.sudoers.in" >"$tmp_sudoers"
 if ! visudo -cf "$tmp_sudoers" >/dev/null; then
   printf 'rendered sudoers fragment failed validation; not installing\n' >&2
   exit 1
