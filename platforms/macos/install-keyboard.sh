@@ -33,6 +33,20 @@ sudo install -o root -g wheel -m 0644 "$source_dir/$plist_name" "$target_plist"
 sudo /bin/launchctl bootout "system/$label" >/dev/null 2>&1 || true
 sudo /bin/launchctl bootstrap system "$target_plist"
 
+# verify.sh checks the daemon with `sudo launchctl print system/<label>`. The
+# converge LaunchAgent runs verify without a TTY, so the check needs a
+# passwordless grant. sudo ignores sudoers.d files whose names contain a dot.
+sudoers_target="/etc/sudoers.d/pc-setup-verify"
+tmp_sudoers="$(mktemp -t pc-setup-sudoers)"
+trap 'rm -f "$tmp_sudoers"' EXIT
+sed "s/__USERNAME__/$(id -un)/" "$source_dir/dev.rebuildup.pc-setup.verify.sudoers.in" >"$tmp_sudoers"
+if ! visudo -cf "$tmp_sudoers" >/dev/null; then
+  printf 'rendered sudoers fragment failed validation; not installing\n' >&2
+  exit 1
+fi
+sudo install -o root -g wheel -m 0440 "$tmp_sudoers" "$sudoers_target"
+
 # The helper now runs for the life of the job, so it does not return. Waiting on it
 # would block the installer forever.
 printf 'Installed macOS Onishi keyboard LaunchDaemon: %s\n' "$target_plist"
+printf 'Installed passwordless verify grant: %s\n' "$sudoers_target"
