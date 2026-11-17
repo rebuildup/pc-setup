@@ -145,6 +145,32 @@ source ~/.bashrc
 
 Do not reconstruct the old package-by-package installation procedure manually.
 
+## Resident services (OpenClaw Gateway)
+
+OpenClaw is the resident autonomous-development Supervisor runtime (dotfiles
+ADR-0019, project-init#172). It is installed through the machine-global mise
+config (`npm:openclaw` in `mise.global.toml`); the bot roster, model routes,
+and automation declarations live in the dotfiles checkout under
+`config/openclaw/`.
+
+Service management is owned by dotfiles, not this repository:
+
+```bash
+~/.dotfiles/script/openclaw-gateway-install   # idempotent converge + restart
+openclaw gateway status                        # runtime check (127.0.0.1:18789)
+```
+
+The installer creates the systemd **user** unit `openclaw-gateway.service`
+with an Infisical-injection drop-in, enables it, and attempts
+`loginctl enable-linger` so the user manager — and therefore the Gateway —
+starts at boot without an interactive WSL login. If linger cannot be enabled,
+the Gateway starts on the first WSL session instead; the Windows-side
+`pc-setup-converge` Scheduled Task (see `platforms/windows-11/install-converge.ps1`)
+keeps a WSL session warm and re-converges the service after reboot.
+
+Secrets are never stored in OpenClaw config or Git: `gateway.auth.token` and
+provider keys resolve through Infisical SecretRefs at service start.
+
 ## WSL boundary
 
 The WSL distribution is treated as its own development machine. Windows-side installations and authentication do not imply the same tool/auth state inside WSL.

@@ -324,6 +324,32 @@ function Sync-Devices {
     }
 }
 
+# Resident WSL services: the OpenClaw Gateway is a systemd *user* unit inside the
+# WSL distro (dotfiles script/openclaw-gateway-install owns its definition). This
+# step only makes sure the distro is running and the unit is active; it never
+# restarts a healthy service, so hourly runs do not interrupt bot sessions.
+# `wsl.exe` itself boots the distro, which is what starts the Gateway after a
+# Windows reboot before linger/first-login would.
+function Invoke-WslGateway {
+    $wsl = Get-Command wsl.exe -CommandType Application -ErrorAction SilentlyContinue
+    if (-not $wsl) {
+        Add-Step 'wsl-gateway' 'skipped' 'wsl.exe not found; WSL services not managed'
+        return
+    }
+    $distro = if ($env:PC_SETUP_WSL_DISTRO) { $env:PC_SETUP_WSL_DISTRO } else { 'Ubuntu' }
+    $script = 'export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin"; ' +
+        'if systemctl --user is-active --quiet openclaw-gateway.service 2>/dev/null; then exit 0; fi; ' +
+        'if [ -x "$HOME/.dotfiles/script/openclaw-gateway-install" ]; then "$HOME/.dotfiles/script/openclaw-gateway-install" >/dev/null 2>&1; fi; ' +
+        'systemctl --user is-active --quiet openclaw-gateway.service'
+    & wsl.exe -d $distro -- bash -lc $script *>> $script:LogFile
+    $code = $LASTEXITCODE
+    if ($code -eq 0) {
+        Add-Step 'wsl-gateway' 'ok' ('openclaw-gateway.service active in ' + $distro)
+    } else {
+        Add-Step 'wsl-gateway' 'error' ('openclaw-gateway.service not active in ' + $distro + ' (exit ' + $code + '); see ' + $script:LogFile)
+    }
+}
+
 function Invoke-Verify {
     if (-not $script:DeployOk) {
         Add-Step 'verify' 'skipped' 'deploy checkout not converged in this run'
@@ -494,6 +520,7 @@ function Invoke-Main {
     Test-DshDeclaration
     Invoke-DotfilesSync
     Sync-Devices
+    Invoke-WslGateway
     Invoke-Verify
 
     $hasError = @($script:Steps | Where-Object { $_.status -in @('error', 'fail') }).Count -gt 0
