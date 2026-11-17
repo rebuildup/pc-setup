@@ -221,4 +221,6 @@ verify は mise 設定の読み込みと OS 条件、`colima` / `docker` / compo
 ./platforms/macos/containers/verify.sh
 ```
 
+`verify.sh` は Onishi LaunchDaemon の確認に `sudo launchctl print` を使う。`install-keyboard.sh` が `/etc/sudoers.d/pc-setup-verify` へ完全一致の NOPASSWD エントリを配置するため、converge LaunchAgent の非対話実行でもパスワードなしで完走する(ADR-0024)。sudoers エントリがない環境では手動実行時のパスワードプロンプトが必要。
+
 GUI application inventoryは実機利用に応じて `plans/macos` から段階的に昇格する。platformがActiveであることはcandidate GUI一覧をすべて採用したことを意味しない。

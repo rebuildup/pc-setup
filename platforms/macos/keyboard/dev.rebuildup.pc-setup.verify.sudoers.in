@@ -1,0 +1,4 @@
+# Allows the converge LaunchAgent's unattended verify run to check the Onishi
+# LaunchDaemon without a password prompt. The match is exact: only this
+# launchctl invocation is permitted, nothing else.
+__USERNAME__ ALL=(root) NOPASSWD: /bin/launchctl print system/dev.rebuildup.pc-setup.onishi-keymap
