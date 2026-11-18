@@ -2,23 +2,6 @@
 
 lockfile_version = 3
 
-[[tools.aws-cli]]
-version = "2.40.3"
-backend = "aqua:aws/aws-cli"
-specifiers = ["latest"]
-
-[tools.aws-cli."platforms.linux-x64"]
-checksum = "sha256:4770c06c4ecfc8ba94b60d89e6c7018ab7ea2cf5341b1ef05f6f93c5d6e8b705"
-url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.40.3.zip"
-
-[tools.aws-cli."platforms.macos-arm64"]
-checksum = "sha256:be032742ff205f7f2d7c189010bbb1f3891d0a67be0b1df0fe9d3e7f5fc5ad30"
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.40.3.pkg"
-
-[tools.aws-cli."platforms.macos-x64"]
-checksum = "sha256:be032742ff205f7f2d7c189010bbb1f3891d0a67be0b1df0fe9d3e7f5fc5ad30"
-url = "https://awscli.amazonaws.com/AWSCLIV2-2.40.3.pkg"
-
 [[tools.bat]]
 version = "0.26.1"
 backend = "aqua:sharkdp/bat"
@@ -263,23 +246,6 @@ checksum = "sha256:e3fb809d48094bea7f9f4df03b2fea33ae6e28a6cd32fdad9970cd79e1103
 checksum_source = "mise-versions"
 url = "https://github.com/junegunn/fzf/releases/download/v0.75.0/fzf-0.75.0-windows_amd64.zip"
 url_api = "https://api.github.com/repos/junegunn/fzf/releases/assets/720590885"
-
-[[tools.gcloud]]
-version = "593.0.0"
-backend = "vfox:jdx/vfox-gcloud"
-specifiers = ["latest"]
-
-[tools.gcloud."platforms.linux-x64"]
-checksum = "sha256:e36f240c5d6ddeaec2d0fb348c2d3b0f98a849dd74be59ff6e0f2f534c506a58"
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-593.0.0-linux-x86_64.tar.gz"
-
-[tools.gcloud."platforms.macos-arm64"]
-checksum = "sha256:71d6aa2b2b21494ad5538d0e5104ff3bb123d55f5a2ff0da6c58f87459a6b6af"
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-593.0.0-darwin-arm.tar.gz"
-
-[tools.gcloud."platforms.macos-x64"]
-checksum = "sha256:49d3325ac25bc71209104d382cdfaa2904cf52822f63a3f283825d4e988f30a8"
-url = "https://storage.googleapis.com/cloud-sdk-release/google-cloud-sdk-593.0.0-darwin-x86_64.tar.gz"
 
 [[tools.gdu]]
 version = "5.39.0"
@@ -565,12 +531,6 @@ aube = { path = ".mise/locks/mise.global/npm-npkill/1.0.0", digest = "sha256:ebd
 backend = "npm:npkill"
 specifiers = ["latest"]
 
-[[tools."npm:playwright"]]
-version = "1.65.1"
-aube = { path = ".mise/locks/mise.global/npm-playwright/1.65.1", digest = "sha256:f87d3323cec54802bd1cae015bbcbb00af6f4192ffe35c191a6ccdad4cd955e0" }
-backend = "npm:playwright"
-specifiers = ["latest"]
-
 [[tools.oh-my-pi]]
 version = "18.20.2"
 backend = "github:can1357/oh-my-pi"
@@ -762,35 +722,6 @@ url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/2790
 checksum = "sha256:8a4e35ab0b331c85d73567b12f2a444df187f483e5079ceffa6bda1faa2e740e"
 url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.zip"
 url_api = "https://api.github.com/repos/koalaman/shellcheck/releases/assets/279056944"
-
-[[tools.supabase]]
-version = "3.1.0"
-backend = "aqua:supabase/cli"
-specifiers = ["latest"]
-
-[tools.supabase."platforms.linux-x64"]
-checksum = "sha256:dbe9fd66771337fc198727da86b9d3551302f87a7091cd8781be2a4cd0c8ac4d"
-url = "https://github.com/supabase/cli/releases/download/v3.1.0/supabase_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/supabase/cli/releases/assets/727546061"
-provenance = "github-attestations"
-
-[tools.supabase."platforms.macos-arm64"]
-checksum = "sha256:2bd2a45fd5cd9e45b6393cfd534651ac1dbfb78c8a311b7f48e14143594e7a26"
-url = "https://github.com/supabase/cli/releases/download/v3.1.0/supabase_darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/supabase/cli/releases/assets/727545576"
-provenance = "github-attestations"
-
-[tools.supabase."platforms.macos-x64"]
-checksum = "sha256:7ddf0f4ba6e976bb08ce3141cc47cfbd00d7d37346e0a9b53ab1e95c6d0134e4"
-url = "https://github.com/supabase/cli/releases/download/v3.1.0/supabase_darwin_amd64.tar.gz"
-url_api = "https://api.github.com/repos/supabase/cli/releases/assets/727545756"
-provenance = "github-attestations"
-
-[tools.supabase."platforms.windows-x64"]
-checksum = "sha256:1245ec38cb16dc6f14de279a5c292d68474869ec2fe443edbf094913e84e439d"
-url = "https://github.com/supabase/cli/releases/download/v3.1.0/supabase_windows_amd64.tar.gz"
-url_api = "https://api.github.com/repos/supabase/cli/releases/assets/727546423"
-provenance = "github-attestations"
 
 [[tools.worktrunk]]
 version = "0.82.0"
