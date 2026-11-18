@@ -82,8 +82,8 @@ Portable user CLI baseline (`mise.global.toml`):
 - Claude Code / Codex / OpenCode / Devin
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all / gdu
-- Google Cloud CLI / AWS CLI
-- Supabase CLI
+
+AWS / Google Cloud / Supabase は共通インストール対象外です。`flake.nix` には project-local / optional CLI を実行するための FHS wrapper 名だけ残します。wrapper があることと CLI のインストール済み・認証済みであることは別です（[ADR-0025](../../docs/adr/ADR-0025.md)）。
 
 Worktrunk の Bash integration も Home Manager で宣言します。
 
