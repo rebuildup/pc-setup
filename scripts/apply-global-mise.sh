@@ -58,6 +58,17 @@ fi
 export MISE_HTTP_TIMEOUT="${MISE_HTTP_TIMEOUT:-120s}"
 export MISE_HTTP_RETRIES="${MISE_HTTP_RETRIES:-5}"
 
+# A plain `mise install` re-resolves every rolling selector and rewrites the lock
+# it installs from, so the unlocked `mise install gh` bootstrap below replaces the
+# committed lock before `--locked` is ever consulted (observed: 38393 -> 75443
+# bytes) and the machine installs a different tool set than the repository pins.
+# On POSIX the lock is a symlink into the checkout, so that rewrite also dirties
+# the work tree. Lock reads for the rest of the run when a committed lock exists;
+# a machine with no committed lock must still be able to create one.
+if [[ -f "$source_lock" ]]; then
+  export MISE_LOCKED=1
+fi
+
 prepare_github_auth_for_mise() {
   if [[ -n "${MISE_GITHUB_TOKEN:-}" || -n "${GITHUB_API_TOKEN:-}" || -n "${GITHUB_TOKEN:-}" ]]; then
     printf 'ok      mise GitHub authentication provided by environment\n'
