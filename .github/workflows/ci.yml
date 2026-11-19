@@ -733,6 +733,73 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      # scripts/test-windows-mise-config.ps1 exercises the renderer
+      # (scripts/windows-mise-config.ps1) directly instead of going through
+      # apply-global-mise.ps1 and a fake mise. It was previously absent from CI,
+      # which is how it went red on every CRLF checkout of this repository
+      # (core.autocrlf=true, no .gitattributes) while CI stayed green.
+      - name: Validate Windows mise config renderer
+        shell: pwsh
+        run: ./scripts/test-windows-mise-config.ps1
+
+      - name: Validate the apply keeps the committed lock read-only
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          # Regression: apply-global-mise.ps1 runs one unlocked `mise install gh`
+          # before its auth check, and a plain `mise install` re-resolves every
+          # rolling selector and rewrites the lock it installs from. Observed on
+          # a real machine: the committed 38 KB mise.global.lock was replaced by a
+          # 75 KB re-locked copy before `--locked` was ever consulted, so the
+          # machine installed a different tool set than the repository pins.
+          # MISE_LOCKED=1 must be set for the whole apply, and the fake mise below
+          # records the value each invocation actually saw.
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-locked-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $target = Join-Path $root 'config.toml'
+          $seen = Join-Path $root 'mise-locked-seen.txt'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+          $oldPath = $env:PATH
+
+          try {
+            # A fake mise that records MISE_LOCKED and always succeeds. The
+            # content is built from an array rather than a here-string: a
+            # here-string terminator at column 1 would end this YAML block
+            # scalar and break the workflow file.
+            $fakeMise = @(
+              '@echo off',
+              ('>>"{0}" echo %MISE_LOCKED%' -f $seen),
+              'exit /b 0'
+            ) -join "`r`n"
+            Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd') -Value $fakeMise
+            $env:PATH = "$fakeBin;$oldPath"
+            $env:MISE_GLOBAL_CONFIG_FILE = $target
+            $env:MISE_GITHUB_TOKEN = 'ci-placeholder'
+            Remove-Item Env:MISE_LOCKED -ErrorAction SilentlyContinue
+
+            & ./scripts/apply-global-mise.ps1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "apply-global-mise.ps1 exited $LASTEXITCODE" }
+
+            if (-not (Test-Path -LiteralPath $seen)) { throw 'fake mise never ran' }
+            $values = @(Get-Content -LiteralPath $seen | ForEach-Object { $_.Trim() })
+            if ($values.Count -eq 0) { throw 'fake mise recorded no invocations' }
+            $unlocked = @($values | Where-Object { $_ -ne '1' })
+            if ($unlocked.Count -gt 0) {
+              throw "every mise invocation must run with MISE_LOCKED=1; saw: $($values -join ', ')"
+            }
+
+            # The caller's environment must not be left mutated.
+            $leftover = [Environment]::GetEnvironmentVariable('MISE_LOCKED', 'Process')
+            if ($leftover) { throw "apply left MISE_LOCKED set in the caller: '$leftover'" }
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN, Env:MISE_LOCKED -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Validate global mise config backup before overwrite
         shell: pwsh
         run: |

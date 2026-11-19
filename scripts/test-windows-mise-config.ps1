@@ -33,7 +33,11 @@ Write-Host 'ok      Windows form uses %MISE_CREDENTIAL_HOST%'
 
 # The shared file keeps the Unix form; a Windows-only string here would make the
 # Unix machines fail instead. Match the assignment, not the prose around it.
-$sourceCommand = [regex]::Match($sourceText, '(?m)^credential_command\s*=.*$').Value
+# `.*$` stops before `\n` but still captures a trailing `\r`, and Windows
+# checkouts of this repository use CRLF (no .gitattributes; core.autocrlf=true in
+# Git for Windows). Compare the line without its terminator so the check tests the
+# content, not the checkout's line ending.
+$sourceCommand = [regex]::Match($sourceText, '(?m)^credential_command\s*=[^\r\n]*').Value
 if ($sourceCommand -ne 'credential_command = ''gh auth token --hostname "$MISE_CREDENTIAL_HOST"''') {
     throw "mise.global.toml must carry the portable `$.` form, got: $sourceCommand"
 }
