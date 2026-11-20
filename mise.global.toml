@@ -53,7 +53,7 @@ supabase = "latest"
 # binaries; they stay scoped to Windows until the other platforms declare
 # them too.
 "cargo:cargo-clean-all" = { version = "latest", depends = ["rust"] }
-"cargo:cargo-cleaner" = { version = "latest", depends = ["rust"], os = ["windows"] }
+"cargo:cargo-cleaner" = { version = "latest", depends = ["rust"] }
 "cargo:cargo-compete" = { version = "latest", depends = ["rust"] }
 "cargo:cargo-generate" = { version = "latest", depends = ["rust"], os = ["windows"] }
 "cargo:cargo-ndk" = { version = "latest", depends = ["rust"], os = ["windows"] }
