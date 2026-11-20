@@ -656,6 +656,57 @@ jobs:
             throw "mise-path-ownership.ps1 plan produced no summary: $planOutput"
           }
 
+      - name: Validate converge survives a step error and always reports
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          # A terminating error inside one step used to unwind Invoke-Main, so
+          # verify never ran and status.json was never written, while the task
+          # still reported exit 0. The trigger was a name resolving to several
+          # applications: `$cmd = Get-Command bun` then `& $cmd.Source` passes an
+          # Object[] to the command position and throws CommandNotFoundException.
+          $path = './platforms/windows-11/converge.ps1'
+          $tokens = $null
+          $parseErrors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path).Path, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) { throw "converge.ps1 does not parse: $($parseErrors[0].Message)" }
+
+          $text = Get-Content -LiteralPath $path -Raw
+
+          # A command position must never be a property of a command object that
+          # can be an array. Resolve one scalar path first.
+          if ($text -match '(?m)^\s*&\s*\$\w+\.Source\b') {
+            throw 'converge.ps1 runs `& $x.Source`; a name that resolves to several applications makes .Source an array and throws. Select -First 1 into a scalar path variable.'
+          }
+
+          $mainMatch = [regex]::Match($text, '(?s)function Invoke-Main \{(.*?)\r?\n\}')
+          if (-not $mainMatch.Success) { throw 'converge.ps1 must define Invoke-Main as a single block.' }
+          $mainBody = $mainMatch.Groups[1].Value
+
+          # Every step runs through Invoke-Step so one failure cannot skip the
+          # remaining steps or the status report.
+          foreach ($step in 'deploy-sync', 'mise-apply', 'dsh-declaration', 'dotfiles-sync', 'devices-sync', 'verify') {
+            if ($mainBody -notmatch ("Invoke-Step\s+'" + [regex]::Escape($step) + "'")) {
+              throw "Invoke-Main must run the '$step' step through Invoke-Step."
+            }
+          }
+          foreach ($fn in 'Sync-Deploy', 'Invoke-MiseApply', 'Test-DshDeclaration', 'Invoke-DotfilesSync', 'Sync-Devices', 'Invoke-Verify') {
+            if ($mainBody -match ('(?m)^\s+' + $fn + '\s*$')) {
+              throw "Invoke-Main calls $fn directly; a terminating error there skips verify and the status report. Wrap it in Invoke-Step."
+            }
+          }
+
+          # The status report must be reachable after a step failure, and a
+          # failure to write it must not leave exit code 0.
+          if ($text -notmatch 'converge failed before finishing its steps') {
+            throw 'converge.ps1 must guard Invoke-Main so the status report still runs.'
+          }
+          if ($text -notmatch 'failed to write ') {
+            throw 'converge.ps1 must treat an unwritable status report as a failed run.'
+          }
+
       - name: Validate best-effort Windows desktop apps
         shell: pwsh
         run: |
