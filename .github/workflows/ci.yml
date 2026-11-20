@@ -588,6 +588,64 @@ jobs:
             throw "verify.ps1 Tool ownership names with no mise.global.toml [tools] key (or alias): $($unmappedNames -join ', ')"
           }
 
+          # The executability list is the check that catches a mise install whose
+          # internal dependency tree is incomplete: `Get-Command devin` resolves
+          # while `devin --version` fails, and `mise install` does not repair it.
+          # Every entry there must name a real [tools] key, or the report would
+          # point at a repair command (`mise install <key> --force`) that does not
+          # exist.
+          $execMatch = [regex]::Match($verify, '(?s)\$executableTools\s*=\s*@\((.*?)\n\s*\)\s*\n')
+          if (-not $execMatch.Success) { throw 'verify.ps1 must define $executableTools as @(...) for the executability check.' }
+          $execKeys = @([regex]::Matches($execMatch.Groups[1].Value, "key\s*=\s*'([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+          if ($execKeys.Count -eq 0) { throw 'verify.ps1 $executableTools is empty.' }
+          $unknownKeys = @($execKeys | Where-Object { $toolKeys -notcontains $_ })
+          if ($unknownKeys.Count -gt 0) {
+            throw "verify.ps1 executability keys with no mise.global.toml [tools] key: $($unknownKeys -join ', ')"
+          }
+          # Each entry must also name the command it runs, so a key cannot be
+          # listed without the probe that proves the tool starts.
+          $execCommands = @([regex]::Matches($execMatch.Groups[1].Value, "command\s*=\s*'([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+          if ($execCommands.Count -ne $execKeys.Count) {
+            throw "verify.ps1 executability entries must pair each key with a command: keys=$($execKeys.Count) commands=$($execCommands.Count)"
+          }
+
+      - name: Validate the PATH ownership script is safe by default
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          # mise-path-ownership.ps1 changes the Machine PATH, so its default mode
+          # must be read-only and its -Apply path must refuse to run unelevated.
+          # A regression here would silently reorder a machine's PATH.
+          $path = './platforms/windows-11/mise-path-ownership.ps1'
+          $tokens = $null
+          $parseErrors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $path).Path, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) { throw "mise-path-ownership.ps1 does not parse: $($parseErrors[0].Message)" }
+
+          $text = Get-Content -LiteralPath $path -Raw
+          foreach ($needle in 'param(', '[switch]$Apply', '[string]$Restore') {
+            if (-not $text.Contains($needle)) { throw "mise-path-ownership.ps1 is missing: $needle" }
+          }
+          # The write must be reachable only after the elevation guard.
+          $elevatedIndex = $text.IndexOf('IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)')
+          $setValueIndex = $text.IndexOf("SetValue('Path'")
+          if ($elevatedIndex -lt 0) { throw 'mise-path-ownership.ps1 must check for an elevated shell.' }
+          if ($setValueIndex -lt 0) { throw 'mise-path-ownership.ps1 must write the Machine PATH through SetValue.' }
+          if ($setValueIndex -lt $elevatedIndex) { throw 'mise-path-ownership.ps1 must check elevation before writing the Machine PATH.' }
+          # Backups are mandatory before any write: the state dir path must exist.
+          if ($text.IndexOf('machine-path-backup') -lt 0) { throw 'mise-path-ownership.ps1 must save the previous Machine PATH.' }
+          # Unexpanded values only: %SystemRoot% style entries must round-trip.
+          if ($text.IndexOf('DoNotExpandEnvironmentNames') -lt 0) { throw 'mise-path-ownership.ps1 must read and write the unexpanded Machine PATH.' }
+
+          # Plan mode against the CI machine must not fail and must not write.
+          $before = (Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment').Path
+          & $path -ConfigFile ./mise.global.toml *> $null
+          if ($LASTEXITCODE -ne 0) { throw "mise-path-ownership.ps1 plan mode exited $LASTEXITCODE" }
+          $after = (Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment').Path
+          if ($before -ne $after) { throw 'mise-path-ownership.ps1 changed the Machine PATH without -Apply.' }
+
       - name: Validate best-effort Windows desktop apps
         shell: pwsh
         run: |

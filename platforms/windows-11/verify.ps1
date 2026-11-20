@@ -550,7 +550,12 @@ foreach ($n in $Names) {
                 # The FAIL above already says why; do not print an OK for unknowns.
             }
             elseif ($shadowing.Count -gt 0) {
-                Write-WarnLocal "without mise activation (pwsh -NoProfile, Scheduled Task, IDE) these tools resolve outside mise: $($shadowing -join '; '). Retained duplicates are listed in platforms/windows-11/README.md (PATH ownership)."
+                # mise is the single owner (ADR-0025): a non-mise winner is a real
+                # defect, not an accepted duplicate, because scheduled tasks, IDEs
+                # and GUI launches all take this path. Point at the fix instead of
+                # asking the reader to uninstall by hand.
+                Write-Fail ("without mise activation (pwsh -NoProfile, Scheduled Task, IDE) these tools resolve outside mise: $($shadowing -join '; '). " +
+                    'Removing the redundant Machine PATH entry is what fixes this: pwsh -NoProfile -File platforms/windows-11/mise-path-ownership.ps1 (plan), then -Apply from an elevated shell. Entries that also serve a command mise does not provide are reported as keep and need their own installer removed.')
             }
             else {
                 Write-Ok 'every checked tool resolves to mise even without activation'
@@ -580,6 +585,78 @@ foreach ($n in $Names) {
         # (platforms/windows-11/README.md), so this is informational only.
         foreach ($legacy in (Join-Path $env:USERPROFILE '.rustup'), (Join-Path $env:USERPROFILE '.cargo')) {
             if (Test-Path -LiteralPath $legacy) { Write-WarnLocal "legacy Rust home $legacy is present (informational): retained on purpose; removal procedure in platforms/windows-11/README.md" }
+        }
+
+        # Executability, not mere presence. A mise npm install can resolve on PATH
+        # and still fail at run time when its internal dependency tree under
+        # `node_modules/.mise/<pkg>@<ver>` is incomplete: `Get-Command devin`
+        # succeeded while `devin --version` exited with "the devin-win32-x64
+        # package is not installed". `mise install` reports such an install as
+        # already installed and does not repair it, so this class of breakage goes
+        # unnoticed unless the tool is actually executed. Each entry names the
+        # mise key so a failure points at the repair (`mise install <key> --force`).
+        $executableTools = @(
+            @{ key = 'node';        command = 'node';     args = @('--version') },
+            @{ key = 'python';      command = 'python';   args = @('--version') },
+            @{ key = 'bun';         command = 'bun';      args = @('--version') },
+            @{ key = 'pnpm';        command = 'pnpm';     args = @('--version') },
+            @{ key = 'gh';          command = 'gh';       args = @('--version') },
+            @{ key = 'infisical';   command = 'infisical'; args = @('--version') },
+            @{ key = 'claude';      command = 'claude';   args = @('--version') },
+            @{ key = 'codex';       command = 'codex';    args = @('--version') },
+            @{ key = 'npm:@opencode/cli'; command = 'opencode'; args = @('--version') },
+            @{ key = 'npm:devin';   command = 'devin';    args = @('--version') },
+            @{ key = 'npm:@earendil-works/pi-coding-agent'; command = 'pi'; args = @('--version') },
+            @{ key = 'npm:@deepseek-ai/dsh'; command = 'dsh'; args = @('--version') },
+            @{ key = 'npm:playwright'; command = 'playwright'; args = @('--version') },
+            @{ key = 'npm:npkill';  command = 'npkill';   args = @('--version') },
+            @{ key = 'worktrunk';   command = 'wt';       args = @('--version') },
+            @{ key = 'oh-my-pi';    command = 'omp';      args = @('--version') },
+            @{ key = 'rust';        command = 'rustc';    args = @('--version') },
+            @{ key = 'ripgrep';     command = 'rg';       args = @('--version') },
+            @{ key = 'fd';          command = 'fd';       args = @('--version') },
+            @{ key = 'jq';          command = 'jq';       args = @('--version') },
+            @{ key = 'bat';         command = 'bat';      args = @('--version') },
+            @{ key = 'fzf';         command = 'fzf';      args = @('--version') },
+            @{ key = 'gdu';         command = 'gdu';      args = @('--version') },
+            @{ key = 'shellcheck';  command = 'shellcheck'; args = @('--version') },
+            @{ key = 'neovim';      command = 'nvim';     args = @('--version') },
+            @{ key = 'github:herdrdev/herdr'; command = 'herdr'; args = @('--version') },
+            @{ key = 'github:alibaba/open-code-review'; command = 'ocr'; args = @('--version') },
+            @{ key = 'cargo:just';  command = 'just';     args = @('--version') },
+            @{ key = 'cargo:tauri-cli'; command = 'cargo-tauri'; args = @('--version') }
+        )
+        $execBroken = New-Object System.Collections.Generic.List[string]
+        foreach ($tool in $executableTools) {
+            if (-not (Get-Command $tool.command -CommandType Application -ErrorAction SilentlyContinue)) {
+                # A tool this machine does not have is covered by the ownership
+                # section above; only an unresolved command is reported here when
+                # it should have resolved, so record it and continue.
+                [void]$execBroken.Add("$($tool.key): '$($tool.command)' does not resolve")
+                continue
+            }
+            # Run with stderr captured: a launcher that fails prints its reason
+            # there, and that reason is the actionable part of the report.
+            $previous = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            try {
+                $output = @(& $tool.command @($tool.args) 2>&1)
+                $code = $LASTEXITCODE
+            }
+            finally { $ErrorActionPreference = $previous }
+            if ($code -ne 0) {
+                $reason = (@($output | Select-Object -First 2) -join ' ') -replace '\s+', ' '
+                if ($reason.Length -gt 200) { $reason = $reason.Substring(0, 200) + '...' }
+                [void]$execBroken.Add("$($tool.key): '$($tool.command) $($tool.args -join ' ')' exited $code ($reason.Trim())")
+            }
+        }
+        if ($execBroken.Count -eq 0) {
+            Write-Ok "every declared tool starts (checked $($executableTools.Count) commands, not just resolution)"
+        }
+        else {
+            foreach ($broken in $execBroken) {
+                Write-Fail "declared tool does not run: $broken. A mise npm/cargo install whose internal dependency tree is incomplete still reports as installed and is not repaired by a plain 'mise install'; reinstall that tool with 'mise install <key> --force'."
+            }
         }
 
         # Orphan shims: a shim whose tool has no active version fails at run time

@@ -26,5 +26,6 @@
 | [ADR-0022](./ADR-0022.md) | Accepted | macOS のWizTreeMacを公式Tap経由でmise管理する |
 | [ADR-0023](./ADR-0023.md) | Accepted | Vercel CLI は machine-global baseline に含めない |
 | [ADR-0024](./ADR-0024.md) | Accepted | converge の verify 用に launchctl print 1件だけを NOPASSWD で許可する |
+| [ADR-0025](./ADR-0025.md) | Accepted | Windows のツール所有は mise を唯一の正本とし、実行確認で壊れを検出する |
 
 新しい ADR は `ADR-NNNN.md` の連番で追加します。既存 decision を置換する場合は旧 ADR の status と `Superseded by` も更新します。
