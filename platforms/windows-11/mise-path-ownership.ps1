@@ -4,6 +4,11 @@
 #   mise-path-ownership.ps1 -Apply          remove the shadowing entries (needs elevation)
 #   mise-path-ownership.ps1 -Restore <file> put a saved PATH back (needs elevation)
 #
+# The plan also enumerates every PATH entry that supplies a command mise declares.
+# A shared directory (Node.js, Chocolatey) keeps a second copy of e.g. `node` or
+# `rg` even when removing the whole entry would drop an unrelated tool, so the
+# per-entry verdict alone cannot show that duplication.
+#
 # Why this exists
 #   Windows evaluates the Machine PATH before the User PATH, and mise installs its
 #   shims into the User PATH (%LOCALAPPDATA%\mise\shims). A Machine-PATH copy of a
@@ -178,6 +183,93 @@ function Get-EntryVerdict {
     return [pscustomobject]@{ Entry = $Entry; Kind = $kind; Owned = @($owned); Foreign = @($foreign) }
 }
 
+# Enumerate every executable that supplies a declared command name, in the order
+# a fresh process resolves them: Machine PATH first, then User PATH. The verdict
+# above classifies whole entries; this finds the remaining copies of a name that
+# mise also owns, including copies in entries that must be kept for other tools.
+function Get-PathOwners {
+    param(
+        [string[]]$Names,
+        [string[]]$MachineEntries,
+        [string]$UserPathValue,
+        [string]$ShimDirectory
+    )
+    $ordered = New-Object System.Collections.ArrayList
+    foreach ($entry in $MachineEntries) {
+        [void]$ordered.Add([pscustomobject]@{ Entry = $entry; Scope = 'Machine' })
+    }
+    foreach ($entry in (Split-PathValue -Value $UserPathValue)) {
+        [void]$ordered.Add([pscustomobject]@{ Entry = $entry; Scope = 'User' })
+    }
+
+    $shimPrefix = $ShimDirectory.TrimEnd('\') + '\'
+    # OS binaries (Windows PowerShell, WindowsApps aliases) cannot be uninstalled
+    # as a vendor copy, and a PATH can legitimately list the same directory twice.
+    # Neither belongs in a report of removable duplicates.
+    $systemPrefix = $env:SystemRoot.TrimEnd('\') + '\'
+    $found = New-Object System.Collections.ArrayList
+    foreach ($name in $Names) {
+        $owners = New-Object System.Collections.ArrayList
+        $seen = @{}
+        foreach ($slot in $ordered) {
+            $dir = [Environment]::ExpandEnvironmentVariables($slot.Entry).TrimEnd('\')
+            if (-not (Test-Path -LiteralPath $dir)) { continue }
+            foreach ($ext in @('.exe', '.cmd', '.bat')) {
+                $candidate = Join-Path $dir ($name + $ext)
+                if (-not (Test-Path -LiteralPath $candidate)) { continue }
+                $key = $candidate.ToLowerInvariant()
+                if ($seen.ContainsKey($key)) { break }
+                $seen[$key] = $true
+                if ($candidate.StartsWith($systemPrefix, [StringComparison]::OrdinalIgnoreCase)) { break }
+                [void]$owners.Add([pscustomobject]@{
+                    Name   = $name
+                    Path   = $candidate
+                    Scope  = $slot.Scope
+                    Entry  = $slot.Entry
+                    IsMise = $candidate.StartsWith($shimPrefix, [StringComparison]::OrdinalIgnoreCase)
+                })
+                break
+            }
+        }
+        if ($owners.Count -gt 1) {
+            [void]$found.Add([pscustomobject]@{ Name = $name; Owners = @($owners) })
+        }
+    }
+    return , @($found)
+}
+
+# Best-effort installer lookup, so the report can name an uninstall command
+# instead of just a path. A path with no owning registry entry (a stray binary
+# in a shared directory) deliberately returns $null.
+function Get-InstallSourceForPath {
+    param([string]$Path)
+    $roots = @(
+        'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    )
+    foreach ($root in $roots) {
+        foreach ($item in (Get-ItemProperty -Path $root -ErrorAction SilentlyContinue)) {
+            $locationProp = $item.PSObject.Properties['InstallLocation']
+            if (-not $locationProp) { continue }
+            $location = [string]$locationProp.Value
+            if (-not $location) { continue }
+            $expanded = [Environment]::ExpandEnvironmentVariables($location).TrimEnd('\')
+            # Uninstall entries that point at the Windows directory are not
+            # installers for the tool: matching them produces nonsense commands.
+            if ($expanded.StartsWith($env:SystemRoot.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) { continue }
+            if (-not $Path.StartsWith($expanded + '\', [StringComparison]::OrdinalIgnoreCase)) { continue }
+            $nameProp = $item.PSObject.Properties['DisplayName']
+            $uninstallProp = $item.PSObject.Properties['UninstallString']
+            return [pscustomobject]@{
+                DisplayName = if ($nameProp) { [string]$nameProp.Value } else { '' }
+                Uninstall   = if ($uninstallProp) { [string]$uninstallProp.Value } else { '' }
+            }
+        }
+    }
+    return $null
+}
+
 if ($Restore) {
     if (-not (Test-Path -LiteralPath $Restore)) { throw "restore file not found: $Restore" }
     $identity = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
@@ -238,13 +330,47 @@ foreach ($v in $verdicts) {
 }
 if ($remove.Count -eq 0 -and $mixed.Count -eq 0) {
     Write-Host '  (none: mise already owns every declared command)'
-    exit 0
 }
 if ($mixed.Count -gt 0) {
     Write-Host ''
     Write-Host 'Entries under "keep" also provide tools mise does not declare, so removing'
     Write-Host 'them would drop those tools. Uninstall the redundant package with its own'
     Write-Host 'installer (winget/choco) if mise should own the shared name.'
+}
+
+# Per-name view: a "keep" entry can still leave a second copy of a mise-owned
+# executable behind. Report each such name with the owner that wins resolution,
+# so the redundant copy can be removed through the package that installed it.
+$duplicates = Get-PathOwners -Names $declared -MachineEntries $entries `
+    -UserPathValue $userPath -ShimDirectory $shimDir
+Write-Host ''
+Write-Host 'Command names with more than one owner on PATH'
+if ($duplicates.Count -eq 0) {
+    Write-Host '  (none)'
+}
+else {
+    foreach ($duplicate in $duplicates) {
+        $winner = $duplicate.Owners[0]
+        $winnerMark = if ($winner.IsMise) { ' [mise]' } else { '' }
+        Write-Host ("  {0,-10} winner: {1}{2}" -f $duplicate.Name, $winner.Path, $winnerMark)
+        foreach ($owner in $duplicate.Owners) {
+            Write-Host ("      {0,-8} {1}" -f $(if ($owner.IsMise) { 'mise' } else { $owner.Scope }), $owner.Path)
+        }
+        foreach ($owner in $duplicate.Owners) {
+            if ($owner.IsMise) { continue }
+            $source = Get-InstallSourceForPath -Path $owner.Path
+            if ($source -and $source.Uninstall) {
+                Write-Host ("      uninstall {0}: {1}" -f $owner.Path, $source.Uninstall)
+            }
+        }
+    }
+    Write-Host ''
+    Write-Host 'Several owners are not automatically a shadowing problem: the listed winner'
+    Write-Host 'is what a fresh shell resolves. Remove the redundant copy with its own'
+    Write-Host 'installer; deleting one binary from a shared vendor directory would leave'
+    Write-Host 'that installer and its PATH entry inconsistent. An "uninstall" line is'
+    Write-Host 'package-level and removes every command that package provides.'
+
 }
 
 if (-not $Apply) {
