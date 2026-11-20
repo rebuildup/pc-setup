@@ -298,18 +298,25 @@ function Sync-Devices {
     # PATH is minimal and does not include mise shims, so the shims directory is
     # added for this call only. mise exec is not used because it resolves the whole
     # tool graph on every tick, and the mise apply step already installed the lock.
-    $bun = Get-Command bun -CommandType Application -ErrorAction SilentlyContinue
+    # -First 1: a name can resolve to several applications when a second copy of
+    # the tool is on PATH (mise shim + the vendor installer's bin). $bun.Source is
+    # then an Object[], and `& $bun.Source` throws CommandNotFoundException. That
+    # terminating error used to unwind Invoke-Main and skip both verify and the
+    # status report, so the run reported success without doing either.
+    $bun = Get-Command bun -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $bun) {
         Add-Step 'devices-sync' 'skipped' 'bun not found on PATH; devices sync skipped'
         return
     }
+    # One scalar path, so the command position can never receive an array.
+    $bunPath = [string]$bun.Source
     $previousPath = $env:PATH
     $env:PATH = (Join-Path $env:LOCALAPPDATA 'mise\shims') + ';' + $env:PATH
     $code = 0
     try {
         Push-Location $DotfilesDir
         try {
-            & $bun.Source $devicesScript sync *>> $script:LogFile
+            & $bunPath $devicesScript sync *>> $script:LogFile
             $code = $LASTEXITCODE
         } finally {
             Pop-Location
@@ -484,17 +491,50 @@ function Write-StatusReport {
     Move-Item -LiteralPath $tmp -Destination $script:StatusFile -Force
 }
 
+# A step boundary. Every step is called through this so one step's terminating
+# error is recorded as that step's failure instead of unwinding Invoke-Main and
+# skipping the remaining steps and the status report. `& $someArray` does exactly
+# that (a name that resolves to several applications makes `.Source` an Object[]),
+# and the run then exited 0 without running verify or writing status.json.
+function Invoke-Step {
+    param([string]$Name, [scriptblock]$Body)
+    try {
+        & $Body
+    }
+    catch {
+        $detail = ''
+        if ($_.Exception) { $detail = [string]$_.Exception.Message }
+        if (-not $detail) { $detail = [string]$_.CategoryInfo }
+        if (-not $detail) { $detail = 'step threw a terminating error with no message' }
+        $detail = $detail -replace '\s+', ' '
+        if ($detail.Length -gt 400) { $detail = $detail.Substring(0, 400) + '...' }
+        Write-Log ('step ' + $Name + ' threw: ' + $detail)
+        # The step may already have recorded an outcome before throwing; replace
+        # that entry rather than reporting the same step twice.
+        $last = $null
+        if ($script:Steps.Count -gt 0) { $last = $script:Steps[$script:Steps.Count - 1] }
+        if ($null -ne $last -and $last.step -eq $Name) {
+            $last.status = 'error'
+            $last.detail = $detail
+            Write-Host ('{0,-16} {1,-8} {2}' -f $Name, 'error', $detail)
+        }
+        else {
+            Add-Step $Name 'error' $detail
+        }
+    }
+}
+
 function Invoke-Main {
     New-Item -ItemType Directory -Force -Path $script:LogDir | Out-Null
     New-Item -ItemType Directory -Force -Path $script:ConvergeDir | Out-Null
     Set-Content -LiteralPath $script:LogFile -Value ('converge started ' + $script:RunStarted) -Encoding UTF8
 
-    Sync-Deploy
-    Invoke-MiseApply
-    Test-DshDeclaration
-    Invoke-DotfilesSync
-    Sync-Devices
-    Invoke-Verify
+    Invoke-Step 'deploy-sync' { Sync-Deploy }
+    Invoke-Step 'mise-apply' { Invoke-MiseApply }
+    Invoke-Step 'dsh-declaration' { Test-DshDeclaration }
+    Invoke-Step 'dotfiles-sync' { Invoke-DotfilesSync }
+    Invoke-Step 'devices-sync' { Sync-Devices }
+    Invoke-Step 'verify' { Invoke-Verify }
 
     $hasError = @($script:Steps | Where-Object { $_.status -in @('error', 'fail') }).Count -gt 0
     $hasSkip = @($script:Steps | Where-Object { $_.status -in @('skipped', 'pending') }).Count -gt 0
@@ -509,8 +549,22 @@ try {
         Write-Host 'another converge run holds the lock'
         $script:ExitCode = 75
     } else {
-        Invoke-Main
-        Write-StatusReport -Exit $script:ExitCode
+        # Each guard is separate: a failing Invoke-Main must not skip the status
+        # report, and a failing status report must not leave exit code 0.
+        try {
+            Invoke-Main
+        }
+        catch {
+            $script:ExitCode = 1
+            Write-Host ('converge failed before finishing its steps: ' + $_.Exception.Message)
+        }
+        try {
+            Write-StatusReport -Exit $script:ExitCode
+        }
+        catch {
+            $script:ExitCode = 1
+            Write-Host ('failed to write ' + $script:StatusFile + ': ' + $_.Exception.Message)
+        }
     }
 } finally {
     if ($owned) { $mutex.ReleaseMutex() }
