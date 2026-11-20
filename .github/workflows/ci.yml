@@ -656,6 +656,18 @@ jobs:
             throw "mise-path-ownership.ps1 plan produced no summary: $planOutput"
           }
 
+          # The plan must also enumerate duplicate owners across Machine and User
+          # PATH. A whole-entry verdict cannot see a second copy of `node` or `rg`
+          # left in a shared directory that has to be kept for other commands.
+          foreach ($needle in 'Get-PathOwners', 'Get-InstallSourceForPath', 'Command names with more than one owner on PATH') {
+            if (-not $text.Contains($needle)) { throw "mise-path-ownership.ps1 is missing the duplicate-owner report: $needle" }
+          }
+          $dupIndex = $text.IndexOf('Get-PathOwners -Names $declared')
+          $planIndex = $text.IndexOf('if (-not $Apply)')
+          if ($dupIndex -lt 0 -or $planIndex -lt 0 -or $dupIndex -gt $planIndex) {
+            throw 'mise-path-ownership.ps1 must print duplicate owners before the plan-only exit.'
+          }
+
       - name: Validate converge survives a step error and always reports
         shell: pwsh
         run: |
