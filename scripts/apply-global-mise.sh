@@ -58,6 +58,17 @@ fi
 export MISE_HTTP_TIMEOUT="${MISE_HTTP_TIMEOUT:-120s}"
 export MISE_HTTP_RETRIES="${MISE_HTTP_RETRIES:-5}"
 
+# A plain `mise install` re-resolves every rolling selector and rewrites the lock
+# it installs from, so the unlocked `mise install gh` bootstrap below replaces the
+# committed lock before `--locked` is ever consulted (observed: 38393 -> 75443
+# bytes) and the machine installs a different tool set than the repository pins.
+# On POSIX the lock is a symlink into the checkout, so that rewrite also dirties
+# the work tree. Lock reads for the rest of the run when a committed lock exists;
+# a machine with no committed lock must still be able to create one.
+if [[ -f "$source_lock" ]]; then
+  export MISE_LOCKED=1
+fi
+
 prepare_github_auth_for_mise() {
   if [[ -n "${MISE_GITHUB_TOKEN:-}" || -n "${GITHUB_API_TOKEN:-}" || -n "${GITHUB_TOKEN:-}" ]]; then
     printf 'ok      mise GitHub authentication provided by environment\n'
@@ -124,13 +135,63 @@ if [[ -f "$source_lock" ]]; then
   printf 'ok      using committed mise global lock\n'
 fi
 
+# `core:rust` installs toolchains through rustup but never sets rustup's
+# *default* toolchain (rustup is initialized with `--default-toolchain none`).
+# The cargo: tools are built by `cargo install`, and the cargo that runs is the
+# rustup proxy, which selects the *default* toolchain -- not the `rust = "stable"`
+# toolchain mise selected. A fresh machine therefore has no default at all
+# ("rustup could not choose a version of cargo to run"), and a machine with an
+# older default fails cargo: builds that need a newer compiler. `mise ls rust`
+# still reports rust as installed in both cases, so the failure looks unrelated.
+# Align rustup's default with the declared rust version.
+declared_rust() {
+  local candidate value
+  for candidate in "${target_config}" "${source_config}"; do
+    [[ -f "$candidate" ]] || continue
+    value="$(sed -n 's/^[[:space:]]*rust[[:space:]]*=[[:space:]]*"\([^"]*\)".*$/\1/p' "$candidate" | head -n 1)"
+    if [[ -z "$value" ]]; then
+      value="$(sed -n 's/^[[:space:]]*rust[[:space:]]*=[[:space:]]*{[^}]*version[[:space:]]*=[[:space:]]*"\([^"]*\)".*$/\1/p' "$candidate" | head -n 1)"
+    fi
+    if [[ -n "$value" ]]; then
+      printf '%s' "$value"
+      return 0
+    fi
+  done
+  return 1
+}
+
+align_rustup_default() {
+  local declared current
+  declared="$(declared_rust)" || return 0
+  # A non-zero exit here is expected on a fresh machine ("no default toolchain is
+  # configured") and is exactly the state that has to be repaired, so the result
+  # of the set command below decides whether this worked.
+  current="$(mise -C "$HOME" exec rust -- rustup default 2>/dev/null || true)"
+  if [[ "$current" == "$declared"* ]]; then
+    printf 'ok      rustup default toolchain is %s\n' "$declared"
+    return 0
+  fi
+  if mise -C "$HOME" exec rust -- rustup default "$declared" >/dev/null 2>&1; then
+    printf 'aligned rustup default toolchain with mise rust = %s\n' "$declared"
+  else
+    printf 'warn    could not align the rustup default toolchain with %s\n' "$declared" >&2
+  fi
+}
+
+align_rustup_default
+
 last_status=1
 for ((attempt = 1; attempt <= install_attempts; attempt++)); do
   if mise -C "$HOME" "${install_args[@]}"; then
+    align_rustup_default
     exit 0
   else
     last_status=$?
   fi
+
+  # The first attempt on a fresh machine installs rust but fails the cargo:
+  # builds, because rustup had no default yet. Align it and retry.
+  align_rustup_default
 
   if ((attempt == install_attempts)); then
     break
