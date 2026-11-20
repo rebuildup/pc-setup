@@ -733,6 +733,157 @@ jobs:
             Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
           }
 
+      # scripts/test-windows-mise-config.ps1 exercises the renderer
+      # (scripts/windows-mise-config.ps1) directly instead of going through
+      # apply-global-mise.ps1 and a fake mise. It was previously absent from CI,
+      # which is how it went red on every CRLF checkout of this repository
+      # (core.autocrlf=true, no .gitattributes) while CI stayed green.
+      - name: Validate Windows mise config renderer
+        shell: pwsh
+        run: ./scripts/test-windows-mise-config.ps1
+
+      - name: Validate the apply keeps the committed lock read-only
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          # Regression: apply-global-mise.ps1 runs one unlocked `mise install gh`
+          # before its auth check, and a plain `mise install` re-resolves every
+          # rolling selector and rewrites the lock it installs from. Observed on
+          # a real machine: the committed 38 KB mise.global.lock was replaced by a
+          # 75 KB re-locked copy before `--locked` was ever consulted, so the
+          # machine installed a different tool set than the repository pins.
+          # MISE_LOCKED=1 must be set for the whole apply, and the fake mise below
+          # records the value each invocation actually saw.
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-locked-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $target = Join-Path $root 'config.toml'
+          $seen = Join-Path $root 'mise-locked-seen.txt'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+          $oldPath = $env:PATH
+
+          try {
+            # A fake mise that records MISE_LOCKED and always succeeds. The
+            # content is built from an array rather than a here-string: a
+            # here-string terminator at column 1 would end this YAML block
+            # scalar and break the workflow file.
+            $fakeMise = @(
+              '@echo off',
+              ('>>"{0}" echo %MISE_LOCKED%' -f $seen),
+              'exit /b 0'
+            ) -join "`r`n"
+            Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd') -Value $fakeMise
+            $env:PATH = "$fakeBin;$oldPath"
+            $env:MISE_GLOBAL_CONFIG_FILE = $target
+            $env:MISE_GITHUB_TOKEN = 'ci-placeholder'
+            Remove-Item Env:MISE_LOCKED -ErrorAction SilentlyContinue
+
+            & ./scripts/apply-global-mise.ps1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "apply-global-mise.ps1 exited $LASTEXITCODE" }
+
+            if (-not (Test-Path -LiteralPath $seen)) { throw 'fake mise never ran' }
+            $values = @(Get-Content -LiteralPath $seen | ForEach-Object { $_.Trim() })
+            if ($values.Count -eq 0) { throw 'fake mise recorded no invocations' }
+            $unlocked = @($values | Where-Object { $_ -ne '1' })
+            if ($unlocked.Count -gt 0) {
+              throw "every mise invocation must run with MISE_LOCKED=1; saw: $($values -join ', ')"
+            }
+
+            # The caller's environment must not be left mutated.
+            $leftover = [Environment]::GetEnvironmentVariable('MISE_LOCKED', 'Process')
+            if ($leftover) { throw "apply left MISE_LOCKED set in the caller: '$leftover'" }
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN, Env:MISE_LOCKED -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Validate the apply aligns the rustup default toolchain
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          # Regression: core:rust initializes rustup with `--default-toolchain
+          # none` and never sets a default, but cargo: backend tools are built by
+          # `cargo install`, which runs the rustup proxy for the *default*
+          # toolchain. A fresh machine then has no default at all and a machine
+          # with an older default fails MSRV-heavy crates ("requires rustc 1.90
+          # or newer"), while `mise ls rust` still reports rust as installed. The
+          # apply must align the default and must not skip the repair just because
+          # reading the current default fails on a fresh machine.
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "pc-setup-rustdefault-$([guid]::NewGuid())"
+          $fakeBin = Join-Path $root 'bin'
+          $target = Join-Path $root 'config.toml'
+          $seen = Join-Path $root 'rustup-seen.txt'
+          $stateFile = Join-Path $root 'rustup-default.txt'
+          New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+          $oldPath = $env:PATH
+
+          try {
+            # The apply refuses to overwrite an unmanaged global config, so seed
+            # the managed marker the script looks for.
+            "# Managed by rebuildup/pc-setup.`n[tools]`nrust = `"stable`"" | Set-Content -LiteralPath $target
+
+            # Fake mise that models rustup's default as *persistent* state: a
+            # `default <value>` writes it, a bare `default` reads it back. A
+            # stateless fake would make the apply appear to "fix" the same thing
+            # twice and hide a genuinely idempotent implementation.
+            # The read exits 1 when nothing is configured, exactly like real
+            # rustup on a fresh machine ("no default toolchain is configured");
+            # a fake that exits 0 with empty output would hide the early-return
+            # bug this step exists to catch.
+            $fake = @(
+              '@echo off',
+              ('>>"{0}" echo CALL: %*' -f $seen),
+              'echo %* | findstr /C:"rustup default" >nul || exit /b 0',
+              ('if not "%6"=="" (>"' + $stateFile + '" echo %6 & >>"' + $seen + '" echo SET: %6 & exit /b 0)'),
+              ('if exist "' + $stateFile + '" (type "' + $stateFile + '" & exit /b 0)'),
+              'if defined FAKE_RUST_DEFAULT (echo %FAKE_RUST_DEFAULT% & exit /b 0)',
+              'echo error: no default toolchain is configured 1>&2',
+              'exit /b 1'
+            ) -join "`r`n"
+            Set-Content -LiteralPath (Join-Path $fakeBin 'mise.cmd') -Value $fake
+            $env:PATH = "$fakeBin;$oldPath"
+            $env:MISE_GLOBAL_CONFIG_FILE = $target
+            $env:MISE_GITHUB_TOKEN = 'ci-placeholder'
+
+            function Invoke-Case {
+              param([string]$Label, [string]$CurrentDefault, [int]$ExpectedSets)
+              if (Test-Path $seen) { Remove-Item $seen -Force }
+              # Each case starts from the stated machine state.
+              if (Test-Path $stateFile) { Remove-Item $stateFile -Force }
+              if ($CurrentDefault) {
+                Set-Content -LiteralPath $stateFile -Value $CurrentDefault
+                Remove-Item Env:FAKE_RUST_DEFAULT -ErrorAction SilentlyContinue
+              }
+              else { Remove-Item Env:FAKE_RUST_DEFAULT -ErrorAction SilentlyContinue }
+              & ./scripts/apply-global-mise.ps1 | Out-Null
+              if ($LASTEXITCODE -ne 0) { throw "${Label}: apply-global-mise.ps1 exited $LASTEXITCODE" }
+              $sets = @()
+              if (Test-Path $seen) { $sets = @(Get-Content -LiteralPath $seen | Where-Object { $_ -match '^SET:' }) }
+              if ($sets.Count -ne $ExpectedSets) {
+                $detail = if (Test-Path $seen) { (Get-Content -LiteralPath $seen) -join ' / ' } else { '(no calls)' }
+                throw "${Label}: expected $ExpectedSets rustup-default set call(s), saw $($sets.Count). calls: $detail"
+              }
+            }
+
+            # A fresh machine has no default: `rustup default` (the read) fails
+            # and that must not stop the repair.
+            Invoke-Case -Label 'fresh: no default configured' -CurrentDefault '' -ExpectedSets 1
+            # A stale default must be moved to the declared value.
+            Invoke-Case -Label 'stale: 1.89.0 default' -CurrentDefault '1.89.0-x86_64-pc-windows-msvc (default)' -ExpectedSets 1
+            # An already-correct default must not be touched.
+            Invoke-Case -Label 'idempotent: already stable' -CurrentDefault 'stable-x86_64-pc-windows-msvc (default)' -ExpectedSets 0
+          }
+          finally {
+            $env:PATH = $oldPath
+            Remove-Item Env:MISE_GLOBAL_CONFIG_FILE, Env:MISE_GITHUB_TOKEN, Env:FAKE_RUST_DEFAULT -ErrorAction SilentlyContinue
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Validate global mise config backup before overwrite
         shell: pwsh
         run: |

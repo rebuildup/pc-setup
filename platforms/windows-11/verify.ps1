@@ -71,14 +71,151 @@ Test-CommandPresent -Name 'mise'
 
 if (Get-Command mise -ErrorAction SilentlyContinue) {
     Push-Location $RepoRoot
+    # `mise bootstrap status` has to read this checkout's mise.toml, and mise
+    # refuses an untrusted config. That is fatal here for a reason unrelated to
+    # machine state: converge.ps1 runs this script from the deployment checkout,
+    # which is a fresh clone that mise has never trusted, so the call failed with
+    # "Config files ... are not trusted" on every tick and pcs-setup always
+    # reported `verify: fail`. Trusting the path for this read keeps the probe
+    # read-only (nothing is written to mise's trust list) and matches the
+    # MISE_TRUSTED_CONFIG_PATHS technique the Windows CI job already uses.
+    $previousTrusted = $env:MISE_TRUSTED_CONFIG_PATHS
+    if ($previousTrusted) {
+        if ($previousTrusted -notlike "*$RepoRoot*") { $env:MISE_TRUSTED_CONFIG_PATHS = "$RepoRoot;$previousTrusted" }
+    }
+    else {
+        $env:MISE_TRUSTED_CONFIG_PATHS = [string]$RepoRoot
+    }
     try {
         & mise bootstrap status --missing
         if ($LASTEXITCODE -eq 0) { Write-Ok 'mise bootstrap desired state' } else { Write-Fail 'mise bootstrap reports missing machine state' }
     }
     finally {
+        if ($null -eq $previousTrusted) { Remove-Item Env:\MISE_TRUSTED_CONFIG_PATHS -ErrorAction SilentlyContinue }
+        else { $env:MISE_TRUSTED_CONFIG_PATHS = $previousTrusted }
         Pop-Location
     }
 }
+
+# The machine-global config is a rendered copy of this repository's
+# mise.global.toml (plus the Windows-only rewrites in
+# scripts/windows-mise-config.ps1), and mise reads the copy, not the repository
+# file. When the two drift apart, every `mise install` resolves a different tool
+# set than the committed desired state while `mise bootstrap status` still only
+# reports the tools the *copy* declares -- so a machine can look "converged"
+# while installing a version the repository does not specify. Compare the copy
+# with a fresh render and report the difference instead of trusting the copy.
+function Get-GlobalMiseConfigTarget {
+    if ($env:MISE_GLOBAL_CONFIG_FILE) { return $env:MISE_GLOBAL_CONFIG_FILE }
+    return (Join-Path (Join-Path (Join-Path $env:USERPROFILE '.config') 'mise') 'config.toml')
+}
+
+# mise takes the lockfile name from the config file name: `mise.<env>.toml`
+# becomes `mise.<env>.lock` and everything else (including `config.toml`)
+# becomes `mise.lock`. Mirrors scripts/apply-global-mise.ps1.
+function Get-GlobalMiseLockTarget {
+    param([string]$ConfigTarget)
+    $name = Split-Path -Leaf $ConfigTarget
+    $lockName = if ($name -like 'mise.*.toml') {
+        [System.IO.Path]::ChangeExtension($name, '.lock')
+    }
+    elseif ($name -like '*.local.toml') {
+        'mise.local.lock'
+    }
+    else {
+        'mise.lock'
+    }
+    return (Join-Path (Split-Path -Parent $ConfigTarget) $lockName)
+}
+
+function Test-ManagedGlobalMiseConfig {
+    $renderer = Join-Path (Join-Path $RepoRoot 'scripts') 'windows-mise-config.ps1'
+    $source = Join-Path $RepoRoot 'mise.global.toml'
+    if (-not (Test-Path -LiteralPath $source)) {
+        Write-WarnLocal "no mise.global.toml in $RepoRoot; machine-global config drift not checked"
+        return
+    }
+    if (-not (Test-Path -LiteralPath $renderer)) {
+        Write-WarnLocal "no scripts/windows-mise-config.ps1 in $RepoRoot; machine-global config drift not checked"
+        return
+    }
+
+    # Only adopted state is authoritative. Run from a feature branch, or from a
+    # checkout with uncommitted edits to the declared state, and the comparison
+    # says nothing about the machine: the machine is converged to main, not to
+    # whatever this checkout happens to contain. Report that case as a warning so
+    # working on a branch does not turn the machine report red.
+    $isAdopted = $true
+    if (Get-Command git -CommandType Application -ErrorAction SilentlyContinue) {
+        $branch = (& git -C $RepoRoot symbolic-ref --quiet --short HEAD 2>$null)
+        $dirty = @(& git -C $RepoRoot status --porcelain -- mise.global.toml mise.global.lock 2>$null)
+        if ($LASTEXITCODE -eq 0 -and $branch -and $branch.Trim() -ne 'main') {
+            $isAdopted = $false
+            $why = "checkout is on '$($branch.Trim())', not main"
+        }
+        elseif ($dirty.Count -gt 0) {
+            $isAdopted = $false
+            $why = 'declared mise state has uncommitted changes'
+        }
+    }
+
+    $target = Get-GlobalMiseConfigTarget
+    if (-not (Test-Path -LiteralPath $target)) {
+        Write-Fail "machine-global mise config missing at $target; run scripts/apply-global-mise.ps1"
+        return
+    }
+
+    # Dot-sourcing is safe: windows-mise-config.ps1 only defines functions.
+    . $renderer
+    $expected = ConvertTo-WindowsMiseConfig -Text ([System.IO.File]::ReadAllText($source))
+    $actual = [System.IO.File]::ReadAllText($target)
+    if ($actual -cne $expected) {
+        $expectedLines = @($expected -split "`r?`n")
+        $actualLines = @($actual -split "`r?`n")
+        $drift = @(Compare-Object -ReferenceObject $expectedLines -DifferenceObject $actualLines)
+        $sample = @($drift | Select-Object -First 6 | ForEach-Object {
+            $side = if ($_.SideIndicator -eq '=>') { 'machine' } else { 'repo' }
+            "$side $($_.InputObject)"
+        })
+        $detail = "machine-global mise config differs from the rendered repository config ($target). " +
+            "First differences: " + ($sample -join ' | ')
+        if ($isAdopted) {
+            Write-Fail ($detail + ' Run scripts/apply-global-mise.ps1.')
+        }
+        else {
+            Write-WarnLocal ($detail + " Not treated as a failure because $why.")
+        }
+    }
+    else {
+        Write-Ok 'machine-global mise config matches the rendered repository config'
+    }
+
+    # The lock is what `mise install --locked` resolves from. A stale copy pins
+    # versions the repository no longer declares.
+    $lockSource = Join-Path $RepoRoot 'mise.global.lock'
+    $lockTarget = Get-GlobalMiseLockTarget -ConfigTarget $target
+    if (-not (Test-Path -LiteralPath $lockSource)) { return }
+    if (-not (Test-Path -LiteralPath $lockTarget)) {
+        Write-Fail "machine-global mise lock missing at $lockTarget; run scripts/apply-global-mise.ps1"
+        return
+    }
+    $lockExpected = [System.IO.File]::ReadAllText($lockSource)
+    $lockActual = [System.IO.File]::ReadAllText($lockTarget)
+    if ($lockActual -cne $lockExpected) {
+        $detail = "machine-global mise lock differs from the repository lock ($lockTarget)."
+        if ($isAdopted) {
+            Write-Fail ($detail + ' Run scripts/apply-global-mise.ps1 so `mise install --locked` resolves the committed versions.')
+        }
+        else {
+            Write-WarnLocal ($detail + " Not treated as a failure because $why.")
+        }
+    }
+    else {
+        Write-Ok 'machine-global mise lock matches the repository lock'
+    }
+}
+
+Test-ManagedGlobalMiseConfig
 
 if (-not (Get-Command winget -ErrorAction SilentlyContinue)) {
     Write-Fail 'winget command missing'
@@ -163,6 +300,36 @@ else {
     }
     $disabled = (& mise settings get disable_tools 2>$null) -join ' '
     if ($disabled -match 'rust') { Write-Fail 'mise disable_tools includes rust; run scripts/apply-global-mise.ps1 (Rust is mise-managed on Windows)' } else { Write-Ok 'mise does not disable the rust tool' }
+
+    # `cargo:` backend tools are built by `cargo install`, which runs the rustup
+    # proxy for rustup's *default* toolchain -- not the toolchain mise selected.
+    # core:rust leaves that default unset (or stale), so the cargo: builds can
+    # fail with "no default toolchain is configured" or "requires rustc N or
+    # newer" while rust itself still looks installed. scripts/apply-global-mise.ps1
+    # repairs this, so a mismatch here means the machine needs a re-apply.
+    $declaredRust = $null
+    foreach ($candidate in (Join-Path (Join-Path (Join-Path $env:USERPROFILE '.config') 'mise') 'config.toml'), (Join-Path $RepoRoot 'mise.global.toml')) {
+        if (-not (Test-Path -LiteralPath $candidate)) { continue }
+        foreach ($line in [System.IO.File]::ReadAllLines($candidate)) {
+            $match = [regex]::Match($line, '^\s*rust\s*=\s*"([^"]+)"')
+            if ($match.Success) { $declaredRust = $match.Groups[1].Value; break }
+            $inline = [regex]::Match($line, '^\s*rust\s*=\s*\{[^}]*version\s*=\s*"([^"]+)"')
+            if ($inline.Success) { $declaredRust = $inline.Groups[1].Value; break }
+        }
+        if ($declaredRust) { break }
+    }
+    if ($declaredRust) {
+        $defaultOutput = (& mise exec rust -- rustup default 2>&1) -join ' '
+        if ($LASTEXITCODE -ne 0) {
+            Write-Fail "rustup has no usable default toolchain (mise rust = $declaredRust); run scripts/apply-global-mise.ps1 so cargo: installs can build"
+        }
+        elseif ($defaultOutput -notmatch "(^|\s)$([regex]::Escape($declaredRust))(-\S+)?(\s|$)") {
+            Write-Fail "rustup default toolchain is '$($defaultOutput.Trim())', not mise rust = $declaredRust; run scripts/apply-global-mise.ps1 (cargo: installs build with the default toolchain)"
+        }
+        else {
+            Write-Ok "rustup default toolchain matches mise rust = $declaredRust"
+        }
+    }
 }
 
 Write-Host "`nTailscale / WSL SSH"
