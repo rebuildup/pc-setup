@@ -54,7 +54,7 @@ supabase = "latest"
 # them too.
 "cargo:cargo-clean-all" = { version = "latest", depends = ["rust"] }
 "cargo:cargo-cleaner" = { version = "latest", depends = ["rust"], os = ["windows"] }
-"cargo:cargo-compete" = { version = "latest", depends = ["rust"], os = ["windows"] }
+"cargo:cargo-compete" = { version = "latest", depends = ["rust"] }
 "cargo:cargo-generate" = { version = "latest", depends = ["rust"], os = ["windows"] }
 "cargo:cargo-ndk" = { version = "latest", depends = ["rust"], os = ["windows"] }
 "cargo:cargo-update" = { version = "latest", depends = ["rust"], os = ["windows"] }
