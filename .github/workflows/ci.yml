@@ -640,11 +640,21 @@ jobs:
           if ($text.IndexOf('DoNotExpandEnvironmentNames') -lt 0) { throw 'mise-path-ownership.ps1 must read and write the unexpanded Machine PATH.' }
 
           # Plan mode against the CI machine must not fail and must not write.
+          # This is also the "no mise installed" case: the GitHub runner has no
+          # mise, and the plan must be a safe no-op there rather than throwing.
           $before = (Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment').Path
           & $path -ConfigFile ./mise.global.toml *> $null
           if ($LASTEXITCODE -ne 0) { throw "mise-path-ownership.ps1 plan mode exited $LASTEXITCODE" }
           $after = (Get-ItemProperty -LiteralPath 'Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment').Path
           if ($before -ne $after) { throw 'mise-path-ownership.ps1 changed the Machine PATH without -Apply.' }
+
+          # And it must report the missing prerequisite instead of failing silently,
+          # so a reader knows why nothing was classified. Write-Host goes to the
+          # information stream, which `2>&1` does not capture; use `*>&1`.
+          $planOutput = (& $path -ConfigFile ./mise.global.toml *>&1 | Out-String)
+          if ($planOutput -notmatch 'mise declares \d+ command names') {
+            throw "mise-path-ownership.ps1 plan produced no summary: $planOutput"
+          }
 
       - name: Validate best-effort Windows desktop apps
         shell: pwsh

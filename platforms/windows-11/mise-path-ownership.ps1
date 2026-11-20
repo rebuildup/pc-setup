@@ -68,8 +68,9 @@ function Split-PathValue {
     param([string]$Value)
     # Keep empty entries out: they are not meaningful here and would make the
     # round-trip noisy. Windows treats an empty entry as the current directory,
-    # so this script never introduces one either.
-    return @($Value -split ';' | Where-Object { $_ -and $_.Trim() })
+    # so this script never introduces one either. The comma operator keeps an
+    # empty result an empty array instead of $null.
+    return , @($Value -split ';' | Where-Object { $_ -and $_.Trim() })
 }
 
 # Reads the tool keys mise declares, so "mise owns this name" is derived from the
@@ -110,13 +111,18 @@ function Get-DeclaredNames {
     }
     foreach ($k in $aliases.Keys) { if ($names -contains $k) { [void]$names.Add($aliases[$k]) } }
     [void]$names.Add('mise')
-    return ($names | Sort-Object -Unique)
+    # The comma operator keeps a single-element result an array, so callers can
+    # read .Count without StrictMode failing.
+    return , @($names | Sort-Object -Unique)
 }
 
 function Get-ShimNames {
     param([string]$ShimDir)
-    if (-not (Test-Path -LiteralPath $ShimDir)) { return @() }
-    return @(Get-ChildItem -LiteralPath $ShimDir -Filter '*.exe' -ErrorAction SilentlyContinue |
+    # Returning @() from a function yields $null, not an empty array, so callers
+    # that read .Count would fail under StrictMode on a machine without shims.
+    # Use the comma operator to emit an empty array as a single value.
+    if (-not (Test-Path -LiteralPath $ShimDir)) { return , @() }
+    return , @(Get-ChildItem -LiteralPath $ShimDir -Filter '*.exe' -ErrorAction SilentlyContinue |
         ForEach-Object { [System.IO.Path]::GetFileNameWithoutExtension($_.Name) } |
         Sort-Object -Unique)
 }
@@ -150,6 +156,11 @@ function Get-EntryVerdict {
                 $resolved = @(& mise which $name 2>&1)
                 $Cache[$name] = if ($LASTEXITCODE -ne 0 -or -not $resolved) { $false }
                                 else { ([string]$resolved[0]).Trim() }
+            }
+            catch {
+                # A failing probe must mean "mise does not own this name", never an
+                # exception: the safe answer keeps the PATH entry.
+                $Cache[$name] = $false
             }
             finally { $ErrorActionPreference = $previous }
         }
@@ -199,6 +210,13 @@ $shimNames = Get-ShimNames -ShimDir $shimDir
 Write-Host "mise declares $($declared.Count) command names; $($shimNames.Count) shims exist in $shimDir"
 if ($shimNames.Count -eq 0) {
     Write-Host 'no mise shims found; run scripts/apply-global-mise.ps1 first.'
+    exit 0
+}
+# The classification asks `mise which` per executable, so mise itself has to be
+# runnable. A machine without mise is a documented no-op (the plan must stay safe
+# to run anywhere), not a crash.
+if (-not (Get-Command mise -CommandType Application -ErrorAction SilentlyContinue)) {
+    Write-Host 'mise is not on PATH; cannot classify PATH entries. Run scripts/apply-global-mise.ps1 first.'
     exit 0
 }
 
