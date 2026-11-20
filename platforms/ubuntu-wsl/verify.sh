@@ -158,6 +158,7 @@ commands=(
   claude
   opencode
   devin
+  openclaw
   shellcheck
   python3
   cmake
@@ -186,6 +187,14 @@ fi
 
 if command -v claude >/dev/null 2>&1; then
   warn "Claude Code login is interactive; run: claude and confirm the active account"
+fi
+
+if command -v openclaw >/dev/null 2>&1; then
+  if systemctl --user is-active --quiet openclaw-gateway.service 2>/dev/null; then
+    ok "openclaw-gateway.service is active"
+  else
+    warn "openclaw-gateway.service is not active; run: ~/.dotfiles/script/openclaw-gateway-install"
+  fi
 fi
 
 # `--global` alone does not expand [include] directives, so a machine whose

@@ -565,6 +565,12 @@ aube = { path = ".mise/locks/mise.global/npm-npkill/1.0.0", digest = "sha256:ebd
 backend = "npm:npkill"
 specifiers = ["latest"]
 
+[[tools."npm:openclaw"]]
+version = "2026.11.3"
+aube = { path = ".mise/locks/mise.global/npm-openclaw/2026.11.3", digest = "sha256:1137d17c0e755109c80239969e25fc9f3bb900f661afa23dc36121d2217a1c0e" }
+backend = "npm:openclaw"
+specifiers = ["2026.11.3"]
+
 [[tools."npm:playwright"]]
 version = "1.65.1"
 aube = { path = ".mise/locks/mise.global/npm-playwright/1.65.1", digest = "sha256:f87d3323cec54802bd1cae015bbcbb00af6f4192ffe35c191a6ccdad4cd955e0" }
