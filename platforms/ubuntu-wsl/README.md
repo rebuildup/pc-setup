@@ -68,6 +68,18 @@ Portable developer tools are declared once in `mise.global.toml`, which is linke
 
 The Ubuntu bootstrap does not duplicate installation logic for those tools.
 
+## Rex
+
+Rex (https://www.superlogical.com/rex) is the second agent execution runtime baseline. mise has no Rex backend, so `platforms/ubuntu-wsl/install-rex.sh` — invoked from `scripts/apply-platform.sh` during bootstrap — installs it through the official installer:
+
+```bash
+curl -fsSL https://pkgs.superlogical.com/rex/install.sh | sh -s -- --user --channel preview
+```
+
+`--user` needs no sudo and only writes the `rex` binary to `~/.local/bin` plus the server setup. On a systemd-enabled WSL the installer enables the `rex.socket`/`rex.service` user units and lingering, so the server starts at boot and survives logout; the script repeats `rex server install` explicitly because re-running it is safe. Without a systemd user session the script warns and the fallback is a manual `rex server start`.
+
+Only the `preview` channel is published today; the channel choice and the revisit condition are recorded in `docs/adr/ADR-0026.md`. Re-running the installer upgrades Rex, so each bootstrap also refreshes the preview build.
+
 ## Authentication and dotfiles
 
 mise clones `rebuildup/dotfiles` to:

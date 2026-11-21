@@ -135,6 +135,16 @@ pwsh -NoProfile -File platforms/windows-11/powershell-path.ps1 -Apply   # 管理
 
 実機の Herdr は GitHub backend (`github:herdrdev/herdr`、aqua registry より新しい)。Windows だけこの宣言を `mise.global.toml` に置き、Linux/macOS は従来の registry entry のまま。`mise.global.lock` には Windows の GitHub backend entry を追加している。
 
+### Rex
+
+Rex (https://www.superlogical.com/rex) は agent execution runtime の Windows 側 desired state。WinGet package は存在しないため、`platforms/windows-11/install-rex.ps1` が preview channel の公式 artifact index (`blob.superlogical.com/api/releases/rex/preview`) から windows 向け zip を取得し、SHA-256 を照合して `%LOCALAPPDATA%\Programs\Rex` へ展開する。管理者権限は不要。
+
+- user PATH への追加と `rex server install --user`(HKCU Run によるサインイン時起動)まで自動化する。
+- 常駐 Windows Service 化 (`rex server install`、管理者権限とアカウントパスワード入力が必要) は手動境界とし、自動実行しない。
+- beta 期間中は Windows server が tester enrollment を要求するため、install または server 登録が失敗しても bootstrap は継続する。`verify.ps1` は未導入を FAIL ではなく WARN (pending) として報告する。
+
+channel / pin 判断は [`ADR-0026`](../../docs/adr/ADR-0026.md) を参照。
+
 ## Microsoft Store boundary
 
 miseのWinGet managerではStore sourceをこのrepositoryの要件どおり明示できないため、Store product IDをroot PowerShell adapterが扱う。

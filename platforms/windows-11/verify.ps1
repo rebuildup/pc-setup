@@ -383,6 +383,35 @@ else {
     }
 }
 
+Write-Host "`nRex"
+# Rex is in public beta and its Windows server still requires tester
+# enrollment, so a missing install is a warning (pending boundary), not a
+# failure. When the binary is present, version and server reachability are
+# still checked.
+$rexExe = Get-Command rex -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $rexExe) {
+    $rexExePath = Join-Path $env:LOCALAPPDATA 'Programs\Rex'
+    $rexExe = Get-ChildItem -LiteralPath $rexExePath -Filter 'rex.exe' -Recurse -File -ErrorAction SilentlyContinue |
+        Select-Object -First 1
+    if ($rexExe) { $rexExe = $rexExe.FullName }
+}
+if (-not $rexExe) {
+    Write-WarnLocal 'rex not installed (beta enrollment may be required); run platforms/windows-11/install-rex.ps1'
+}
+else {
+    $rexPath = if ($rexExe -is [string]) { $rexExe } else { $rexExe.Source }
+    $versionOutput = @(& $rexPath version 2>$null | Select-Object -First 1)
+    if ($LASTEXITCODE -eq 0 -and $versionOutput) { Write-Ok "rex -> $($versionOutput -join ' ')" } else { Write-WarnLocal "rex version check failed for $rexPath" }
+
+    $statusOutput = @(& $rexPath server status --autostart=false 2>$null)
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok 'Rex server is reachable'
+    }
+    else {
+        Write-WarnLocal 'Rex server is not reachable; the Windows server may require beta enrollment. Run `rex server install --user` after signing in.'
+    }
+}
+
 Write-Host "`nCommand capabilities"
 foreach ($commandName in @(
     'git','gh','infisical','pwsh','code','node','python','pnpm','bun','rustc','cargo',

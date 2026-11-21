@@ -84,3 +84,9 @@ Do not install every optional workload merely to make the machine look "complete
 Android Studio is declared in root `mise.toml` and installed through the WinGet backend. Android SDK/NDK/JDK versions required by an individual repository should remain project-controlled where possible.
 
 Avoid accumulating multiple unrelated global JDK installations. Android Studio's bundled runtime and project-specific requirements should be preferred over an untracked collection of system JDKs.
+
+## Rex
+
+Rex has no WinGet package. `platforms/windows-11/install-rex.ps1` installs the preview-channel binary under `%LOCALAPPDATA%\Programs\Rex` without admin rights and registers `rex server install --user` (HKCU Run). During the beta the Windows server requires tester enrollment, so failures are warnings, not bootstrap blockers.
+
+Manual boundary: the persistent Windows Service (`rex server install`, elevated shell, account password) is not automated. See `platforms/windows-11/README.md` and `docs/adr/ADR-0026.md`.

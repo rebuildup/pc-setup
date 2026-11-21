@@ -27,5 +27,6 @@
 | [ADR-0023](./ADR-0023.md) | Accepted | Vercel CLI は machine-global baseline に含めない |
 | [ADR-0024](./ADR-0024.md) | Accepted | converge の verify 用に launchctl print 1件だけを NOPASSWD で許可する |
 | [ADR-0025](./ADR-0025.md) | Accepted | Windows のツール所有は mise を唯一の正本とし、実行確認で壊れを検出する |
+| [ADR-0026](./ADR-0026.md) | Accepted | Rex は OS 公式導入経路で管理し preview channel を追跡する |
 
 新しい ADR は `ADR-NNNN.md` の連番で追加します。既存 decision を置換する場合は旧 ADR の status と `Superseded by` も更新します。
