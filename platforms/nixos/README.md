@@ -412,6 +412,10 @@ Infisical CLIはLinuxではOS Secret Serviceを利用し、利用できない環
 
 global profile に全projectの依存を集約しません。
 
+## Rex
+
+Rex には公式 flake (`https://pkgs.superlogical.com/rex/nix/<channel>.tar.gz`) があり、`rex.nixosModules.default` が shared server / login server を systemd service として構成できる。ただし Linux 向け package は現在 tester package token による認証が必要で、token は secret であり Flake / Nix store / この repository に埋め込めない。そのため machine baseline の desired state には含めず、Rex を使う host は host 側の flake input として `/etc/nix/netrc` 等の機密境界で token を与えて個別に宣言する。判断の記録は [`ADR-0026`](../../docs/adr/ADR-0026.md) を参照してください。
+
 ## References
 
 - NixOS Manual: https://nixos.org/manual/nixos/stable/

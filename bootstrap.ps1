@@ -221,3 +221,14 @@ finally {
 & (Join-Path $applyDir 'platforms\windows-11\install-apps.ps1')
 Install-NotionMsix
 Install-StoreApps
+
+# Rex is in public beta and its Windows server still requires tester
+# enrollment, so a failed install or `rex server install --user` must not stop
+# the rest of the machine bootstrap. platforms/windows-11/verify.ps1 reports
+# the resulting state.
+try {
+    & (Join-Path $applyDir 'platforms\windows-11\install-rex.ps1')
+}
+catch {
+    Write-Warning "Rex could not be installed automatically: $($_.Exception.Message)"
+}
