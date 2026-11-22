@@ -26,6 +26,12 @@ gh = "latest"
 infisical = "latest"
 claude = "latest"
 codex = "latest"
+# Antigravity CLI (agy): aqua:google-antigravity/antigravity-cli. Auth is
+# per-user Google OAuth state under ~/.gemini and the OS keyring, never
+# managed here. Over SSH, agy switches to file-based token storage
+# (~/.gemini/antigravity-cli/antigravity-oauth-token); the dotfiles `agy`
+# wrapper normalizes that split.
+agy = "latest"
 # OpenCode 2 is distributed as @opencode/cli on npm; the legacy `opencode` tool
 # (aqua:anomalyco/opencode) only tracks the 1.x GitHub releases.
 "npm:@opencode/cli" = { version = "latest", depends = ["node"], allow_builds = ["@opencode/cli"] }
