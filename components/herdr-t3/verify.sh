@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
 # Verify the stable herdr-t3 install (macOS).
 #
-# Checks: current release + built .app exist, the app binary is present,
-# and with --live the app process is running and the herdr socket exists.
+# Checks: installed app in ~/Applications, bundle id, recorded release
+# commit vs the release checkout, the actual launch target, Launch
+# Services / Spotlight discovery, and with --live the running process.
 set -euo pipefail
 
+BUNDLE_ID="com.github.rebuildup.herdr-t3"
 STATE_DIR="${HERDR_T3_STATE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/herdr-t3}"
+APPS_DIR="${HERDR_T3_APPS_DIR:-$HOME/Applications}"
 CURRENT_FILE="$STATE_DIR/current"
 APP_FILE="$STATE_DIR/current_app"
+INSTALLED_FILE="$STATE_DIR/installed"
 LIVE=0; [[ "${1:-}" == "--live" ]] && LIVE=1
 
 fail() { echo "[herdr-t3] FAIL: $*" >&2; exit 1; }
@@ -16,13 +20,26 @@ fail() { echo "[herdr-t3] FAIL: $*" >&2; exit 1; }
 name="$(cat "$CURRENT_FILE")"
 release="$STATE_DIR/releases/$name"
 [[ -d "$release/.git" ]] || fail "release dir missing: $release"
-app=""
-[[ -f "$APP_FILE" ]] && app="$(cat "$APP_FILE")"
-[[ -n "$app" && -d "$app" ]] || app="$(find "$release/release" -maxdepth 2 -name 'herdr-t3.app' -type d 2>/dev/null | head -1)"
-[[ -n "$app" ]] || fail "no herdr-t3.app built for $name"
+
+app="$APPS_DIR/herdr-t3.app"
+[[ -f "$APP_FILE" ]] && [[ -d "$(cat "$APP_FILE")" ]] && app="$(cat "$APP_FILE")"
+[[ -d "$app" ]] || fail "installed app missing: $app"
 [[ -x "$app/Contents/MacOS/herdr-t3" ]] || fail "app executable missing: $app"
+bid="$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$app/Contents/Info.plist" 2>/dev/null || true)"
+[[ "$bid" == "$BUNDLE_ID" ]] || fail "bundle id mismatch: ${bid:-none} != $BUNDLE_ID"
+version="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$app/Contents/Info.plist" 2>/dev/null || echo unknown)"
+
 commit="$(git -C "$release" rev-parse HEAD)"
-echo "[herdr-t3] installed: $name @ ${commit:0:12} -> $app"
+if [[ -f "$INSTALLED_FILE" ]]; then
+  recorded_commit="$(sed -n 2p "$INSTALLED_FILE")"
+  [[ "$recorded_commit" == "$commit" ]] || fail "installed commit $recorded_commit != release HEAD $commit"
+fi
+echo "[herdr-t3] installed: $name @ ${commit:0:12} -> $app (v$version, $bid)"
+
+# Launch Services / Spotlight discovery (not just file existence).
+mdfind "kMDItemCFBundleIdentifier == '$BUNDLE_ID'" 2>/dev/null | grep -Fqx "$app" \
+  || fail "Spotlight/Launch Services does not resolve $BUNDLE_ID to $app"
+echo "[herdr-t3] launch services: $app"
 
 if [[ "$LIVE" == "1" ]]; then
   pgrep -f "$app/Contents/MacOS/herdr-t3" >/dev/null \

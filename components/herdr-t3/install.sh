@@ -1,24 +1,35 @@
 #!/usr/bin/env bash
 # herdr-t3 stable install — native Electron app (macOS).
 #
-# Installs a verified release of rebuildup/herdr-t3 into the managed state
-# dir as an independent per-ref checkout, builds the .app once with
-# electron-builder, and only then flips the `current` pointer. A failed
-# install or update never disturbs the app that is currently selected.
+# Builds a verified release of rebuildup/herdr-t3 into the managed state
+# dir, then stages the resulting .app into ~/Applications so it behaves
+# like a normal macOS app: Finder, Spotlight, Launch Services, Dock.
+# `current`/`previous` pointers and per-ref release dirs are unchanged;
+# rollback re-stages the previous .app. A failed install or update never
+# disturbs the installed stable app.
 #
 # Usage: install.sh [ref]
 #   ref: a v* tag or a full commit SHA (default: newest v* tag on origin).
 set -euo pipefail
 
 REPO_URL="https://github.com/rebuildup/herdr-t3.git"
+BUNDLE_ID="com.github.rebuildup.herdr-t3"
 STATE_DIR="${HERDR_T3_STATE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/herdr-t3}"
+APPS_DIR="${HERDR_T3_APPS_DIR:-$HOME/Applications}"
 RELEASES_DIR="$STATE_DIR/releases"
 CURRENT_FILE="$STATE_DIR/current"
+APP_FILE="$STATE_DIR/current_app"
+INSTALLED_FILE="$STATE_DIR/installed"
 LOG_DIR="$STATE_DIR/logs"
-mkdir -p "$RELEASES_DIR" "$LOG_DIR"
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+mkdir -p "$RELEASES_DIR" "$LOG_DIR" "$APPS_DIR"
 
 log() { printf '[herdr-t3] %s\n' "$*"; }
 die() { log "ERROR: $*" >&2; exit 1; }
+
+bundle_id_of() { # $1 = .app path -> prints CFBundleIdentifier or nothing
+  /usr/libexec/PlistBuddy -c "Print CFBundleIdentifier" "$1/Contents/Info.plist" 2>/dev/null || true
+}
 
 resolve_ref() {
   local ref="${1:-}"
@@ -36,12 +47,32 @@ resolve_ref() {
   printf '%s' "$ref"
 }
 
-app_path() { # $1 = release dir -> prints the built .app path
-  local rel="$1"
-  local app
-  app="$(find "$rel/release" -maxdepth 2 -name 'herdr-t3.app' -type d 2>/dev/null | head -1)"
-  [[ -n "$app" ]] || die "no herdr-t3.app built under $rel/release"
-  printf '%s' "$app"
+# Stage a built .app into the standard apps dir. Refuses to overwrite an
+# unrelated app; quits a running herdr-t3 first so the swap is clean.
+stage_app() { # $1 = source .app, $2 = destination .app
+  local src="$1" dst="$2"
+  [[ -d "$src" ]] || die "source app missing: $src"
+  if [[ -e "$dst" ]]; then
+    local existing_id
+    existing_id="$(bundle_id_of "$dst")"
+    [[ "$existing_id" == "$BUNDLE_ID" ]] \
+      || die "refusing to overwrite unrelated app at $dst (bundle id: ${existing_id:-unknown})"
+    if pgrep -f "$dst/Contents/MacOS/herdr-t3" >/dev/null 2>&1; then
+      log "quitting running herdr-t3 before replacing $dst"
+      osascript -e 'tell application id "com.github.rebuildup.herdr-t3" to quit' >/dev/null 2>&1 || true
+      for _ in $(seq 1 25); do
+        pgrep -f "$dst/Contents/MacOS/herdr-t3" >/dev/null 2>&1 || break
+        sleep 0.2
+      done
+      pgrep -f "$dst/Contents/MacOS/herdr-t3" >/dev/null 2>&1 \
+        && die "herdr-t3 is still running; quit it and retry"
+    fi
+    rm -rf "$dst"
+  fi
+  ditto "$src" "$dst"
+  [[ -x "$dst/Contents/MacOS/herdr-t3" ]] || die "staged app has no executable: $dst"
+  # Register with Launch Services so Finder/Spotlight/`open -a` resolve it.
+  [[ -x "$LSREGISTER" ]] && "$LSREGISTER" -f "$dst" >/dev/null 2>&1 || true
 }
 
 ref="$(resolve_ref "${1:-}")"
@@ -59,18 +90,21 @@ git -C "$target" checkout --quiet "$ref"
 commit="$(git -C "$target" rev-parse HEAD)"
 log "building $name ($commit)"
 
-# Build at install time only; launch never rebuilds. electron-builder
-# produces an unsigned .app (dir target) — Gatekeeper quarantine does not
-# apply to locally built apps.
 (cd "$target" \
   && mise install --locked >/dev/null \
   && bun install --frozen-lockfile \
   && CSC_IDENTITY_AUTO_DISCOVERY=false bun run desktop:pack) \
-  || die "build failed for $name; current selection left untouched"
+  || die "build failed for $name; installed app left untouched"
 
-app="$(app_path "$target")"
-[[ -x "$app/Contents/MacOS/herdr-t3" ]] || die "built app missing executable: $app"
+built="$(find "$target/release" -maxdepth 2 -name 'herdr-t3.app' -type d 2>/dev/null | head -1)"
+[[ -n "$built" ]] || die "no herdr-t3.app built under $target/release"
+[[ "$(bundle_id_of "$built")" == "$BUNDLE_ID" ]] \
+  || die "built app has unexpected bundle id: $(bundle_id_of "$built")"
+
+dst="$APPS_DIR/herdr-t3.app"
+stage_app "$built" "$dst"
 
 printf '%s\n' "$name" > "$CURRENT_FILE"
-printf '%s\n' "$app" > "$STATE_DIR/current_app"
-log "installed $name ($commit); current -> $name ($app)"
+printf '%s\n' "$dst" > "$APP_FILE"
+printf '%s\n%s\n' "$name" "$commit" > "$INSTALLED_FILE"
+log "installed $name ($commit) -> $dst"
