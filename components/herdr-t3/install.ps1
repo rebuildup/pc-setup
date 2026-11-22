@@ -1,11 +1,11 @@
-# herdr-t3 stable install (Windows 11).
+# herdr-t3 stable install — native Electron app (Windows 11).
 #
 # Installs a verified release of rebuildup/herdr-t3 into the managed state
-# dir as an independent per-ref checkout, builds it once, and only then
-# selects it. A failed install or update never disturbs the selected release.
+# dir as an independent per-ref checkout, builds the app once with
+# electron-builder (win-unpacked + NSIS installer), and only then selects
+# it. A failed install or update never disturbs the selected release.
 #
 # Usage: install.ps1 [-Ref <ref>]
-#   ref: a v* tag or a full commit SHA (default: newest v* tag on origin).
 param([string]$Ref = "")
 
 $ErrorActionPreference = "Stop"
@@ -13,6 +13,7 @@ $RepoUrl = "https://github.com/rebuildup/herdr-t3.git"
 $StateDir = if ($env:HERDR_T3_STATE_DIR) { $env:HERDR_T3_STATE_DIR } else { Join-Path $env:LOCALAPPDATA "herdr-t3" }
 $ReleasesDir = Join-Path $StateDir "releases"
 $CurrentFile = Join-Path $StateDir "current"
+$AppFile = Join-Path $StateDir "current_app"
 $LogDir = Join-Path $StateDir "logs"
 New-Item -ItemType Directory -Force -Path $ReleasesDir, $LogDir | Out-Null
 
@@ -48,12 +49,17 @@ Log "building $name ($commit)"
 Push-Location $target
 try {
   mise install --locked | Out-Null
-  if ($LASTEXITCODE -ne 0) { Die "mise install failed for $name; current selection left untouched" }
-  bun install --frozen-lockfile
-  if ($LASTEXITCODE -ne 0) { Die "bun install failed for $name; current selection left untouched" }
-  bun run build
-  if ($LASTEXITCODE -ne 0) { Die "build failed for $name; current selection left untouched" }
+  if ($LASTEXITCODE -ne 0) { Die "mise install failed" }
+  bun install --frozen-lockfile | Out-Null
+  if ($LASTEXITCODE -ne 0) { Die "bun install failed" }
+  $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
+  bun run desktop:pack | Out-Null
+  if ($LASTEXITCODE -ne 0) { Die "electron-builder failed" }
 } finally { Pop-Location }
 
-Set-Content -Path $CurrentFile -Value "$name`n" -NoNewline
-Log "installed $name ($commit); current -> $name"
+$exe = Join-Path $target "release\win-unpacked\herdr-t3.exe"
+if (-not (Test-Path $exe)) { Die "built app missing: $exe" }
+
+Set-Content $CurrentFile $name
+Set-Content $AppFile $exe
+Log "installed $name ($commit); current -> $name ($exe)"

@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# herdr-t3 stable install (macOS / POSIX).
+# herdr-t3 stable install — native Electron app (macOS).
 #
 # Installs a verified release of rebuildup/herdr-t3 into the managed state
-# dir as an independent per-ref checkout, builds it once, and only then
-# flips the `current` pointer. A failed install or update never disturbs
-# the release that is currently selected.
+# dir as an independent per-ref checkout, builds the .app once with
+# electron-builder, and only then flips the `current` pointer. A failed
+# install or update never disturbs the app that is currently selected.
 #
 # Usage: install.sh [ref]
 #   ref: a v* tag or a full commit SHA (default: newest v* tag on origin).
-#   Dev branches and unreleased release-candidate branches are never
-#   selected implicitly.
 set -euo pipefail
 
 REPO_URL="https://github.com/rebuildup/herdr-t3.git"
@@ -29,7 +27,6 @@ resolve_ref() {
       | awk -F/ '{print $3}' | grep -v '\^' | sort -V | tail -1)"
     [[ -n "$ref" ]] || die "no v* tag found on $REPO_URL"
   fi
-  # Only tags and full SHAs are acceptable install targets.
   if [[ "$ref" =~ ^v[0-9] ]]; then
     git ls-remote --exit-code --tags "$REPO_URL" "refs/tags/$ref" >/dev/null \
       || die "tag $ref not found on $REPO_URL"
@@ -37,6 +34,14 @@ resolve_ref() {
     die "ref must be a v* tag or a full 40-char SHA (got: $ref)"
   fi
   printf '%s' "$ref"
+}
+
+app_path() { # $1 = release dir -> prints the built .app path
+  local rel="$1"
+  local app
+  app="$(find "$rel/release" -maxdepth 2 -name 'herdr-t3.app' -type d 2>/dev/null | head -1)"
+  [[ -n "$app" ]] || die "no herdr-t3.app built under $rel/release"
+  printf '%s' "$app"
 }
 
 ref="$(resolve_ref "${1:-}")"
@@ -54,9 +59,18 @@ git -C "$target" checkout --quiet "$ref"
 commit="$(git -C "$target" rev-parse HEAD)"
 log "building $name ($commit)"
 
-(cd "$target" && mise install --locked >/dev/null && bun install --frozen-lockfile && bun run build) \
+# Build at install time only; launch never rebuilds. electron-builder
+# produces an unsigned .app (dir target) — Gatekeeper quarantine does not
+# apply to locally built apps.
+(cd "$target" \
+  && mise install --locked >/dev/null \
+  && bun install --frozen-lockfile \
+  && CSC_IDENTITY_AUTO_DISCOVERY=false bun run desktop:pack) \
   || die "build failed for $name; current selection left untouched"
 
-# Point `current` at the new release only after a successful build.
+app="$(app_path "$target")"
+[[ -x "$app/Contents/MacOS/herdr-t3" ]] || die "built app missing executable: $app"
+
 printf '%s\n' "$name" > "$CURRENT_FILE"
-log "installed $name ($commit); current -> $name"
+printf '%s\n' "$app" > "$STATE_DIR/current_app"
+log "installed $name ($commit); current -> $name ($app)"

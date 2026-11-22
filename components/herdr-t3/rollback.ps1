@@ -1,16 +1,15 @@
-# Roll back the stable herdr-t3 install to the previously selected release.
-# Pointer flip only — the old release dir is kept by update.ps1, so no
-# rebuild is needed; restart the bridge to apply.
+# Roll back the stable herdr-t3 app to the previously selected release.
+# Pointer flip only — no rebuild. Quit and relaunch the app to apply.
 $ErrorActionPreference = "Stop"
-
 $StateDir = if ($env:HERDR_T3_STATE_DIR) { $env:HERDR_T3_STATE_DIR } else { Join-Path $env:LOCALAPPDATA "herdr-t3" }
 $CurrentFile = Join-Path $StateDir "current"
 $PrevFile = Join-Path $StateDir "previous"
+$AppFile = Join-Path $StateDir "current_app"
 
 if (-not (Test-Path $PrevFile)) { Write-Host "[herdr-t3] no previous release recorded" -ForegroundColor Red; exit 1 }
 $prev = (Get-Content $PrevFile -Raw).Trim()
-if (-not (Test-Path (Join-Path $StateDir "releases\$prev\dist\index.html"))) {
-  Write-Host "[herdr-t3] previous release $prev is missing its build" -ForegroundColor Red; exit 1
-}
-Set-Content -Path $CurrentFile -Value "$prev`n" -NoNewline
-Write-Host "[herdr-t3] rolled back to $prev (restart the bridge to apply)"
+$prevExe = Join-Path $StateDir "releases\$prev\release\win-unpacked\herdr-t3.exe"
+if (-not (Test-Path $prevExe)) { Write-Host "[herdr-t3] previous release $prev has no built app" -ForegroundColor Red; exit 1 }
+Set-Content $CurrentFile $prev
+Set-Content $AppFile $prevExe
+Write-Host "[herdr-t3] rolled back to $prev ($prevExe); relaunch the app to apply"
