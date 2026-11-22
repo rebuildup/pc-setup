@@ -62,4 +62,7 @@ if (-not (Test-Path $exe)) { Die "built app missing: $exe" }
 
 Set-Content $CurrentFile $name
 Set-Content $AppFile $exe
+
+. (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "shortcut.ps1")
+Set-HerdrT3Shortcut -ExePath $exe
 Log "installed $name ($commit); current -> $name ($exe)"

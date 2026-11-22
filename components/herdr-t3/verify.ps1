@@ -22,6 +22,12 @@ if (-not (Test-Path $exe)) { Fail "no built app for $name ($exe)" }
 $commit = (git -C $release rev-parse HEAD).Trim()
 Write-Host "[herdr-t3] installed: $name @ $($commit.Substring(0,12)) -> $exe"
 
+. (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "shortcut.ps1")
+$lnk = Get-HerdrT3ShortcutTarget
+if (-not $lnk) { Fail "Start Menu shortcut missing ($script:HerdrT3ShortcutPath)" }
+if ($lnk -ne $exe) { Fail "Start Menu shortcut points to $lnk, expected $exe" }
+Write-Host "[herdr-t3] start menu: $lnk"
+
 if ($Live) {
   if (-not (Get-Process -Name "herdr-t3" -ErrorAction SilentlyContinue)) { Fail "app is not running (run launch.ps1)" }
   $sock = if ($env:HERDR_SOCKET) { $env:HERDR_SOCKET } else { Join-Path $env:APPDATA "herdr\herdr.sock" }
