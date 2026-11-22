@@ -64,6 +64,15 @@ stage_app() { # $1 = source .app, $2 = destination .app
         pgrep -f "$dst/Contents/MacOS/herdr-t3" >/dev/null 2>&1 || break
         sleep 0.2
       done
+      if pgrep -f "$dst/Contents/MacOS/herdr-t3" >/dev/null 2>&1; then
+        # Graceful quit failed; SIGTERM is safe — the app owns no herdr
+        # sessions, panes and agents keep running inside herdr.
+        pkill -f "$dst/Contents/MacOS/herdr-t3" || true
+        for _ in $(seq 1 25); do
+          pgrep -f "$dst/Contents/MacOS/herdr-t3" >/dev/null 2>&1 || break
+          sleep 0.2
+        done
+      fi
       pgrep -f "$dst/Contents/MacOS/herdr-t3" >/dev/null 2>&1 \
         && die "herdr-t3 is still running; quit it and retry"
     fi
