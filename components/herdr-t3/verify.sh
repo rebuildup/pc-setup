@@ -1,16 +1,13 @@
 #!/usr/bin/env bash
-# Verify the stable herdr-t3 install.
+# Verify the stable herdr-t3 install (macOS).
 #
-# Checks (all must pass):
-#   - `current` release exists with a built dist/
-#   - the checkout HEAD matches a real commit and bun is available
-#   - with --live: the running bridge's /api/health reports ok, herdr
-#     reachable, and a version/commit consistent with the install
+# Checks: current release + built .app exist, the app binary is present,
+# and with --live the app process is running and the herdr socket exists.
 set -euo pipefail
 
 STATE_DIR="${HERDR_T3_STATE_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/herdr-t3}"
 CURRENT_FILE="$STATE_DIR/current"
-PORT="${HERDR_T3_PORT:-4737}"
+APP_FILE="$STATE_DIR/current_app"
 LIVE=0; [[ "${1:-}" == "--live" ]] && LIVE=1
 
 fail() { echo "[herdr-t3] FAIL: $*" >&2; exit 1; }
@@ -19,15 +16,18 @@ fail() { echo "[herdr-t3] FAIL: $*" >&2; exit 1; }
 name="$(cat "$CURRENT_FILE")"
 release="$STATE_DIR/releases/$name"
 [[ -d "$release/.git" ]] || fail "release dir missing: $release"
-[[ -f "$release/dist/index.html" ]] || fail "dist/ not built in $name"
-command -v bun >/dev/null || fail "bun not on PATH"
+app=""
+[[ -f "$APP_FILE" ]] && app="$(cat "$APP_FILE")"
+[[ -n "$app" && -d "$app" ]] || app="$(find "$release/release" -maxdepth 2 -name 'herdr-t3.app' -type d 2>/dev/null | head -1)"
+[[ -n "$app" ]] || fail "no herdr-t3.app built for $name"
+[[ -x "$app/Contents/MacOS/herdr-t3" ]] || fail "app executable missing: $app"
 commit="$(git -C "$release" rev-parse HEAD)"
-echo "[herdr-t3] installed: $name @ ${commit:0:12}"
+echo "[herdr-t3] installed: $name @ ${commit:0:12} -> $app"
 
 if [[ "$LIVE" == "1" ]]; then
-  health="$(curl -fsS --max-time 3 "http://127.0.0.1:$PORT/api/health")" \
-    || fail "bridge not healthy on 127.0.0.1:$PORT (run launch.sh)"
-  echo "$health" | grep -q '"ok":true' || fail "health ok!=true: $health"
-  echo "$health" | grep -q '"reachable":true' || fail "herdr not reachable: $health"
-  echo "[herdr-t3] live: $health"
+  pgrep -f "$app/Contents/MacOS/herdr-t3" >/dev/null \
+    || fail "app is not running (run launch.sh)"
+  sock="${HERDR_SOCKET:-$HOME/.config/herdr/herdr.sock}"
+  [[ -S "$sock" ]] || fail "herdr socket not present: $sock (is herdr running?)"
+  echo "[herdr-t3] live: app running, herdr socket present: $sock"
 fi
