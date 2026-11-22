@@ -71,8 +71,10 @@ stage_app() { # $1 = source .app, $2 = destination .app
   fi
   ditto "$src" "$dst"
   [[ -x "$dst/Contents/MacOS/herdr-t3" ]] || die "staged app has no executable: $dst"
-  # Register with Launch Services so Finder/Spotlight/`open -a` resolve it.
+  # Register with Launch Services so Finder/Spotlight/`open -a` resolve it,
+  # and unregister the build artifact so it can never win resolution.
   [[ -x "$LSREGISTER" ]] && "$LSREGISTER" -f "$dst" >/dev/null 2>&1 || true
+  [[ -x "$LSREGISTER" ]] && "$LSREGISTER" -u "$src" >/dev/null 2>&1 || true
 }
 
 ref="$(resolve_ref "${1:-}")"

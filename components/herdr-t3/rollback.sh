@@ -38,6 +38,7 @@ if [[ -e "$dst" ]]; then
 fi
 ditto "$built" "$dst"
 [[ -x "$LSREGISTER" ]] && "$LSREGISTER" -f "$dst" >/dev/null 2>&1 || true
+[[ -x "$LSREGISTER" ]] && "$LSREGISTER" -u "$built" >/dev/null 2>&1 || true
 
 commit="$(git -C "$STATE_DIR/releases/$prev" rev-parse HEAD)"
 printf '%s\n' "$prev" > "$CURRENT_FILE"
