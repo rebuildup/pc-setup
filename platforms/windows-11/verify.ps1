@@ -417,7 +417,7 @@ foreach ($commandName in @(
     'git','gh','infisical','pwsh','code','node','python','pnpm','bun','rustc','cargo',
     'rg','fd','fzf','jq','bat','gdu','shellcheck','nvim',
     'claude','codex','opencode','devin','wt','herdr',
-    'gcloud','aws','supabase','npkill','ocr','cargo-clean-all','dotnet'
+    'npkill','ocr','cargo-clean-all','dotnet'
 )) { Test-CommandPresent -Name $commandName }
 
 Write-Host "`nmise-managed commands resolve to mise (no shadowing copy earlier in PATH)"
@@ -637,7 +637,6 @@ foreach ($n in $Names) {
             @{ key = 'npm:devin';   command = 'devin';    args = @('--version') },
             @{ key = 'npm:@earendil-works/pi-coding-agent'; command = 'pi'; args = @('--version') },
             @{ key = 'npm:@deepseek-ai/dsh'; command = 'dsh'; args = @('--version') },
-            @{ key = 'npm:playwright'; command = 'playwright'; args = @('--version') },
             @{ key = 'npm:npkill';  command = 'npkill';   args = @('--version') },
             @{ key = 'worktrunk';   command = 'wt';       args = @('--version') },
             @{ key = 'oh-my-pi';    command = 'omp';      args = @('--version') },

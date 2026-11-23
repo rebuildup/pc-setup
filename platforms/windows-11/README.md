@@ -47,11 +47,11 @@ root `mise.toml` の mandatory Windows package phase には、bootstrap / develo
 - PowerShell 7
 - .NET SDK 10
 - Android Studio
-- Google Cloud SDK
-- AWS CLI
 - Tailscale
 
 これらは fail-fast。Git と mise 自体も bootstrap dependency。
+
+AWS CLI と Google Cloud SDK は machine-wide mandatory ではありません。利用するホストで任意に導入し、認証先はコマンドごとに明示します（ADR-0029）。既存の認証設定やインストール済みバイナリを bootstrap は削除しません。
 
 ### Best-effort desktop apps
 
@@ -95,8 +95,6 @@ OSごとにWinGet packageを重複宣言せず、`mise.global.toml [tools]` を�
 - Claude Code / Codex / OpenCode / Devin
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
-- Google Cloud CLI / AWS CLI
-- Supabase CLI
 - ripgrep / fd / fzf / jq / bat / gdu
 - ShellCheck / Neovim
 

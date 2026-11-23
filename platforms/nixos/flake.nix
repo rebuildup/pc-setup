@@ -132,6 +132,8 @@
         "devin"
         "wt"
         "herdr"
+        # Compatibility launchers for optional host and project-local tools.
+        # These wrappers do not install CLI binaries or imply credentials.
         "gcloud"
         "aws"
         "supabase"

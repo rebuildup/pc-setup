@@ -84,9 +84,6 @@ commands=(
   devin
   wt
   herdr
-  gcloud
-  aws
-  supabase
   npkill
   ocr
   cargo-clean-all
