@@ -213,6 +213,17 @@ VM を停止したまま `docker` を実行すると `Cannot connect to the Dock
 
 verify は mise 設定の読み込みと OS 条件、`colima` / `docker` / compose / buildx / `ffmpeg`、Docker Context、VM 設定を確認する。VM を起動することはなく、停止中は「作成済みだが停止中」と未構築を区別して報告し、daemon に依存する項目だけを skip する。`--smoke` は VM が起動中のときだけ有効。
 
+## Rex
+
+[Rex](https://www.superlogical.com/rex) は agent execution runtime の macOS 側 desired state。beta 期間中は Homebrew cask / pkg installer がなく、公式配布は公証済み DMG のみ。`platforms/macos/install-rex.sh`(`scripts/apply-platform.sh` から bootstrap 時に実行)が preview channel の `latest.dmg` を取得し、`/Applications`(書き込めない場合は `~/Applications`)へ app bundle を配置する。同一 version/build なら copy を skip するため再実行可能。
+
+```bash
+./platforms/macos/install-rex.sh
+ls -d /Applications/Rex*.app "$HOME"/Applications/Rex*.app
+```
+
+macOS app は自身の local Rex server を内包するため追加の server 設定は不要。agent連携は app 内コマンドパレットまたは `rex skill setup` で行う(手動)。channel / pin 判断は [`ADR-0026`](../../docs/adr/ADR-0026.md) を参照。
+
 ## Verification
 
 ```bash

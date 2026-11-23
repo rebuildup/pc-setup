@@ -82,8 +82,8 @@ Portable user CLI baseline (`mise.global.toml`):
 - Claude Code / Codex / OpenCode / Devin
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all / gdu
-- Google Cloud CLI / AWS CLI
-- Supabase CLI
+
+AWS / Google Cloud / Supabase は共通インストール対象外です。`flake.nix` には project-local / optional CLI を実行するための FHS wrapper 名だけ残します。wrapper があることと CLI のインストール済み・認証済みであることは別です（[ADR-0029](../../docs/adr/ADR-0029.md)）。
 
 Worktrunk の Bash integration も Home Manager で宣言します。
 
@@ -288,14 +288,18 @@ gh auth status
 
 Claude Code 本体は `mise.global.toml` の portable CLI baseline から導入します。
 
-provider 接続は machine provisioning ではなく `rebuildup/dotfiles` の Infisical runtime integration が所有します。MiMo 利用時は dotfiles の provider entrypoint 経由で起動します。
+provider 接続は machine provisioning ではなく `rebuildup/dotfiles` の Infisical runtime integration が所有します。
 
 ```bash
-claude
-# equivalent: ~/.dotfiles/script/agent/mimo claude
+claude                          # official native Claude Code login
+agent list                      # configured harness/provider routes
+agent claude openrouter         # explicit opt-in API route (dotfiles launcher)
+agent opencode zen              # free OpenCode Zen models
+# MiMo は dotfiles の tuned entrypoint が維持:
+~/.dotfiles/script/agent/mimo claude
 ```
 
-`~/.config/pc-setup/shell-init.bash` は `~/.dotfiles/script/agent` を PATH 先頭に置き、`mimo` entrypoint が存在する場合に `claude` を process-scoped injection へ委譲します。委譲は shell function と、agent 配下の `claude` PATH shim の両方で行うため、function 未定義のシェルでも素の Claude Code に落ちません。provider URL / model / credential は shell には export されません。
+`~/.config/pc-setup/shell-init.bash` は `~/.dotfiles/script/agent`（provider-tuned entrypoint）を PATH に追加するだけで、`claude` を shell function や PATH shim で委譲しません（native CLI のまま）。provider URL / model / credential を shell に export もしません。代替API route は `agent` launcher（`~/.local/bin/agent`、設定は `~/.dotfiles/config/agents.toml`）が process-scoped に注入します。`agent` 本体は dotfiles の `./script/link` が配置します。
 
 ### OpenCode
 
@@ -411,6 +415,10 @@ Infisical CLIはLinuxではOS Secret Serviceを利用し、利用できない環
 などは project側の Flake / devShell / container / toolchain definition で管理します。
 
 global profile に全projectの依存を集約しません。
+
+## Rex
+
+Rex には公式 flake (`https://pkgs.superlogical.com/rex/nix/<channel>.tar.gz`) があり、`rex.nixosModules.default` が shared server / login server を systemd service として構成できる。ただし Linux 向け package は現在 tester package token による認証が必要で、token は secret であり Flake / Nix store / この repository に埋め込めない。そのため machine baseline の desired state には含めず、Rex を使う host は host 側の flake input として `/etc/nix/netrc` 等の機密境界で token を与えて個別に宣言する。判断の記録は [`ADR-0026`](../../docs/adr/ADR-0026.md) を参照してください。
 
 ## References
 

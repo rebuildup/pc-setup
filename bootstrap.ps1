@@ -221,3 +221,24 @@ finally {
 & (Join-Path $applyDir 'platforms\windows-11\install-apps.ps1')
 Install-NotionMsix
 Install-StoreApps
+
+# User PATH convergence (ADR-0021): drop the legacy .cargo\bin rustup proxy
+# entry and guarantee the mise shims entry. HKCU only with a backup; a failure
+# must not stop bootstrap — verify.ps1 reports the resulting state.
+try {
+    & (Join-Path $applyDir 'platforms\windows-11\user-path.ps1') -Apply
+}
+catch {
+    Write-Warning "User PATH convergence failed: $($_.Exception.Message)"
+}
+
+# Rex is in public beta and its Windows server still requires tester
+# enrollment, so a failed install or `rex server install --user` must not stop
+# the rest of the machine bootstrap. platforms/windows-11/verify.ps1 reports
+# the resulting state.
+try {
+    & (Join-Path $applyDir 'platforms\windows-11\install-rex.ps1')
+}
+catch {
+    Write-Warning "Rex could not be installed automatically: $($_.Exception.Message)"
+}

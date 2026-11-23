@@ -205,6 +205,28 @@ function Invoke-MiseApply {
     }
 }
 
+# Converges the per-user PATH (ADR-0021): drops the legacy .cargo\bin rustup
+# proxy entry and guarantees the mise shims entry. HKCU only, exact-match
+# removal, backup before write — user-path.ps1 is idempotent by design.
+function Invoke-UserPath {
+    if (-not $script:DeployOk) {
+        Add-Step 'user-path' 'skipped' 'deploy checkout not converged in this run'
+        return
+    }
+    $userPath = Join-Path (Join-Path (Join-Path $DeployDir 'platforms') 'windows-11') 'user-path.ps1'
+    if (-not (Test-Path -LiteralPath $userPath)) {
+        Add-Step 'user-path' 'skipped' 'no user-path.ps1 in the deploy checkout'
+        return
+    }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $userPath -Apply *>&1 | ForEach-Object { Write-Log ([string]$_) }
+    $code = $LASTEXITCODE
+    if ($code -eq 0) {
+        Add-Step 'user-path' 'ok' 'User PATH converged'
+    } else {
+        Add-Step 'user-path' 'error' ('user-path.ps1 -Apply exited ' + $code + '; see ' + $script:LogFile)
+    }
+}
+
 # Derived from current state, not from a previous run: dsh is pending when
 # `npm:@deepseek-ai/dsh` is installed on this machine but the deployed
 # mise.global.toml does not declare it (it exists only in an unmerged PR; ADR-0016).
@@ -531,6 +553,7 @@ function Invoke-Main {
 
     Invoke-Step 'deploy-sync' { Sync-Deploy }
     Invoke-Step 'mise-apply' { Invoke-MiseApply }
+    Invoke-Step 'user-path' { Invoke-UserPath }
     Invoke-Step 'dsh-declaration' { Test-DshDeclaration }
     Invoke-Step 'dotfiles-sync' { Invoke-DotfilesSync }
     Invoke-Step 'devices-sync' { Sync-Devices }

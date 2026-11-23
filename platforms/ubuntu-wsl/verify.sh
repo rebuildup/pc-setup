@@ -54,6 +54,7 @@ snapshot() {
   printf 'worktrunk=%s\n' "$(first_line wt --version)"
   printf 'claude=%s\n' "$(first_line claude --version)"
   printf 'opencode=%s\n' "$(first_line opencode --version)"
+  printf 'rex=%s\n' "$(first_line rex version)"
   printf 'devin=%s\n' "$(first_line devin --version)"
   printf 'shellcheck=%s\n' "$(first_line shellcheck --version)"
   printf 'python=%s\n' "$(first_line python3 --version)"
@@ -62,7 +63,7 @@ snapshot() {
 }
 
 if [[ "$SNAPSHOT" -eq 1 ]]; then
-  required=(git gh rg fd fzf jq bat gdu bun rustc cargo wt claude opencode devin shellcheck python3 cmake clang)
+  required=(git gh rg fd fzf jq bat gdu bun rustc cargo wt claude opencode rex devin shellcheck python3 cmake clang)
   for cmd in "${required[@]}"; do
     if ! command -v "$cmd" >/dev/null 2>&1; then
       printf 'Cannot create complete snapshot: missing command %s\n' "$cmd" >&2
@@ -149,14 +150,12 @@ commands=(
   wt
   herdr
   pnpm
-  gcloud
-  aws
-  supabase
   npkill
   ocr
   cargo-clean-all
   claude
   opencode
+  rex
   devin
   shellcheck
   python3
@@ -186,6 +185,16 @@ fi
 
 if command -v claude >/dev/null 2>&1; then
   warn "Claude Code login is interactive; run: claude and confirm the active account"
+fi
+
+# `--autostart=false` keeps verification side-effect free: without it a
+# missing local server would be started just by asking for status.
+if command -v rex >/dev/null 2>&1; then
+  if rex server status --autostart=false >/dev/null 2>&1; then
+    ok "Rex server is reachable"
+  else
+    warn "Rex server is not reachable; run: rex server install (or rex server start without systemd)"
+  fi
 fi
 
 # `--global` alone does not expand [include] directives, so a machine whose

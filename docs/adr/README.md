@@ -27,5 +27,9 @@
 | [ADR-0023](./ADR-0023.md) | Accepted | Vercel CLI は machine-global baseline に含めない |
 | [ADR-0024](./ADR-0024.md) | Accepted | converge の verify 用に launchctl print 1件だけを NOPASSWD で許可する |
 | [ADR-0025](./ADR-0025.md) | Accepted | Windows のツール所有は mise を唯一の正本とし、実行確認で壊れを検出する |
+| [ADR-0026](./ADR-0026.md) | Accepted | Rex は OS 公式導入経路で管理し preview channel を追跡する |
+| [ADR-0027](./ADR-0027.md) | Superseded by ADR-0028 | herdr-t3 は検証済み ref の独立リリース配置で導入・更新・復旧する |
+| [ADR-0028](./ADR-0028.md) | Accepted | herdr-t3 は Electron デスクトップアプリとして導入・検証する |
+| [ADR-0029](./ADR-0029.md) | Accepted | machine-global / optional-host / project-local CLI の所有境界 |
 
 新しい ADR は `ADR-NNNN.md` の連番で追加します。既存 decision を置換する場合は旧 ADR の status と `Superseded by` も更新します。

@@ -26,6 +26,12 @@ gh = "latest"
 infisical = "latest"
 claude = "latest"
 codex = "latest"
+# Antigravity CLI (agy): aqua:google-antigravity/antigravity-cli. Auth is
+# per-user Google OAuth state under ~/.gemini and the OS keyring, never
+# managed here. Over SSH, agy switches to file-based token storage
+# (~/.gemini/antigravity-cli/antigravity-oauth-token); the dotfiles `agy`
+# wrapper normalizes that split.
+agy = "latest"
 # OpenCode 2 is distributed as @opencode/cli on npm; the legacy `opencode` tool
 # (aqua:anomalyco/opencode) only tracks the 1.x GitHub releases.
 "npm:@opencode/cli" = { version = "latest", depends = ["node"], allow_builds = ["@opencode/cli"] }
@@ -35,9 +41,6 @@ worktrunk = "latest"
 # keep the registry entry unchanged.
 herdr = { version = "latest", os = ["linux", "macos"] }
 
-gcloud = { version = "latest", os = ["linux", "macos"] }
-aws-cli = { version = "latest", os = ["linux", "macos"] }
-supabase = "latest"
 # Vercel CLI is deliberately not in the machine-global baseline. Its npm
 # dependency graph fails mise's default npm supply-chain policy
 # (trustPolicy=no-downgrade), and exempting it would mean listing dozens of
@@ -93,7 +96,6 @@ oh-my-pi = "latest"
 # Node launcher plus a per-platform native binary as an optional dependency, so
 # it follows the same npm channel as OpenCode.
 "npm:devin" = { version = "latest", depends = ["node"] }
-"npm:playwright" = "latest"
 ruby = "4"
 
 [tools."github:herdrdev/herdr"]
