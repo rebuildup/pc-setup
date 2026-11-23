@@ -60,6 +60,20 @@ try {
 $exe = Join-Path $target "release\win-unpacked\herdr-t3.exe"
 if (-not (Test-Path $exe)) { Die "built app missing: $exe" }
 
-Set-Content $CurrentFile $name
-Set-Content $AppFile $exe
+. (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "shortcut.ps1")
+
+$prevCurrent = if (Test-Path $CurrentFile) { (Get-Content $CurrentFile -Raw).Trim() } else { $null }
+$prevApp = if (Test-Path $AppFile) { (Get-Content $AppFile -Raw).Trim() } else { $null }
+$prevShortcut = Get-HerdrT3ShortcutTarget
+
+try {
+  Set-Content $CurrentFile $name
+  Set-Content $AppFile $exe
+  Set-HerdrT3Shortcut -ExePath $exe
+} catch {
+  if ($null -ne $prevCurrent) { Set-Content $CurrentFile $prevCurrent } else { Remove-Item $CurrentFile -Force -ErrorAction SilentlyContinue }
+  if ($null -ne $prevApp) { Set-Content $AppFile $prevApp } else { Remove-Item $AppFile -Force -ErrorAction SilentlyContinue }
+  if ($prevShortcut) { try { Set-HerdrT3Shortcut -ExePath $prevShortcut } catch { } }
+  Die "shortcut registration failed; previous selection restored"
+}
 Log "installed $name ($commit); current -> $name ($exe)"
