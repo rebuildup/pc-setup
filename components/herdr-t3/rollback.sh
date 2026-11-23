@@ -41,9 +41,15 @@ if [[ -e "$dst" ]]; then
     fi
     pgrep -f "$dst/Contents/MacOS/herdr-t3" >/dev/null 2>&1 && die "herdr-t3 still running; quit and retry"
   fi
-  rm -rf "$dst"
 fi
-ditto "$built" "$dst"
+# Stage beside the destination and swap only after the copy verifies, so a
+# failed ditto never leaves ~/Applications without the app.
+staging="$dst.staging-$$"
+rm -rf "$staging"
+ditto "$built" "$staging" || { rm -rf "$staging"; die "ditto failed staging $built"; }
+[[ -x "$staging/Contents/MacOS/herdr-t3" ]] || { rm -rf "$staging"; die "staged app has no executable: $staging"; }
+rm -rf "$dst"
+mv "$staging" "$dst"
 [[ -x "$LSREGISTER" ]] && "$LSREGISTER" -f "$dst" >/dev/null 2>&1 || true
 [[ -x "$LSREGISTER" ]] && "$LSREGISTER" -u "$built" >/dev/null 2>&1 || true
 

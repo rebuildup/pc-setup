@@ -34,9 +34,11 @@ bundle_id_of() { # $1 = .app path -> prints CFBundleIdentifier or nothing
 resolve_ref() {
   local ref="${1:-}"
   if [[ -z "$ref" ]]; then
+    # Stable release tags only: sort -V would let a prerelease tag like
+    # v1.1.0-rc.1 win auto-selection.
     ref="$(git ls-remote --tags "$REPO_URL" 'refs/tags/v*' \
-      | awk -F/ '{print $3}' | grep -v '\^' | sort -V | tail -1)"
-    [[ -n "$ref" ]] || die "no v* tag found on $REPO_URL"
+      | awk -F/ '{print $3}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)"
+    [[ -n "$ref" ]] || die "no stable v* tag found on $REPO_URL"
   fi
   if [[ "$ref" =~ ^v[0-9] ]]; then
     git ls-remote --exit-code --tags "$REPO_URL" "refs/tags/$ref" >/dev/null \
@@ -76,10 +78,15 @@ stage_app() { # $1 = source .app, $2 = destination .app
       pgrep -f "$dst/Contents/MacOS/herdr-t3" >/dev/null 2>&1 \
         && die "herdr-t3 is still running; quit it and retry"
     fi
-    rm -rf "$dst"
   fi
-  ditto "$src" "$dst"
-  [[ -x "$dst/Contents/MacOS/herdr-t3" ]] || die "staged app has no executable: $dst"
+  # Stage beside the destination and swap only after the copy verifies, so a
+  # failed ditto never leaves ~/Applications without the app.
+  local staging="$dst.staging-$$"
+  rm -rf "$staging"
+  ditto "$src" "$staging" || { rm -rf "$staging"; die "ditto failed staging $src"; }
+  [[ -x "$staging/Contents/MacOS/herdr-t3" ]] || { rm -rf "$staging"; die "staged app has no executable: $staging"; }
+  rm -rf "$dst"
+  mv "$staging" "$dst"
   # Register with Launch Services so Finder/Spotlight/`open -a` resolve it,
   # and unregister the build artifact so it can never win resolution.
   [[ -x "$LSREGISTER" ]] && "$LSREGISTER" -f "$dst" >/dev/null 2>&1 || true
