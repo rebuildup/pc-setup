@@ -60,6 +60,36 @@ function Resolve-TailscaleCommand {
     return $null
 }
 
+# `tailscale status --json` is UTF-8. Windows PowerShell 5.1 decodes native
+# output with the console OEM code page, so on a Japanese Windows the Health
+# strings arrive as mojibake and ConvertFrom-Json fails even though the JSON
+# is valid. Decode as UTF-8 for the call and restore the previous encoding.
+function Invoke-NativeUtf8 {
+    param(
+        [Parameter(Mandatory)]$Command,
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+
+    $previousEncoding = $null
+    try {
+        $previousEncoding = [Console]::OutputEncoding
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    }
+    catch { }
+
+    try {
+        $output = @(& $Command @Arguments 2>$null)
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        if ($null -ne $previousEncoding) {
+            try { [Console]::OutputEncoding = $previousEncoding } catch { }
+        }
+    }
+
+    return [pscustomobject]@{ Output = $output; ExitCode = $exitCode }
+}
+
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) { throw 'This verification targets Windows.' }
 
 Write-Host "pc-setup Windows 11 verification`n"
@@ -276,14 +306,42 @@ else {
 Write-Host "`nPowerShell (WinGet-managed Microsoft.PowerShell is canonical)"
 $pwshCommand = Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 $pwshX64 = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
-if (-not (Test-Path -LiteralPath $pwshX64)) {
-    Write-Fail "PowerShell 7 x64 not found at $pwshX64"
+# winget:Microsoft.PowerShell installs either the MSI (Program Files) or the
+# MSIX package; both are the same canonical PowerShell 7. The MSIX resolves
+# through the per-user app execution alias
+# (%LOCALAPPDATA%\Microsoft\WindowsApps\Microsoft.PowerShell_<ver>_x64__<pfn>\pwsh.exe)
+# and its InstallLocation under WindowsApps, so accept every shape the package
+# can produce instead of requiring the MSI path only.
+$pwshCanonicalPaths = New-Object System.Collections.Generic.List[string]
+if (Test-Path -LiteralPath $pwshX64) { $pwshCanonicalPaths.Add($pwshX64) }
+foreach ($pwshPackage in @(Get-AppxPackage -Name 'Microsoft.PowerShell' -ErrorAction SilentlyContinue)) {
+    if ($pwshPackage.InstallLocation) {
+        $candidate = Join-Path $pwshPackage.InstallLocation 'pwsh.exe'
+        if (Test-Path -LiteralPath $candidate) { $pwshCanonicalPaths.Add($candidate) }
+    }
 }
-elseif ($pwshCommand -and ($pwshCommand.Source -ne $pwshX64)) {
-    Write-WarnLocal "pwsh resolves to $($pwshCommand.Source), not the x64 install. Nothing was removed; run platforms/windows-11/powershell-path.ps1 (plan) and -Apply from an elevated shell, or call $pwshX64 explicitly."
+$pwshResolved = if ($pwshCommand) { [string]$pwshCommand.Source } else { $null }
+$pwshIsCanonical = $false
+if ($pwshResolved) {
+    foreach ($candidate in $pwshCanonicalPaths) {
+        if ($pwshResolved.Equals($candidate, [StringComparison]::OrdinalIgnoreCase)) { $pwshIsCanonical = $true; break }
+    }
+    if (-not $pwshIsCanonical -and $pwshResolved -match '\\Microsoft\.PowerShell_[^\\]+\\pwsh\.exe$') {
+        # Per-user execution-alias path of an installed MSIX package.
+        $pwshIsCanonical = $true
+    }
+}
+if ($pwshCanonicalPaths.Count -eq 0) {
+    Write-Fail "PowerShell 7 not found (neither the MSI at $pwshX64 nor a Microsoft.PowerShell MSIX package)"
+}
+elseif (-not $pwshResolved) {
+    Write-Fail 'pwsh does not resolve on PATH'
+}
+elseif (-not $pwshIsCanonical) {
+    Write-WarnLocal "pwsh resolves to $pwshResolved, not a canonical PowerShell 7 install ($($pwshCanonicalPaths -join ', ')). Nothing was removed; run platforms/windows-11/powershell-path.ps1 (plan) and -Apply from an elevated shell, or call a canonical pwsh.exe explicitly."
 }
 else {
-    Write-Ok "pwsh -> $pwshX64"
+    Write-Ok "pwsh -> $pwshResolved"
 }
 
 Write-Host "`nRust (mise manages Rust on Windows; rustup runs underneath)"
@@ -332,6 +390,37 @@ else {
     }
 }
 
+Write-Host "`nUser PATH (ADR-0021: mise shims only, no legacy Rust proxy home)"
+# Read the unexpanded registry value so %USERPROFILE% / %LOCALAPPDATA% style
+# entries compare correctly; [Environment]::GetEnvironmentVariable('Path','User')
+# would already be expanded and could hide a literal-vs-expanded difference.
+$userPathKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $false)
+try {
+    $userPathValue = $userPathKey.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+}
+finally { $userPathKey.Close() }
+$userPathEntries = @($userPathValue -split ';' | Where-Object { $_ -and $_.Trim() })
+$legacyCargoBin = (Join-Path $env:USERPROFILE '.cargo\bin').TrimEnd('\')
+$legacyEntries = @($userPathEntries | Where-Object {
+    ([Environment]::ExpandEnvironmentVariables($_).Trim().TrimEnd('\')) -ieq $legacyCargoBin
+})
+$miseShimExpected = [Environment]::ExpandEnvironmentVariables('%LOCALAPPDATA%\mise\shims').TrimEnd('\')
+$shimEntries = @($userPathEntries | Where-Object {
+    ([Environment]::ExpandEnvironmentVariables($_).Trim().TrimEnd('\')) -ieq $miseShimExpected
+})
+if ($legacyEntries.Count -gt 0) {
+    Write-Fail "User PATH still resolves rustc/cargo through the legacy rustup proxy home: $($legacyEntries -join ', '); run platforms/windows-11/user-path.ps1 -Apply"
+}
+else {
+    Write-Ok 'User PATH has no legacy .cargo\bin entry'
+}
+if ($shimEntries.Count -gt 0) {
+    Write-Ok "User PATH carries the mise shims entry ($($shimEntries -join ', '))"
+}
+else {
+    Write-Fail "User PATH has no mise shims entry ($miseShimExpected); run platforms/windows-11/user-path.ps1 -Apply"
+}
+
 Write-Host "`nTailscale / WSL SSH"
 $tailscaleConfig = Import-PowerShellDataFile -LiteralPath (Join-Path $ScriptDir 'tailscale.psd1')
 $tailscale = Resolve-TailscaleCommand
@@ -342,8 +431,9 @@ else {
     Write-Ok 'Tailscale command available'
 
     $tailscaleVerdict = 'manual'
-    $statusOutput = @(& $tailscale status --json 2>$null)
-    if ($LASTEXITCODE -ne 0 -or $statusOutput.Count -eq 0) {
+    $statusResult = Invoke-NativeUtf8 -Command $tailscale -Arguments @('status', '--json')
+    $statusOutput = $statusResult.Output
+    if ($statusResult.ExitCode -ne 0 -or $statusOutput.Count -eq 0) {
         Write-Fail 'Tailscale status unavailable'
     }
     else {
@@ -364,8 +454,9 @@ else {
         }
     }
 
-    $serveStatus = @(& $tailscale serve status 2>$null) -join [Environment]::NewLine
-    if ($LASTEXITCODE -ne 0) {
+    $serveResult = Invoke-NativeUtf8 -Command $tailscale -Arguments @('serve', 'status')
+    $serveStatus = ($serveResult.Output -join [Environment]::NewLine)
+    if ($serveResult.ExitCode -ne 0) {
         if ($tailscaleVerdict -eq 'ok') { Write-Fail 'Tailscale Serve status unavailable' } else { Write-WarnLocal 'Tailscale Serve status unavailable (backend is not Running; pending manual step)' }
     }
     else {

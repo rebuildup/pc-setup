@@ -131,6 +131,8 @@ pwsh -NoProfile -File platforms/windows-11/powershell-path.ps1 -Apply   # 管理
 
 並び順だけを変更し、PATH entry も PowerShell 本体も削除しない。変更前の PATH は `%LOCALAPPDATA%\pc-setup` に保存する。
 
+`winget:Microsoft.PowerShell` は MSI と MSIX のどちらの package も同じ正本として導入されうる。MSIX の場合 `pwsh` は `%LOCALAPPDATA%\Microsoft\WindowsApps\Microsoft.PowerShell_<ver>_x64__<publisher>\pwsh.exe` の per-user 実行エイリアスに解決される。`verify.ps1` は MSI path・MSIX `InstallLocation`・実行エイリアスのいずれにも一致すれば正本として受理する。
+
 ### Herdr
 
 実機の Herdr は GitHub backend (`github:herdrdev/herdr`、aqua registry より新しい)。Windows だけこの宣言を `mise.global.toml` に置き、Linux/macOS は従来の registry entry のまま。`mise.global.lock` には Windows の GitHub backend entry を追加している。
@@ -179,6 +181,10 @@ infisical login --domain=https://secrets.rebuildup.dev
 ```
 
 setup script は Infisical から OAuth secret を runtime injectionし、未接続の host だけを persistent / preauthorized node として登録する。既に Tailscale backend が `Running` の host は既存 node identity を維持し、再登録しない。
+
+`tailscale status --json` の出力は UTF-8 で decode する。Windows PowerShell 5.1 が console の OEM code page で decode すると、日本語 Windows では Health 文字列が文字化けして `ConvertFrom-Json` が失敗するため、status / serve の呼び出しは一時的に UTF-8 へ切り替えて実行する。
+
+status が取得・parse できない場合は **fail closed** とし、node 登録 (`tailscale up --auth-key`) へ進まない。状態不明を「未接続」と誤認して既存 node を再登録する経路はない。`BackendState` が判明して `Running` 以外 (`NeedsLogin` / `Stopped` など) の場合だけ登録処理へ進む。
 
 その後 Tailscale Serve を idempotent に収束させるため、WSL 側の SSH endpoint は従来どおり Windows localhost にだけ bind したままでよい。LAN interfaceへ `2222` / `2223` を直接公開しない。
 
@@ -305,6 +311,21 @@ pwsh -NoProfile -File platforms/windows-11/mise-path-ownership.ps1 -Restore <bac
 - 書き込み前に展開前の生値を `%USERPROFILE%\.local\state\pc-setup\machine-path-backup\machine-path-<timestamp>.txt` に保存する。`-Restore` はその値をそのまま書き戻す。
 - 管理者権限が無い場合、`-Apply` は変更せず終了する。
 - 変更は新規プロセスにのみ効く。既に起動済みの shell は古い PATH を保持し続けるため、PATH から外したコピーを解決しようとして失敗することがある。`-Apply` 後は新しいターミナルを開く。
+
+### User PATH の収束 (`user-path.ps1`)
+
+ADR-0021 は registry User PATH に置く mise 由来の entry を `%LOCALAPPDATA%\mise\shims` だけとし、旧 Rust home の `%USERPROFILE%\.cargo\bin` を外すことを要求する。`platforms/windows-11/user-path.ps1` がその収束を行う。
+
+```powershell
+pwsh -NoProfile -File platforms/windows-11/user-path.ps1           # plan のみ (書き込みなし)
+pwsh -NoProfile -File platforms/windows-11/user-path.ps1 -Apply    # HKCU のみ、昇格不要
+pwsh -NoProfile -File platforms/windows-11/user-path.ps1 -Restore <backup-file>
+```
+
+- 変更するのは **User PATH (HKCU) のみ**。展開後の完全一致で `.cargo\bin` entry を除去し、mise shims entry が無ければ末尾へ追加する。並び順は変えず、他の entry・ファイル・ディレクトリは触らない。
+- Machine PATH は `mise-path-ownership.ps1` の担当であり、この script は触らない。
+- 書き込み前に展開前の生値を `%LOCALAPPDATA%\pc-setup\user-path-backup\user-path-<timestamp>.txt` に保存する。registry の値 kind (REG_SZ / REG_EXPAND_SZ) は保持する。
+- `bootstrap.ps1` と `converge.ps1` の両方から呼ばれ、再実行は冪等。`verify.ps1` は `.cargo\bin` 残存と shims entry 欠落を FAIL として報告する。
 
 ### 宣言済みツールの実行確認
 

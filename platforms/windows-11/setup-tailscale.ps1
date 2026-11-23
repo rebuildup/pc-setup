@@ -40,6 +40,58 @@ function Invoke-Checked {
     }
 }
 
+# `tailscale status --json` emits UTF-8. Windows PowerShell 5.1 on a Japanese
+# (or any non-UTF-8) console decodes native output with the OEM code page, so
+# the Health strings arrive as mojibake and ConvertFrom-Json fails on
+# 'Path 'Health[0]''. Decode as UTF-8 for the duration of the call and restore
+# the previous encoding afterwards; a failure to set it must not stop the
+# script, because the parse below still fails closed on bad output.
+function Invoke-Utf8Native {
+    param(
+        [Parameter(Mandatory)][string]$Command,
+        [Parameter(Mandatory)][string[]]$Arguments
+    )
+
+    $previousEncoding = $null
+    try {
+        $previousEncoding = [Console]::OutputEncoding
+        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+    }
+    catch { }
+
+    try {
+        $output = @(& $Command @Arguments 2>$null)
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        if ($null -ne $previousEncoding) {
+            try { [Console]::OutputEncoding = $previousEncoding } catch { }
+        }
+    }
+
+    return [pscustomobject]@{ Output = $output; ExitCode = $exitCode }
+}
+
+# Returns the parsed `tailscale status --json` object, or $null when the state
+# cannot be determined. Callers MUST treat $null as "unknown" and fail closed:
+# an unparseable status once fell through to the `tailscale up --auth-key`
+# path and re-registered a node that was already enrolled.
+function Get-TailscaleStatus {
+    param([Parameter(Mandatory)]$TailscaleCommand)
+
+    $result = Invoke-Utf8Native -Command $TailscaleCommand -Arguments @('status', '--json')
+    if ($result.ExitCode -ne 0 -or $result.Output.Count -eq 0) {
+        return $null
+    }
+
+    try {
+        return (($result.Output -join [Environment]::NewLine) | ConvertFrom-Json)
+    }
+    catch {
+        return $null
+    }
+}
+
 if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     throw 'This setup targets Windows.'
 }
@@ -107,18 +159,18 @@ if ([string]::IsNullOrWhiteSpace($oauthSecret)) {
     throw "Required Infisical secret is not injected: $secretName"
 }
 
-$status = $null
-$statusOutput = @(& $tailscale status --json 2>$null)
-if ($LASTEXITCODE -eq 0 -and $statusOutput.Count -gt 0) {
-    try {
-        $status = ($statusOutput -join [Environment]::NewLine) | ConvertFrom-Json
-    }
-    catch {
-        $status = $null
-    }
+$status = Get-TailscaleStatus -TailscaleCommand $tailscale
+
+if ($null -eq $status -or $null -eq $status.BackendState) {
+    # Fail closed: the backend state is unknown, so this script cannot tell a
+    # fresh machine (NeedsLogin) from an already-enrolled node whose status
+    # output failed to decode. Re-registering here once replaced a healthy
+    # node identity; refuse instead and let the operator re-run once the
+    # status command works.
+    throw 'tailscale status --json is unavailable or unparseable; refusing to touch node registration (fail closed). Re-run after Tailscale is responsive.'
 }
 
-if (-not $status -or $status.BackendState -ne 'Running') {
+if ($status.BackendState -ne 'Running') {
     Write-Host 'Registering Windows host with Tailscale'
     $authKey = "${oauthSecret}?$($config.Tailscale.AuthKeyParameters)"
     try {
@@ -147,9 +199,10 @@ foreach ($mapping in $config.Tailscale.Serve) {
     ) -Description "Tailscale Serve $($mapping.ListenPort)"
 }
 
-$serveStatus = @(& $tailscale serve status 2>$null) -join [Environment]::NewLine
-if ($LASTEXITCODE -ne 0) {
-    throw "Tailscale Serve status failed with exit code $LASTEXITCODE"
+$serveResult = Invoke-Utf8Native -Command $tailscale -Arguments @('serve', 'status')
+$serveStatus = ($serveResult.Output -join [Environment]::NewLine)
+if ($serveResult.ExitCode -ne 0) {
+    throw "Tailscale Serve status failed with exit code $($serveResult.ExitCode)"
 }
 
 foreach ($mapping in $config.Tailscale.Serve) {
