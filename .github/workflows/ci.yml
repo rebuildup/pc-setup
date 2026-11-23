@@ -668,6 +668,88 @@ jobs:
             throw 'mise-path-ownership.ps1 must print duplicate owners before the plan-only exit.'
           }
 
+      - name: Validate Tailscale fail-closed and User PATH convergence
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+
+          # setup-tailscale.ps1 must fail closed when `tailscale status --json`
+          # cannot be parsed: the old code treated parse failure as "not
+          # running" and fell into `tailscale up --auth-key`, re-registering an
+          # already-enrolled node. And both scripts must decode the native JSON
+          # as UTF-8, because Windows PowerShell 5.1 uses the OEM code page and
+          # mojibake breaks ConvertFrom-Json on Japanese Windows.
+          $setup = Get-Content -LiteralPath ./platforms/windows-11/setup-tailscale.ps1 -Raw
+          foreach ($needle in 'Invoke-Utf8Native', 'Get-TailscaleStatus', 'UTF8', 'fail closed') {
+            if (-not $setup.Contains($needle)) { throw "setup-tailscale.ps1 is missing: $needle" }
+          }
+          $statusCall = $setup.IndexOf('$status = Get-TailscaleStatus')
+          $nullGuard = $setup.IndexOf('refusing to touch node registration')
+          $register = $setup.IndexOf("'up'")
+          if ($statusCall -lt 0 -or $nullGuard -lt 0 -or $register -lt 0) {
+            throw 'setup-tailscale.ps1 must read status through Get-TailscaleStatus and guard registration behind the fail-closed check.'
+          }
+          if (-not ($statusCall -lt $nullGuard -and $nullGuard -lt $register)) {
+            throw 'setup-tailscale.ps1 must throw on unknown status BEFORE reaching tailscale up.'
+          }
+
+          $verify = Get-Content -LiteralPath ./platforms/windows-11/verify.ps1 -Raw
+          foreach ($needle in 'Invoke-NativeUtf8', 'Microsoft.PowerShell', 'user-path.ps1', 'legacy .cargo\bin') {
+            if (-not $verify.Contains($needle)) { throw "verify.ps1 is missing: $needle" }
+          }
+
+          # user-path.ps1 edits HKCU\Environment\Path. Plan mode must be
+          # read-only; -Apply must back up the unexpanded value first and write
+          # through the registry with the original value kind preserved.
+          $up = './platforms/windows-11/user-path.ps1'
+          $tokens = $null; $parseErrors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $up).Path, [ref]$tokens, [ref]$parseErrors)
+          if ($parseErrors.Count -gt 0) { throw "user-path.ps1 does not parse: $($parseErrors[0].Message)" }
+          $upText = Get-Content -LiteralPath $up -Raw
+          foreach ($needle in 'param(', '[switch]$Apply', '[string]$Restore', 'HKCU', 'user-path-backup', 'DoNotExpandEnvironmentNames', '.cargo\bin', 'mise\shims') {
+            if (-not $upText.Contains($needle)) { throw "user-path.ps1 is missing: $needle" }
+          }
+          $backupIndex = $upText.IndexOf('user-path-backup')
+          $setValueIndex = $upText.IndexOf("SetValue('Path'")
+          if ($backupIndex -lt 0 -or $setValueIndex -lt 0 -or $setValueIndex -lt $backupIndex) {
+            throw 'user-path.ps1 must save the previous User PATH before writing it.'
+          }
+
+          # Plan mode on the CI runner must not write.
+          $userKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $false)
+          try { $before = $userKey.GetValue('Path', '', 'DoNotExpandEnvironmentNames') } finally { $userKey.Close() }
+          & $up *>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "user-path.ps1 plan mode exited $LASTEXITCODE" }
+          $userKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $false)
+          try { $after = $userKey.GetValue('Path', '', 'DoNotExpandEnvironmentNames') } finally { $userKey.Close() }
+          if ($before -ne $after) { throw 'user-path.ps1 changed the User PATH without -Apply.' }
+
+          # -Apply on the ephemeral runner must converge and be restorable:
+          # apply, confirm a second plan reports converged, restore the backup,
+          # confirm the original value is back.
+          $applyOut = (& $up -Apply *>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw "user-path.ps1 -Apply exited $LASTEXITCODE`n$applyOut" }
+          $backupLine = [regex]::Match($applyOut, 'backup\s+(\S+\.txt)')
+          if (-not $backupLine.Success) { throw "user-path.ps1 -Apply printed no backup path`n$applyOut" }
+          $backupFile = $backupLine.Groups[1].Value
+          $converged = (& $up *>&1 | Out-String)
+          if ($converged -notmatch 'already converged') { throw "user-path.ps1 did not converge after -Apply`n$converged" }
+          & $up -Restore $backupFile *>&1 | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "user-path.ps1 -Restore exited $LASTEXITCODE" }
+          $userKey = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $false)
+          try { $restored = $userKey.GetValue('Path', '', 'DoNotExpandEnvironmentNames') } finally { $userKey.Close() }
+          if ($restored -ne $before) { throw 'user-path.ps1 -Restore did not put the original User PATH back.' }
+
+          # bootstrap.ps1 and converge.ps1 must both reach the same script so a
+          # fresh install and the hourly converge stay on one code path.
+          $bootstrap = Get-Content -LiteralPath ./bootstrap.ps1 -Raw
+          if (-not $bootstrap.Contains('user-path.ps1')) { throw 'bootstrap.ps1 must invoke user-path.ps1.' }
+          $converge = Get-Content -LiteralPath ./platforms/windows-11/converge.ps1 -Raw
+          if (-not $converge.Contains('user-path.ps1') -or -not $converge.Contains("Invoke-Step 'user-path'")) {
+            throw 'converge.ps1 must run user-path.ps1 as a named step.'
+          }
+
       - name: Validate converge survives a step error and always reports
         shell: pwsh
         run: |
