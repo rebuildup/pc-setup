@@ -84,10 +84,10 @@ OSに依存しにくい開発CLI/runtimeは一度だけ宣言する。
 - Claude Code / Codex / OpenCode / Devin
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
-- Google Cloud CLI / AWS CLI
-- Supabase CLI
 - ripgrep / fd / fzf / jq / bat / gdu
 - ShellCheck / Neovim
+
+AWS CLI / Google Cloud CLI は必要なホストだけに導入する任意機能です。Supabase CLI は各プロジェクトの `mise.toml`、Playwright は各プロジェクトの依存管理で版を指定します。CLIの導入範囲と認証アカウントの範囲は別の判断です。詳細は [ADR-0029](./docs/adr/ADR-0029.md)。
 
 Open Code Review は npm trust policy を迂回せず、公式 `alibaba/open-code-review` GitHub Release のplatform binaryをmiseから導入する。詳細は [ADR-0007](./docs/adr/ADR-0007.md) を参照。
 

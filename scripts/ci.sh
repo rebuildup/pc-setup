@@ -45,6 +45,36 @@ for path in (Path("mise.toml"), Path("mise.global.toml")):
         tomllib.load(fh)
 PY
 
+printf 'Checking CLI ownership scope contract...\n'
+python3 - <<'PY'
+import tomllib
+from pathlib import Path
+
+with Path("mise.global.toml").open("rb") as fh:
+    global_config = tomllib.load(fh)
+with Path("mise.global.lock").open("rb") as fh:
+    global_lock = tomllib.load(fh)
+with Path("mise.toml").open("rb") as fh:
+    bootstrap = tomllib.load(fh)
+
+project_or_optional = {"aws-cli", "gcloud", "supabase", "npm:playwright"}
+for label, tools in (
+    ("mise.global.toml", global_config.get("tools", {})),
+    ("mise.global.lock", global_lock.get("tools", {})),
+):
+    unwanted = project_or_optional.intersection(tools)
+    if unwanted:
+        raise SystemExit(f"{label} contains project/optional CLI: {sorted(unwanted)}")
+
+packages = bootstrap.get("bootstrap", {}).get("packages", {})
+for package in ("winget:Google.CloudSDK", "winget:Amazon.AWSCLI"):
+    if package in packages:
+        raise SystemExit(f"optional cloud CLI is a mandatory host package: {package}")
+
+if Path(".mise/locks/mise.global/npm-playwright").exists():
+    raise SystemExit("orphaned global Playwright dependency sidecar")
+PY
+
 printf 'Checking machine-wide mise package scope...\n'
 python3 - <<'PY'
 import tomllib

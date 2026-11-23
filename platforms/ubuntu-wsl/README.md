@@ -61,10 +61,10 @@ Portable developer tools are declared once in `mise.global.toml`, which is linke
 - Claude Code / Codex / OpenCode / Devin
 - Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
-- Google Cloud CLI / AWS CLI
-- Supabase CLI
 - ripgrep / fd / fzf / jq / bat / gdu
 - ShellCheck / Neovim
+
+AWS / Google Cloud は使うホストの任意機能、Supabase / Playwright は各プロジェクト側のバージョン管理対象です。CLIの有無は共通bootstrapの成否に含めません（[ADR-0029](../../docs/adr/ADR-0029.md)）。
 
 The Ubuntu bootstrap does not duplicate installation logic for those tools.
 

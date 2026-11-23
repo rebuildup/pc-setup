@@ -150,9 +150,6 @@ commands=(
   wt
   herdr
   pnpm
-  gcloud
-  aws
-  supabase
   npkill
   ocr
   cargo-clean-all

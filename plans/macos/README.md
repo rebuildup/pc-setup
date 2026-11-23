@@ -40,9 +40,9 @@ Cross-machine developer CLI/runtime requirements are inherited from root `mise.t
 - Node.js / Python / pnpm / Bun / Rust
 - Claude Code / Codex / OpenCode / Devin / Worktrunk / Herdr
 - Open Code Review / npkill / cargo-clean-all
-- Google Cloud CLI / AWS CLI
-- Supabase CLI
 - ripgrep / fd / fzf / jq / bat / gdu / ShellCheck / Neovim
+
+AWS / Google Cloud はホスト任意機能、Supabase / Playwright はプロジェクト依存として管理します（[ADR-0029](../../docs/adr/ADR-0029.md)）。
 
 macOS-specific application candidates are recorded separately in `mise.candidate.toml`.
 

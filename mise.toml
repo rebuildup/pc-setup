@@ -49,8 +49,6 @@ bun = "1.4.2"
 # Visual Studio is intentionally not installed here: any edition/year is accepted
 # and platforms/windows-11/verify.ps1 checks the MSVC / Windows SDK capabilities.
 "winget:Google.AndroidStudio" = { os = "windows" }
-"winget:Google.CloudSDK" = { os = "windows" }
-"winget:Amazon.AWSCLI" = { os = "windows" }
 "winget:Tailscale.Tailscale" = { os = "windows" }
 
 [bootstrap.repos]
