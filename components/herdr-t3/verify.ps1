@@ -31,9 +31,17 @@ Write-Host "[herdr-t3] start menu: $lnk"
 if ($Live) {
   if (-not (Get-Process -Name "herdr-t3" -ErrorAction SilentlyContinue)) { Fail "app is not running (run launch.ps1)" }
   $sock = if ($env:HERDR_SOCKET) { $env:HERDR_SOCKET } else { Join-Path $env:APPDATA "herdr\herdr.sock" }
-  $pipe = "\\.\pipe\$sock"
-  if (-not (Test-Path $sock) -and -not [System.IO.Directory]::Exists($pipe)) {
-    Fail "herdr endpoint not found: $sock / $pipe (is herdr running?)"
+  # Windows herdr endpoints are named pipes; Directory.Exists cannot see
+  # them, so probe the pipe with a short connect instead.
+  $pipeName = [System.IO.Path]::GetFileName($sock)
+  $pipeUp = $false
+  try {
+    $pipeClient = New-Object System.IO.Pipes.NamedPipeClientPipe('.', $pipeName, [System.IO.Pipes.PipeDirection]::InOut)
+    try { $pipeClient.Connect(1500); $pipeUp = $true } catch { }
+    finally { $pipeClient.Dispose() }
+  } catch { }
+  if (-not (Test-Path $sock) -and -not $pipeUp) {
+    Fail "herdr endpoint not found: $sock / \\.\pipe\$pipeName (is herdr running?)"
   }
   Write-Host "[herdr-t3] live: app running, herdr endpoint present: $sock"
 }

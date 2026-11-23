@@ -21,10 +21,12 @@ function Log($msg) { Write-Host "[herdr-t3] $msg" }
 function Die($msg) { Write-Host "[herdr-t3] ERROR: $msg" -ForegroundColor Red; exit 1 }
 
 if (-not $Ref) {
+  # Stable release tags only: a prerelease tag like v1.1.0-rc.1 would fail
+  # the [version] cast below and must never win auto-selection.
   $tags = git ls-remote --tags $RepoUrl "refs/tags/v*" |
-    ForEach-Object { ($_ -split "/")[-1] } | Where-Object { $_ -notmatch '\^' }
+    ForEach-Object { ($_ -split "/")[-1] } | Where-Object { $_ -match '^v\d+\.\d+\.\d+$' }
   $Ref = $tags | Sort-Object { [version]($_.TrimStart('v')) } | Select-Object -Last 1
-  if (-not $Ref) { Die "no v* tag found on $RepoUrl" }
+  if (-not $Ref) { Die "no stable v* tag found on $RepoUrl" }
 }
 if ($Ref -match '^v[0-9]') {
   git ls-remote --exit-code --tags $RepoUrl "refs/tags/$Ref" | Out-Null
@@ -43,6 +45,7 @@ if (-not (Test-Path (Join-Path $target ".git"))) {
   git -C $target fetch --quiet --tags origin
 }
 git -C $target checkout --quiet $Ref
+if ($LASTEXITCODE -ne 0) { Die "git checkout $Ref failed in $target" }
 $commit = (git -C $target rev-parse HEAD).Trim()
 Log "building $name ($commit)"
 

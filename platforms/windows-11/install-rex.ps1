@@ -76,6 +76,11 @@ else {
         Expand-Archive -LiteralPath $zipPath -DestinationPath $extractDir -Force
 
         if (Test-Path -LiteralPath $InstallRoot) {
+            # A running rex.exe locks its directory; stop it first so the
+            # replace cannot fail halfway and leave a mixed install.
+            Get-Process -Name 'rex' -ErrorAction SilentlyContinue |
+                Where-Object { $_.Path -and $_.Path.StartsWith($InstallRoot, [StringComparison]::OrdinalIgnoreCase) } |
+                Stop-Process -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath $InstallRoot -Recurse -Force
         }
         New-Item -ItemType Directory -Path $InstallRoot -Force | Out-Null
@@ -87,7 +92,9 @@ else {
         }
 
         $newVersion = Get-RexVersion -RexExe $existingExe
-        Write-Host "ok      Rex $($newVersion ?? $release.version) installed -> $existingExe"
+        $reportedVersion = $newVersion
+        if (-not $reportedVersion) { $reportedVersion = $release.version }
+        Write-Host "ok      Rex $reportedVersion installed -> $existingExe"
     }
     finally {
         Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue

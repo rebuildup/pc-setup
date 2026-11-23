@@ -74,11 +74,14 @@ if (-not $StateDir) {
 function Get-UserPathRaw {
     $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $false)
     try {
+        if ($key.GetValueNames() -notcontains 'Path') {
+            # PATH normally exists as REG_EXPAND_SZ; a missing value is
+            # written back expandable.
+            return [pscustomobject]@{ Value = ''; Kind = [Microsoft.Win32.RegistryValueKind]::ExpandString }
+        }
         $value = $key.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         $kind = $key.GetValueKind('Path')
         if ($kind -eq [Microsoft.Win32.RegistryValueKind]::Unknown) {
-            # PATH normally exists as REG_EXPAND_SZ; a missing value kind means
-            # the value itself is absent, so write it back expandable.
             $kind = [Microsoft.Win32.RegistryValueKind]::ExpandString
         }
     }
@@ -136,7 +139,15 @@ if (-not $Apply) {
 }
 
 $kept = @($entries | Where-Object { -not (Test-LegacyCargoEntry -Entry $_) })
-if (-not $shimPresent) { $kept += $miseShimEntry }
+if (-not $shimPresent) {
+    # A REG_SZ User PATH is never environment-expanded at runtime, so the
+    # shim entry must be stored pre-expanded there; REG_EXPAND_SZ keeps the
+    # portable %LOCALAPPDATA% form.
+    $shimEntry = if ($current.Kind -eq [Microsoft.Win32.RegistryValueKind]::String) {
+        [Environment]::ExpandEnvironmentVariables($miseShimEntry)
+    } else { $miseShimEntry }
+    $kept += $shimEntry
+}
 $newValue = ($kept -join ';')
 
 if ($newValue -eq $current.Value) {
