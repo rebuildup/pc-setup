@@ -183,8 +183,8 @@ packages:
   '@silvia-odwyer/photon-node@0.3.4':
     resolution: {integrity: sha512-bnly4BKB3KDTFxrUIcgCLbaeVVS8lrAkri1pEzskpmxu9MdfGQTy8b8EgcD83ywD3RPMsIulY8xJH5Awa+t9fA==}
 
-  '@smithy/core@3.41.0':
-    resolution: {integrity: sha512-fuZ34H1uizS3WgcX9VXG7Uy8od5A5/kCc+CR3NkHLNm2H/BE9AUHG02VIdu8ZB7FYhLqsr/RZbqAoXuOCg/Oxg==}
+  '@smithy/core@3.41.1':
+    resolution: {integrity: sha512-24LyiHSY0R/MLcbTylurWXU6Uy4lzI6KJgsdzxkNnjT9/OLWc2zGPb/3k5AM1f0vcgCGrExanUG339t+TBiIrA==}
     engines: {node: '>=18.0.0'}
 
   '@smithy/credential-provider-imds@4.5.2':
@@ -539,7 +539,7 @@ snapshots:
       '@aws-sdk/middleware-websocket': 3.972.67
       '@aws-sdk/token-providers': 3.1127.0
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/fetch-http-handler': 5.8.1
       '@smithy/node-http-handler': 4.12.1
       '@smithy/types': 4.20.0
@@ -550,7 +550,7 @@ snapshots:
       '@aws-sdk/types': 3.975.1
       '@aws-sdk/xml-builder': 3.972.43
       '@aws/lambda-invoke-store': 0.3.0
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/signature-v4': 5.7.5
       '@smithy/types': 4.20.0
       bowser: 2.15.1
@@ -560,7 +560,7 @@ snapshots:
     dependencies:
       '@aws-sdk/core': 3.981.1
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
@@ -568,7 +568,7 @@ snapshots:
     dependencies:
       '@aws-sdk/core': 3.981.1
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/fetch-http-handler': 5.8.1
       '@smithy/node-http-handler': 4.14.2
       '@smithy/types': 4.20.0
@@ -585,7 +585,7 @@ snapshots:
       '@aws-sdk/credential-provider-web-identity': 3.972.91
       '@aws-sdk/nested-clients': 3.998.4
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/credential-provider-imds': 4.5.2
       '@smithy/types': 4.20.0
       tslib: 2.9.1
@@ -595,7 +595,7 @@ snapshots:
       '@aws-sdk/core': 3.981.1
       '@aws-sdk/nested-clients': 3.998.4
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
@@ -608,7 +608,7 @@ snapshots:
       '@aws-sdk/credential-provider-sso': 3.973.29
       '@aws-sdk/credential-provider-web-identity': 3.972.91
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/credential-provider-imds': 4.5.2
       '@smithy/types': 4.20.0
       tslib: 2.9.1
@@ -617,7 +617,7 @@ snapshots:
     dependencies:
       '@aws-sdk/core': 3.981.1
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
@@ -627,7 +627,7 @@ snapshots:
       '@aws-sdk/nested-clients': 3.998.4
       '@aws-sdk/token-providers': 3.1175.0
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
@@ -636,21 +636,21 @@ snapshots:
       '@aws-sdk/core': 3.981.1
       '@aws-sdk/nested-clients': 3.998.4
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
   '@aws-sdk/eventstream-handler-node@3.972.42':
     dependencies:
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
   '@aws-sdk/middleware-eventstream@3.972.38':
     dependencies:
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
@@ -658,7 +658,7 @@ snapshots:
     dependencies:
       '@aws-sdk/core': 3.981.1
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/fetch-http-handler': 5.8.1
       '@smithy/signature-v4': 5.7.5
       '@smithy/types': 4.20.0
@@ -669,7 +669,7 @@ snapshots:
       '@aws-sdk/core': 3.981.1
       '@aws-sdk/signature-v4-multi-region': 3.996.52
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/fetch-http-handler': 5.8.1
       '@smithy/node-http-handler': 4.14.2
       '@smithy/types': 4.20.0
@@ -687,7 +687,7 @@ snapshots:
       '@aws-sdk/core': 3.981.1
       '@aws-sdk/nested-clients': 3.998.4
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
@@ -696,7 +696,7 @@ snapshots:
       '@aws-sdk/core': 3.981.1
       '@aws-sdk/nested-clients': 3.998.4
       '@aws-sdk/types': 3.975.1
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
@@ -848,38 +848,38 @@ snapshots:
 
   '@silvia-odwyer/photon-node@0.3.4': {}
 
-  '@smithy/core@3.41.0':
+  '@smithy/core@3.41.1':
     dependencies:
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
   '@smithy/credential-provider-imds@4.5.2':
     dependencies:
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
   '@smithy/fetch-http-handler@5.8.1':
     dependencies:
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
   '@smithy/node-http-handler@4.12.1':
     dependencies:
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
   '@smithy/node-http-handler@4.14.2':
     dependencies:
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
   '@smithy/signature-v4@5.7.5':
     dependencies:
-      '@smithy/core': 3.41.0
+      '@smithy/core': 3.41.1
       '@smithy/types': 4.20.0
       tslib: 2.9.1
 
