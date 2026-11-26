@@ -30,6 +30,7 @@ of scope — the herdr TUI keeps its existing operation there.
 | launch | `launch.sh` | `launch.ps1` |
 | verify | `verify.sh [--live]` | `verify.ps1 [-Live]` |
 | rollback | `rollback.sh` | `rollback.ps1` |
+| plugins | `plugin-set.sh [--check]` | `plugin-set.ps1 [-Check]` |
 
 macOS stages the built `.app` into `~/Applications` so it behaves like a
 normal app (Finder, Spotlight, Launch Services, Dock). Windows keeps the
@@ -48,6 +49,28 @@ herdr endpoint is reachable (macOS: `~/.config/herdr/herdr.sock`; Windows:
 the named-pipe endpoint `\\.\pipe\<herdr.sock path>`), and — on macOS —
 that the app's own `bridge-status.json` reports a fresh successful herdr
 snapshot.
+
+## rebuildup/herdr-plugins set (pc-setup#239)
+
+`plugin-set.sh` / `plugin-set.ps1` install the four plugins herdr-t3's
+plugin boundary consumes, each through the official
+`herdr plugin install rebuildup/herdr-plugins/plugins/<name> --ref <sha>`
+path at the full commit SHA pinned by herdr-t3's
+`docs/migration/contracts/plugins-boundary.md`:
+
+| plugin | pinned commit | contract version |
+| --- | --- | --- |
+| `rebuildup.inbox` | `414e87dea9faa5c221fb27508e5828f086849836` | inbox v0.1.0 |
+| `rebuildup.git` | `d0578307a856e53af210775f9cb95c9f593d6f87` | git-v1 @ 0.2.0 |
+| `rebuildup.projects` | `2dcb2abfa57b0adcf5d1109f76087e19b3dfae07` | projects/v1 @ 0.3.0 |
+| `rebuildup.checkpoints` | `ae4f214c523d05128354a8c4ba493b62cd8e843f` | checkpoints/v1 @ 0.4.0 |
+
+The script is idempotent: plugins already at the pinned commit are
+skipped, and `--check` / `-Check` reports drift without installing.
+Prerequisites are `herdr` (>= 0.9.0) and `bun` on PATH — plugin manifest
+commands run `bun run`, so the runtime must resolve in the invoking
+shell. On Windows, run it from an interactive shell: non-login ssh
+sessions may not carry the user PATH (rebuildup/herdr-t3#339).
 
 ## Integration notes
 
