@@ -37,8 +37,21 @@ fi
 echo "[herdr-t3] installed: $name @ ${commit:0:12} -> $app (v$version, $bid)"
 
 # Launch Services / Spotlight discovery (not just file existence).
-mdfind "kMDItemCFBundleIdentifier == '$BUNDLE_ID'" 2>/dev/null | grep -Fqx "$app" \
-  || fail "Spotlight/Launch Services does not resolve $BUNDLE_ID to $app"
+# `lsregister -f` re-registers the app, then poll `mdfind`: the Spotlight
+# index lags registration by seconds, so a single-shot query false-FAILs
+# right after install/update (rebuildup/pc-setup#245).
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+[[ -x "$LSREGISTER" ]] && "$LSREGISTER" -f "$app" >/dev/null 2>&1 || true
+spotlight_ok=0
+for _ in $(seq 1 30); do
+  if mdfind "kMDItemCFBundleIdentifier == '$BUNDLE_ID'" 2>/dev/null | grep -Fqx "$app"; then
+    spotlight_ok=1
+    break
+  fi
+  sleep 2
+done
+[[ "$spotlight_ok" == "1" ]] \
+  || fail "Spotlight/Launch Services does not resolve $BUNDLE_ID to $app after 60s"
 echo "[herdr-t3] launch services: $app"
 
 if [[ "$LIVE" == "1" ]]; then

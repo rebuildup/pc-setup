@@ -49,6 +49,25 @@ if ($LASTEXITCODE -ne 0) { Die "git checkout $Ref failed in $target" }
 $commit = (git -C $target rev-parse HEAD).Trim()
 Log "building $name ($commit)"
 
+# `mise install --locked` must see only the checkout's own mise.toml /
+# mise.lock. On managed machines the user-global config pins
+# machine-global tools that are absent from the repo lockfile and fails
+# --locked installs (rebuildup/pc-setup#245). Point the global config at
+# an empty file and ignore the user config locations; the data dir
+# (installs, trust) is untouched.
+$miseEmptyGlobal = Join-Path $StateDir "mise-empty-global.toml"
+New-Item -ItemType File -Force -Path $miseEmptyGlobal | Out-Null
+# MISE_IGNORED_CONFIG_PATHS uses the OS path separator (';' on Windows,
+# ':' on Unix) since mise v2026.4.15.
+$ignored = @(
+  (Join-Path $env:USERPROFILE ".config\mise"),
+  (Join-Path $env:APPDATA "mise"),
+  (Join-Path $env:USERPROFILE ".tool-versions")
+) -join ";"
+if ($env:MISE_IGNORED_CONFIG_PATHS) { $ignored = "$ignored;$env:MISE_IGNORED_CONFIG_PATHS" }
+$env:MISE_GLOBAL_CONFIG_FILE = $miseEmptyGlobal
+$env:MISE_IGNORED_CONFIG_PATHS = $ignored
+
 Push-Location $target
 try {
   mise install --locked | Out-Null
