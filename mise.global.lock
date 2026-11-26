@@ -37,33 +37,33 @@ url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1
 url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/774858003"
 
 [[tools.agy]]
-version = "1.5.16"
+version = "1.5.17"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools.agy."platforms.linux-x64"]
-checksum = "sha256:9bdab234d06bad1a61be2321072652eb06be78baff1acbfae47331da5a090abc"
+checksum = "sha256:6304b4f592ae97e59231cfb1b365ee29c155750c9a881f0cc8efe5f5281077cf"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.16/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/785631423"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.17/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/790519060"
 
 [tools.agy."platforms.macos-arm64"]
-checksum = "sha256:ba47202f712de4c4a78fd787d81ba206d73e11c97572fc69420f29a77efc8d95"
+checksum = "sha256:94d4c4755c9edbae3feba8f7d3c7b2764e6b239326efb0477b28407635c9e764"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.16/agy_cli_mac_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/785631699"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.17/agy_cli_mac_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/790519540"
 
 [tools.agy."platforms.macos-x64"]
-checksum = "sha256:14cd76a31e42ad461d6f8adf7631306cac37553f547aba0a0f111b0824d21c0c"
+checksum = "sha256:58cc9a6c11256de348193db4928fe7212d14aaa969ff17b8b9fcac2296579afc"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.16/agy_cli_mac_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/785631431"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.17/agy_cli_mac_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/790519065"
 
 [tools.agy."platforms.windows-x64"]
-checksum = "sha256:f36c1b7cbf584b5c5a24dd768076013588be302d6ec954417817ded7e74ae10b"
+checksum = "sha256:04df1f1c5eb4e60ad6cd26c4419645097b702aefee153e3fa0597f04749ad2c5"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.16/agy_cli_windows_x64.zip"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/785631711"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.17/agy_cli_windows_x64.zip"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/790519545"
 
 [[tools.bat]]
 version = "0.26.1"
@@ -195,33 +195,33 @@ backend = "cargo:wasm-pack"
 specifiers = ["latest"]
 
 [[tools.claude]]
-version = "2.1.331"
+version = "2.1.332"
 backend = "aqua:anthropics/claude-code"
 specifiers = ["latest"]
 
 [tools.claude."platforms.linux-x64"]
-checksum = "sha256:9f5a726b25eb1d3b7d04082eb12f308c834edbfad66ad6292fffb88856b53f1f"
+checksum = "sha256:cab5bc60de00f7238b7974d281db4c177385490744ee44b329f6509e1606ca3c"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.331/claude-linux-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/784084543"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.332/claude-linux-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/789036647"
 
 [tools.claude."platforms.macos-arm64"]
-checksum = "sha256:bed0f99361aaa41932d6d893eef35b02133b7a652e4c1dd845907bdb67908f82"
+checksum = "sha256:96d9c674ec1da19b96d1f143129f1a032f65b5991421aeac8d2f1bd4c3881c69"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.331/claude-darwin-arm64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/784084261"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.332/claude-darwin-arm64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/789036291"
 
 [tools.claude."platforms.macos-x64"]
-checksum = "sha256:64efccebe2161c489b5b970902ffe7d6952aac810a9d65dc89f78c29906e88c0"
+checksum = "sha256:be892b18103dbfb5bac905fdfa910d19dde90696b4b5ac7854f343b5bce5a2de"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.331/claude-darwin-x64.tar.gz"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/784084268"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.332/claude-darwin-x64.tar.gz"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/789036288"
 
 [tools.claude."platforms.windows-x64"]
-checksum = "sha256:1de4e9dc9fea507cce988d27b1efae3baf9ef51120bc33fe8106e43109a2b8d9"
+checksum = "sha256:eafee4d453b21d5b4bd15fd185bf02a47e0144df9b58dabb8f21b56a86a7bee1"
 checksum_source = "mise-versions"
-url = "https://github.com/anthropics/claude-code/releases/download/v2.1.331/claude-win32-x64.zip"
-url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/784084591"
+url = "https://github.com/anthropics/claude-code/releases/download/v2.1.332/claude-win32-x64.zip"
+url_api = "https://api.github.com/repos/anthropics/claude-code/releases/assets/789036669"
 
 [[tools.codex]]
 version = "0.172.0"
@@ -563,13 +563,13 @@ url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-win-x64.zip"
 
 [[tools."npm:@deepseek-ai/dsh"]]
 version = "0.2.0-rc.2"
-aube = { path = ".mise/locks/mise.global/npm-deepseek-ai-dsh/0.2.0-rc.2", digest = "sha256:c2288cca831162ae93b90a79b3be9c185be0671a0ec2c32019a4dce708b2b3e7" }
+aube = { path = ".mise/locks/mise.global/npm-deepseek-ai-dsh/0.2.0-rc.2", digest = "sha256:bdd304e4ee5fcd4218e6c7e7424e603e9e7691c698a4d486080061c2c0a91068" }
 backend = "npm:@deepseek-ai/dsh"
 specifiers = ["0.2.0-rc.2"]
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
 version = "1.6.0"
-aube = { path = ".mise/locks/mise.global/npm-earendil-works-pi-coding-agent/1.6.0", digest = "sha256:c355287362f3a60df839dc729b542626b0f10c6a281893d5468c9810c43aaaad" }
+aube = { path = ".mise/locks/mise.global/npm-earendil-works-pi-coding-agent/1.6.0", digest = "sha256:0725ea7dcce99fe060288ea81faa91a00c1882976f35ae7fc47f14b6337d69b8" }
 backend = "npm:@earendil-works/pi-coding-agent"
 specifiers = ["latest"]
 
