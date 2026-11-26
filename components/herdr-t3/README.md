@@ -52,7 +52,7 @@ snapshot.
 
 ## rebuildup/herdr-plugins set (pc-setup#239)
 
-`plugin-set.sh` / `plugin-set.ps1` install the six plugins herdr-t3's
+`plugin-set.sh` / `plugin-set.ps1` install the seven plugins herdr-t3's
 plugin boundary consumes, each through the official
 `herdr plugin install rebuildup/herdr-plugins/plugins/<name> --ref <sha>`
 path at the full commit SHA pinned by herdr-t3's
@@ -66,6 +66,7 @@ path at the full commit SHA pinned by herdr-t3's
 | `rebuildup.checkpoints` | `ae4f214c523d05128354a8c4ba493b62cd8e843f` | checkpoints/v1 @ 0.4.0 |
 | `rebuildup.automations` | `6c1cfa501323772e7c1c008c3dbcd7e364feb0b3` | automations/v1 @ 0.7.0 |
 | `rebuildup.conversations` | `d23205af0cd2ff7dba25f72e1f3b872762a108ee` | conversations/v1 @ 0.5.0 |
+| `rebuildup.usage` | `d23205af0cd2ff7dba25f72e1f3b872762a108ee` | usage/v1 @ 0.5.0 |
 
 The script is idempotent: plugins already at the pinned commit are
 skipped, and `--check` / `-Check` reports drift without installing.
