@@ -4,7 +4,7 @@
 
 ## Workflow
 
-この repository は `project-init` の release-driven workflow に従います。
+このリポジトリの開発には [release-driven プロファイル](organization/profiles/release-driven-solo.md) を適用します。
 
 - `main`: released/integrated state
 - `release-x-y-z`: sprint integration branch
