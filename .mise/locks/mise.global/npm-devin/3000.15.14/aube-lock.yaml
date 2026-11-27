@@ -1,0 +1,85 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      devin:
+        specifier: 3000.15.14
+        version: 3000.15.14
+
+packages:
+
+  devin-darwin-arm64@3000.15.14-darwin-arm64:
+    resolution: {integrity: sha512-YEKk2L3spqhhyKYH3vINfFgRCRHh5b2+cxeQSB4UrjULWq+x6ocrZOticbRek/FX/FFKGfieIsKJeZhbzl4ZFQ==}
+    cpu: [arm64]
+    os: [darwin]
+    aliasOf: devin
+
+  devin-darwin-x64@3000.15.14-darwin-x64:
+    resolution: {integrity: sha512-2GYarqQa8GeYk9ymJ+WipUBcYRRcTD3FbKvgar04ufcdjVBKfYV8ykY2/tpPdmeCqwWY853b2XvxETCr4XLMRQ==}
+    cpu: [x64]
+    os: [darwin]
+    aliasOf: devin
+
+  devin-linux-arm64@3000.15.14-linux-arm64:
+    resolution: {integrity: sha512-DT3jsXsFeBxp9R6W2Qw9kuf9hrlZNOPv0d3WOkjIEb6pPLgIrzZVKx/tyvhu8KdPNVg9ySHRqfHS7KvrCfyK8w==}
+    cpu: [arm64]
+    os: [linux]
+    aliasOf: devin
+
+  devin-linux-x64@3000.15.14-linux-x64:
+    resolution: {integrity: sha512-AgtoDnPsdL+mUsnAtjwI7DTf12CQ4OkyEoTDjpdSfuCcKxbDD6LoECvzdEWBbdFyc104k8VIfn2upNl5vaImpw==}
+    cpu: [x64]
+    os: [linux]
+    aliasOf: devin
+
+  devin-win32-arm64@3000.15.14-win32-arm64:
+    resolution: {integrity: sha512-0QvBLzlVltxULshk0opJf1AK7FUtGLjbm+9LIvCzbps7QOu0ozJ/Ggf6iZwrvbWVAjxFEsUJ8AYtrgtKZnJ/2w==}
+    cpu: [arm64]
+    os: [win32]
+    aliasOf: devin
+
+  devin-win32-x64@3000.15.14-win32-x64:
+    resolution: {integrity: sha512-iUd1+H6PnpTrSesnj+W9I5suvko2cEnIBuv61oe11/JM307V+RUKPZtW9xeqbLBbA2beCeLfKF1YPG7BDn3GsQ==}
+    cpu: [x64]
+    os: [win32]
+    aliasOf: devin
+
+  devin@3000.15.14:
+    resolution: {integrity: sha512-TMQUET4+DWnTYCKX+vxlP9BQnee2TG3z59UrrHC44cTEf7y1nB5ulRffA6QXFA8p/JY97tSHk+KLYFSNlq8PRw==}
+    engines: {node: '>=16'}
+    hasBin: true
+
+snapshots:
+
+  devin-darwin-arm64@3000.15.14-darwin-arm64:
+    optional: true
+
+  devin-darwin-x64@3000.15.14-darwin-x64:
+    optional: true
+
+  devin-linux-arm64@3000.15.14-linux-arm64:
+    optional: true
+
+  devin-linux-x64@3000.15.14-linux-x64:
+    optional: true
+
+  devin-win32-arm64@3000.15.14-win32-arm64:
+    optional: true
+
+  devin-win32-x64@3000.15.14-win32-x64:
+    optional: true
+
+  devin@3000.15.14:
+    optionalDependencies:
+      devin-darwin-arm64: 3000.15.14-darwin-arm64
+      devin-darwin-x64: 3000.15.14-darwin-x64
+      devin-linux-arm64: 3000.15.14-linux-arm64
+      devin-linux-x64: 3000.15.14-linux-x64
+      devin-win32-arm64: 3000.15.14-win32-arm64
+      devin-win32-x64: 3000.15.14-win32-x64

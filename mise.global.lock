@@ -37,33 +37,33 @@ url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1
 url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/774858003"
 
 [[tools.agy]]
-version = "1.5.17"
+version = "1.5.18"
 backend = "aqua:google-antigravity/antigravity-cli"
 specifiers = ["latest"]
 
 [tools.agy."platforms.linux-x64"]
-checksum = "sha256:6304b4f592ae97e59231cfb1b365ee29c155750c9a881f0cc8efe5f5281077cf"
+checksum = "sha256:a4960723ed9cf5b5ac72ed541db8df4d62741795261eb93a4681006ccb23d5ad"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.17/agy_cli_linux_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/790519060"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.18/agy_cli_linux_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/794515272"
 
 [tools.agy."platforms.macos-arm64"]
-checksum = "sha256:94d4c4755c9edbae3feba8f7d3c7b2764e6b239326efb0477b28407635c9e764"
+checksum = "sha256:f154fdbe81885c36565b74615a9ef6c7c92fb9c2bc29acb0a300bc5990691871"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.17/agy_cli_mac_arm64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/790519540"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.18/agy_cli_mac_arm64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/794515564"
 
 [tools.agy."platforms.macos-x64"]
-checksum = "sha256:58cc9a6c11256de348193db4928fe7212d14aaa969ff17b8b9fcac2296579afc"
+checksum = "sha256:113e058df8c3e488c90f64ebb1dbdf7763ca01af7027ecfd73ae189f3c530366"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.17/agy_cli_mac_x64.tar.gz"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/790519065"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.18/agy_cli_mac_x64.tar.gz"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/794515264"
 
 [tools.agy."platforms.windows-x64"]
-checksum = "sha256:04df1f1c5eb4e60ad6cd26c4419645097b702aefee153e3fa0597f04749ad2c5"
+checksum = "sha256:3f705965ba256add649a68be8834f73185034bdf206a457255b8a3d3c0497cac"
 checksum_source = "mise-versions"
-url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.17/agy_cli_windows_x64.zip"
-url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/790519545"
+url = "https://github.com/google-antigravity/antigravity-cli/releases/download/1.5.18/agy_cli_windows_x64.zip"
+url_api = "https://api.github.com/repos/google-antigravity/antigravity-cli/releases/assets/794515569"
 
 [[tools.bat]]
 version = "0.26.1"
@@ -340,36 +340,36 @@ url = "https://github.com/dundee/gdu/releases/download/v5.39.0/gdu_windows_amd64
 url_api = "https://api.github.com/repos/dundee/gdu/releases/assets/718887408"
 
 [[tools.gh]]
-version = "2.105.0"
+version = "2.106.0"
 backend = "aqua:cli/cli"
 specifiers = ["latest"]
 
 [tools.gh."platforms.linux-x64"]
-checksum = "sha256:79e7ab5db738c48777b696e374f8b428f0647debfb424f44d2f426370407fe2f"
-url = "https://github.com/cli/cli/releases/download/v2.105.0/gh_2.105.0_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/cli/cli/releases/assets/761188566"
+checksum = "sha256:a476449fa9625413c54a3734eded62e9e480e49f421ff08e7f3b3879c059a033"
+url = "https://github.com/cli/cli/releases/download/v2.106.0/gh_2.106.0_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/cli/cli/releases/assets/793444853"
 provenance = "github-attestations"
 
 [tools.gh."platforms.macos-arm64"]
-checksum = "sha256:2a5d03103ae444927383b93d9ffd65579a26e2eb900ce1cf11f55258d5319ded"
-url = "https://github.com/cli/cli/releases/download/v2.105.0/gh_2.105.0_macOS_arm64.zip"
-url_api = "https://api.github.com/repos/cli/cli/releases/assets/761188673"
+checksum = "sha256:22b2b723dfbc69b6022b1b08604ff51c0db5aa8b6774b4ced1a47b8413a995d6"
+url = "https://github.com/cli/cli/releases/download/v2.106.0/gh_2.106.0_macOS_arm64.zip"
+url_api = "https://api.github.com/repos/cli/cli/releases/assets/793444946"
 provenance = "github-attestations"
 
 [tools.gh."platforms.macos-x64"]
-checksum = "sha256:23602cbccbbdc6285a8520745b714cb927ce2ca621779373c2a20cd8e33fda66"
-url = "https://github.com/cli/cli/releases/download/v2.105.0/gh_2.105.0_macOS_amd64.zip"
-url_api = "https://api.github.com/repos/cli/cli/releases/assets/761188667"
+checksum = "sha256:f43a04a5ffe0717e2e39d7591cbc50db24c6c38d09d0ea4998be27cd197758e3"
+url = "https://github.com/cli/cli/releases/download/v2.106.0/gh_2.106.0_macOS_amd64.zip"
+url_api = "https://api.github.com/repos/cli/cli/releases/assets/793444939"
 provenance = "github-attestations"
 
 [tools.gh."platforms.windows-x64"]
-checksum = "sha256:8813a72c899900afaa10e3fec8fbc64b908c89dbfe837e95ed2fa500fc140627"
-url = "https://github.com/cli/cli/releases/download/v2.105.0/gh_2.105.0_windows_amd64.zip"
-url_api = "https://api.github.com/repos/cli/cli/releases/assets/761188741"
+checksum = "sha256:d406f442ca0baa3d3e9c695e9cded1aa48e67dad3294b8947e5ab84f980b4844"
+url = "https://github.com/cli/cli/releases/download/v2.106.0/gh_2.106.0_windows_amd64.zip"
+url_api = "https://api.github.com/repos/cli/cli/releases/assets/793445150"
 provenance = "github-attestations"
 
 [[tools."github:alibaba/open-code-review"]]
-version = "1.14.3"
+version = "1.14.4"
 backend = "github:alibaba/open-code-review"
 specifiers = ["latest"]
 
@@ -377,13 +377,13 @@ specifiers = ["latest"]
 asset_pattern = "opencodereview-linux-amd64"
 
 [tools."github:alibaba/open-code-review"."platforms.linux-x64"]
-checksum = "sha256:17ee32cdf0af6c006a199d758defb6c2abe05ec5b4d164df3a703c0208d5155e"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.14.3/opencodereview-linux-amd64"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/786296214"
+checksum = "sha256:1dc6b1ea37611a2c10d61cb755ab03f07dc3c1a88872963669443937211e7f3a"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.14.4/opencodereview-linux-amd64"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/794002826"
 provenance = "github-attestations"
 
 [[tools."github:alibaba/open-code-review"]]
-version = "1.14.3"
+version = "1.14.4"
 backend = "github:alibaba/open-code-review"
 specifiers = ["latest"]
 
@@ -391,13 +391,13 @@ specifiers = ["latest"]
 asset_pattern = "opencodereview-darwin-arm64"
 
 [tools."github:alibaba/open-code-review"."platforms.macos-arm64"]
-checksum = "sha256:76c78dcc108a7c46249fef6ea572ae3b188a93bfa35a0b149bd49a0dad221d35"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.14.3/opencodereview-darwin-arm64"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/786296207"
+checksum = "sha256:ede097e99b36ddadf1360de1ed745e401f805ca0a63d0b76a4c80a9f22d5a10c"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.14.4/opencodereview-darwin-arm64"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/794002825"
 provenance = "github-attestations"
 
 [[tools."github:alibaba/open-code-review"]]
-version = "1.14.3"
+version = "1.14.4"
 backend = "github:alibaba/open-code-review"
 specifiers = ["latest"]
 
@@ -405,13 +405,13 @@ specifiers = ["latest"]
 asset_pattern = "opencodereview-darwin-amd64"
 
 [tools."github:alibaba/open-code-review"."platforms.macos-x64"]
-checksum = "sha256:4559ca97a316fecc50b8acbdd0955d48941840daaa501dcd573e8026f6a8eb3f"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.14.3/opencodereview-darwin-amd64"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/786296212"
+checksum = "sha256:16ddec6b58fce2334d703a1488bdb6e17094d110f0ae2fc79d84d73eada96edf"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.14.4/opencodereview-darwin-amd64"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/794002827"
 provenance = "github-attestations"
 
 [[tools."github:alibaba/open-code-review"]]
-version = "1.14.3"
+version = "1.14.4"
 backend = "github:alibaba/open-code-review"
 specifiers = ["latest"]
 
@@ -419,9 +419,9 @@ specifiers = ["latest"]
 asset_pattern = "opencodereview-windows-amd64.exe"
 
 [tools."github:alibaba/open-code-review"."platforms.windows-x64"]
-checksum = "sha256:5531c50080feec9bc2b966c83e1498a3b910ac23bd907651c0cfe4e7f7463631"
-url = "https://github.com/alibaba/open-code-review/releases/download/v1.14.3/opencodereview-windows-amd64.exe"
-url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/786296213"
+checksum = "sha256:8f55095abbde484c0a4e3b7cb36b446e0e411f18daa8868dbd3b4e30e1e25207"
+url = "https://github.com/alibaba/open-code-review/releases/download/v1.14.4/opencodereview-windows-amd64.exe"
+url_api = "https://api.github.com/repos/alibaba/open-code-review/releases/assets/794002823"
 provenance = "github-attestations"
 
 [[tools."github:herdrdev/herdr"]]
@@ -563,19 +563,19 @@ url = "https://nodejs.org/dist/v26.13.1/node-v26.13.1-win-x64.zip"
 
 [[tools."npm:@deepseek-ai/dsh"]]
 version = "0.2.0-rc.2"
-aube = { path = ".mise/locks/mise.global/npm-deepseek-ai-dsh/0.2.0-rc.2", digest = "sha256:bdd304e4ee5fcd4218e6c7e7424e603e9e7691c698a4d486080061c2c0a91068" }
+aube = { path = ".mise/locks/mise.global/npm-deepseek-ai-dsh/0.2.0-rc.2", digest = "sha256:ff7308ffc12969d5bd285df5ec7567d1fb35399b7c892e2a05c537759d7682d1" }
 backend = "npm:@deepseek-ai/dsh"
 specifiers = ["0.2.0-rc.2"]
 
 [[tools."npm:@earendil-works/pi-coding-agent"]]
-version = "1.6.0"
-aube = { path = ".mise/locks/mise.global/npm-earendil-works-pi-coding-agent/1.6.0", digest = "sha256:0725ea7dcce99fe060288ea81faa91a00c1882976f35ae7fc47f14b6337d69b8" }
+version = "1.6.1"
+aube = { path = ".mise/locks/mise.global/npm-earendil-works-pi-coding-agent/1.6.1", digest = "sha256:4d4cad14b010572eda3d77e3abecb55b4b648e46bbad8c3a84bc39c79dfd8d94" }
 backend = "npm:@earendil-works/pi-coding-agent"
 specifiers = ["latest"]
 
 [[tools."npm:@opencode/cli"]]
-version = "2.4.1"
-aube = { path = ".mise/locks/mise.global/npm-opencode-cli/2.4.1~009061c2", digest = "sha256:b9fc4e48974771958bd8f4b11f0f2e33467c5330f543017ccdb89513462b9dca" }
+version = "2.4.2"
+aube = { path = ".mise/locks/mise.global/npm-opencode-cli/2.4.2~009061c2", digest = "sha256:e2c041c208838433713c3f73ff7c42a6447e32b5f2d0cefdc7aee3697b8804ff" }
 backend = "npm:@opencode/cli"
 specifiers = ["latest"]
 
@@ -583,8 +583,8 @@ specifiers = ["latest"]
 allow_builds = '["@opencode/cli"]'
 
 [[tools."npm:devin"]]
-version = "3000.14.30821"
-aube = { path = ".mise/locks/mise.global/npm-devin/3000.14.30821", digest = "sha256:8a786df332c597468e5a26f54d4d8a4b9a1eab5a8256389fd452fe50c995f14d" }
+version = "3000.15.14"
+aube = { path = ".mise/locks/mise.global/npm-devin/3000.15.14", digest = "sha256:15a28d99e814466053b03e4dd82fb775617db2cd28909907f4815d609135295c" }
 backend = "npm:devin"
 specifiers = ["latest"]
 
@@ -595,33 +595,33 @@ backend = "npm:npkill"
 specifiers = ["latest"]
 
 [[tools.oh-my-pi]]
-version = "19.1.1"
+version = "19.2.1"
 backend = "github:can1357/oh-my-pi"
 specifiers = ["latest"]
 
 [tools.oh-my-pi."platforms.linux-x64"]
-checksum = "sha256:04e9490f9394da6d6804474cc2e41eb3d18f8e26215df4b34bdd4ad4c0d8a401"
+checksum = "sha256:e8b937f9bf023baa147bdd300ad5421af0a6ef8b1f350c47a9a93d5fca94feca"
 checksum_source = "mise-versions"
-url = "https://github.com/can1357/oh-my-pi/releases/download/v19.1.1/omp-linux-x64"
-url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/781684329"
+url = "https://github.com/can1357/oh-my-pi/releases/download/v19.2.1/omp-linux-x64"
+url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/792397292"
 
 [tools.oh-my-pi."platforms.macos-arm64"]
-checksum = "sha256:d5a3324acd98375a01698a1b0c018be48caed2956c8aa9044ad137fe43bc0400"
+checksum = "sha256:43943119837612b2da72250ab7efe22ff8ca239eabebd4f702f34e3a144fdd3d"
 checksum_source = "mise-versions"
-url = "https://github.com/can1357/oh-my-pi/releases/download/v19.1.1/omp-darwin-arm64"
-url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/781684337"
+url = "https://github.com/can1357/oh-my-pi/releases/download/v19.2.1/omp-darwin-arm64"
+url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/792397302"
 
 [tools.oh-my-pi."platforms.macos-x64"]
-checksum = "sha256:6ffecb22a9fe01a98f90f91a2ef04a697850a23bf4dde83adad2fe80e51a8353"
+checksum = "sha256:4face26750f5679857a606a61df22b1587925d4b308d5938de470d8c780cd871"
 checksum_source = "mise-versions"
-url = "https://github.com/can1357/oh-my-pi/releases/download/v19.1.1/omp-darwin-x64"
-url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/781684340"
+url = "https://github.com/can1357/oh-my-pi/releases/download/v19.2.1/omp-darwin-x64"
+url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/792397300"
 
 [tools.oh-my-pi."platforms.windows-x64"]
-checksum = "sha256:4e18f472975bb87f9b1992f1d5981b9a1403fd559cdb3eb96f1f1a7d709096ef"
+checksum = "sha256:2d039b068497333c2e23c06531ed50314edb9ec96123fa1a5d24a78316a1e5db"
 checksum_source = "mise-versions"
-url = "https://github.com/can1357/oh-my-pi/releases/download/v19.1.1/omp-windows-x64.exe"
-url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/781684339"
+url = "https://github.com/can1357/oh-my-pi/releases/download/v19.2.1/omp-windows-x64.exe"
+url_api = "https://api.github.com/repos/can1357/oh-my-pi/releases/assets/792397294"
 
 [[tools.pnpm]]
 version = "12.23.0"
