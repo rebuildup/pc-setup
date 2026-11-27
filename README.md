@@ -244,7 +244,7 @@ bootstrapが終了したことと、desired stateを満たしていることは�
 
 ## Development
 
-このrepository自体の変更は `project-init` のrelease-driven workflowに従う。
+このリポジトリの変更には [release-driven プロファイル](organization/profiles/release-driven-solo.md) を適用する。
 
 ```bash
 ./scripts/ci.sh
