@@ -1,6 +1,6 @@
 # Project-local Agent Skills
 
-Canonical upstream: `rebuildup/project-init`
+Canonical upstream: `rebuildup/aude-skills`（旧称 `rebuildup/project-init`、移行正本: `rebuildup/aude-skills#212`）
 
 This directory is a project-local copy used through progressive disclosure. It is not frozen merely because the files are committed here.
 
