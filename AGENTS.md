@@ -2,7 +2,7 @@
 
 This is the always-on contract for AI agents working on `pc-setup`.
 
-The repository follows the current `rebuildup/aude-skills` (formerly `rebuildup/project-init`; migration tracking: `rebuildup/aude-skills#212`) release-driven operating model. Keep this root contract project-specific; do not copy the complete upstream initialization prompt here.
+The [project operating profile](organization/profiles/release-driven-solo.md) defines delivery and authority for this repository. The upstream distribution source is `rebuildup/aude-skills`.
 
 ## 1. Project identity
 
@@ -198,7 +198,7 @@ Use progressive disclosure: load only the Skill needed for the current task.
 - `skills/interaction-discipline/SKILL.md`
 - `skills/onboarding/SKILL.md`
 
-These Skills are reconciled from `rebuildup/aude-skills` (formerly `rebuildup/project-init`); `skills/README.md` records the upstream source and last reconciliation evidence. Existing copies are not considered permanently current merely because they are present.
+[Agent Skills provenance](skills/README.md) records the sources and last reconciliation. `writing-discipline` is distributed by `rebuildup/writing-skills`.
 
 
 ## Constitution / operating profile
@@ -212,7 +212,7 @@ These Skills are reconciled from `rebuildup/aude-skills` (formerly `rebuildup/pr
 
 aude-skills（旧称 project-init）由来の Agent Skills は **project-local** に管理し、global install を canonical にしない。
 
-- 初回導入 / 全体 reconcile: `bunx skills add rebuildup/aude-skills --skill '*' --agent claude-code opencode codex -y`
+- 再導入は `mise run skills-bootstrap`。対象 Skill と upstream の版は project profile を参照する。
 - fresh clone では、commit 済みの Skill file をそのまま使う。`bunx skills install` は現在の `skills` CLI では `add` の別名であり、lock からの復元にならない。`bunx skills experimental_install` は lock の hash と照合せず配布元の最新を取得するため、復元の根拠にしない
 - 継続更新: `bunx skills update -p -y`
 - `skills-lock.json` は `skills` CLI が生成・更新する source/freshness metadata として commit する。手で hash / source entry を捏造しない。
