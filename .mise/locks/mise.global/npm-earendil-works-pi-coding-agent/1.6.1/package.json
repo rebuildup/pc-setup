@@ -2,6 +2,6 @@
   "name": "mise-npm-install",
   "private": true,
   "dependencies": {
-    "devin": "3000.14.30821"
+    "@earendil-works/pi-coding-agent": "1.6.1"
   }
 }
