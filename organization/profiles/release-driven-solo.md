@@ -8,7 +8,7 @@
 
 pc-setup の current release-driven development で使用する Operating Model を定義します。
 
-このprofileはproject-initの唯一の正しいorganization topologyではありません。別profileまたはproject-specific modelがConstitutionを満たす場合は置換できます。
+このprofileはaude-skills（旧称 project-init）の唯一の正しいorganization topologyではありません。別profileまたはproject-specific modelがConstitutionを満たす場合は置換できます。
 
 ## Current topology
 
@@ -145,9 +145,9 @@ explicit user/project decisionとして固定されたrelease scope/version/publ
 
 - Project-local Agent Skills の導入・更新は **`bunx skills` を canonical mechanism** とする。手動 copy / 個別 agent directory の内容を upstream freshness の SoT にしない。
 - Bun は Skills CLI 用の development prerequisite とする。Bun が application runtime / package manager でない repository でも、既存の project-local `mise` または established bootstrap から利用可能にし、application の native toolchain ownership は変更しない。
-- project-init Skills は floating source `rebuildup/project-init` を追跡する。上記の `release-0-3-0` は Constitution / Operating Model の reconciliation baseline であり、Skills の freeze/pin ではない。freeze が必要なら ADR で明示する。
+- aude-skills（旧称 project-init）由来 Skills は canonical source `rebuildup/aude-skills` を追跡する（移行正本: `rebuildup/aude-skills#212`）。上記の `release-0-3-0` は Constitution / Operating Model の reconciliation baseline であり、Skills の freeze/pin ではない。freeze が必要なら ADR で明示する。
 - canonical install layout は `.agents/skills/` と `.claude/skills/`。Codex / OpenCode / Cursor は universal `.agents/skills/` を共有し、Claude Code は `.claude/skills/` を使用する。
-- 初回導入 / scope変更は `bunx skills add rebuildup/project-init --list` で候補を確認し、標準bootstrapは `bunx skills add rebuildup/project-init --skill '*' --agent claude-code --agent codex -y` とする。repositoryに `mise.toml` taskがある場合は `mise run skills-bootstrap` を同じ入口とする。
+- 初回導入 / scope変更は `bunx skills add rebuildup/aude-skills --list` で候補を確認し、標準bootstrapは `bunx skills add rebuildup/aude-skills --skill '*' --agent claude-code --agent codex -y` とする。repositoryに `mise.toml` taskがある場合は `mise run skills-bootstrap` を同じ入口とする。
 - project-local `skills-lock.json` は source / skill path / content hash の durable metadata として commit する。通常の追従更新は `bunx skills update -p -y`（または `mise run skills-update`）を使う。
 - current Skills CLI の `skills install` は `add` の別名であり、lock からの復元にはならない。lock からの復元は `skills experimental_install` だが、lock の hash と照合せず配布元の最新を取得し、復元先も universal `.agents/skills/` に限られる。そのため fresh clone では commit 済みの Skill file をそのまま使い、いずれのコマンドも復元の根拠にしない。
 - `--global` は通常運用で使用しない。user-global Skills を repository policy / freshness evidence にしない。
