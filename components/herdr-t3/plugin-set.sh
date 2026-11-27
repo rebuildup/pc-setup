@@ -2,12 +2,13 @@
 # Install the pinned rebuildup/herdr-plugins set used by herdr-t3
 # (pc-setup#239, rebuildup/herdr-t3#358).
 #
-# The seven plugins and their full commit SHAs mirror the contract pins in
+# The fourteen plugins and their full commit SHAs mirror the contract pins in
 # rebuildup/herdr-t3 `docs/migration/contracts/plugins-boundary.md`
 # @ release-0-6-0 (inbox v0.1.0, git v0.2.0, projects v0.3.0,
-# checkpoints v0.4.0, automations v0.7.0, conversations v0.5.0,
-# usage v0.5.0) — the
-# full set shipped by herdr-t3 v0.6.0. Each
+# checkpoints v0.4.0, automations v0.7.0, conversations/usage/artifacts/
+# handoff/textgen/controls/secrets/mcp v0.5.0 @ d23205af, machines v0.1.0
+# @ 08f96a4 — the RC pin-backport carrying the --socket/--session fix,
+# herdr-plugins#264) — the full set shipped by herdr-t3 v0.6.0. Each
 # plugin installs independently through the official
 # `herdr plugin install --ref <sha>` path; state lives under herdr's own
 # plugin directories, so reinstalling never loses organize state.
@@ -39,6 +40,13 @@ PLUGINS=(
   "automations|6c1cfa501323772e7c1c008c3dbcd7e364feb0b3"
   "conversations|d23205af0cd2ff7dba25f72e1f3b872762a108ee"
   "usage|d23205af0cd2ff7dba25f72e1f3b872762a108ee"
+  "artifacts|d23205af0cd2ff7dba25f72e1f3b872762a108ee"
+  "handoff|d23205af0cd2ff7dba25f72e1f3b872762a108ee"
+  "textgen|d23205af0cd2ff7dba25f72e1f3b872762a108ee"
+  "controls|d23205af0cd2ff7dba25f72e1f3b872762a108ee"
+  "secrets|d23205af0cd2ff7dba25f72e1f3b872762a108ee"
+  "machines|08f96a4d151f0edb72b61483376ff977177f92e8"
+  "mcp|d23205af0cd2ff7dba25f72e1f3b872762a108ee"
 )
 
 # resolved_commit of one installed plugin (empty when absent/malformed).
