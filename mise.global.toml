@@ -111,6 +111,19 @@ os = ["windows"]
 windows-x64 = { asset_pattern = "herdr-windows-x86_64.zip" }
 windows-arm64 = { asset_pattern = "herdr-windows-x86_64.zip" }
 
+# skill-graph: Agent Skills discovery/recommendation CLI + runtime adapters.
+# Releases ship per-target tarballs (skill-graph-<target>.tar.gz containing
+# the `skill-graph` binary) from rebuildup/skill-graph v0.3.0 onward.
+[tools."github:rebuildup/skill-graph"]
+version = "latest"
+bin = "skill-graph"
+
+[tools."github:rebuildup/skill-graph".platforms]
+linux-x64 = { asset_pattern = "skill-graph-x86_64-unknown-linux-gnu.tar.gz" }
+linux-arm64 = { asset_pattern = "skill-graph-aarch64-unknown-linux-gnu.tar.gz" }
+macos-x64 = { asset_pattern = "skill-graph-x86_64-apple-darwin.tar.gz" }
+macos-arm64 = { asset_pattern = "skill-graph-aarch64-apple-darwin.tar.gz" }
+
 [tools."github:alibaba/open-code-review"]
 version = "latest"
 bin = "ocr"

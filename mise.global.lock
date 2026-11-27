@@ -438,6 +438,48 @@ url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-windows-
 url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898234"
 provenance = "github-attestations"
 
+[[tools."github:rebuildup/skill-graph"]]
+version = "0.3.0"
+backend = "github:rebuildup/skill-graph"
+specifiers = ["latest"]
+
+[tools."github:rebuildup/skill-graph".options]
+asset_pattern = "skill-graph-x86_64-unknown-linux-gnu.tar.gz"
+
+[tools."github:rebuildup/skill-graph"."platforms.linux-x64"]
+checksum = "sha256:12ef9ae27d03d8add905f58b060f407c01d4bfc49f5c05cb4d34696517010efb"
+checksum_source = "mise-versions"
+url = "https://github.com/rebuildup/skill-graph/releases/download/v0.3.0/skill-graph-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/rebuildup/skill-graph/releases/assets/794139127"
+
+[[tools."github:rebuildup/skill-graph"]]
+version = "0.3.0"
+backend = "github:rebuildup/skill-graph"
+specifiers = ["latest"]
+
+[tools."github:rebuildup/skill-graph".options]
+asset_pattern = "skill-graph-aarch64-apple-darwin.tar.gz"
+
+[tools."github:rebuildup/skill-graph"."platforms.macos-arm64"]
+checksum = "sha256:18ba75af231e841626f54ae1b2615af34132620ee6c02b95c7f8494ec1855043"
+checksum_source = "mise-versions"
+url = "https://github.com/rebuildup/skill-graph/releases/download/v0.3.0/skill-graph-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/rebuildup/skill-graph/releases/assets/794139065"
+
+[[tools."github:rebuildup/skill-graph"]]
+version = "0.3.0"
+backend = "github:rebuildup/skill-graph"
+specifiers = ["latest"]
+
+[tools."github:rebuildup/skill-graph".options]
+asset_pattern = "skill-graph-x86_64-apple-darwin.tar.gz"
+
+[tools."github:rebuildup/skill-graph"."platforms.macos-x64"]
+checksum = "sha256:07184e31cabb20652c13b1a69a47fa0e48b9732093b3df63728f0c3376c26528"
+checksum_source = "mise-versions"
+url = "https://github.com/rebuildup/skill-graph/releases/download/v0.3.0/skill-graph-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/rebuildup/skill-graph/releases/assets/794139108"
+
 [[tools.herdr]]
 version = "0.9.5"
 backend = "aqua:herdrdev/herdr"
