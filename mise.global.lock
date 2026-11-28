@@ -439,7 +439,7 @@ url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898234
 provenance = "github-attestations"
 
 [[tools."github:rebuildup/skill-graph"]]
-version = "0.3.0"
+version = "0.4.0"
 backend = "github:rebuildup/skill-graph"
 specifiers = ["latest"]
 
@@ -447,13 +447,13 @@ specifiers = ["latest"]
 asset_pattern = "skill-graph-x86_64-unknown-linux-gnu.tar.gz"
 
 [tools."github:rebuildup/skill-graph"."platforms.linux-x64"]
-checksum = "sha256:12ef9ae27d03d8add905f58b060f407c01d4bfc49f5c05cb4d34696517010efb"
+checksum = "sha256:6a4b7fe51f37fa31ed02d6c3202d6864d8af1120ef51f53c19acf66dcc40da56"
 checksum_source = "mise-versions"
-url = "https://github.com/rebuildup/skill-graph/releases/download/v0.3.0/skill-graph-x86_64-unknown-linux-gnu.tar.gz"
-url_api = "https://api.github.com/repos/rebuildup/skill-graph/releases/assets/794139127"
+url = "https://github.com/rebuildup/skill-graph/releases/download/v0.4.0/skill-graph-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/rebuildup/skill-graph/releases/assets/795567293"
 
 [[tools."github:rebuildup/skill-graph"]]
-version = "0.3.0"
+version = "0.4.0"
 backend = "github:rebuildup/skill-graph"
 specifiers = ["latest"]
 
@@ -461,13 +461,13 @@ specifiers = ["latest"]
 asset_pattern = "skill-graph-aarch64-apple-darwin.tar.gz"
 
 [tools."github:rebuildup/skill-graph"."platforms.macos-arm64"]
-checksum = "sha256:18ba75af231e841626f54ae1b2615af34132620ee6c02b95c7f8494ec1855043"
+checksum = "sha256:c991caef770cc1741d577b0db705e6409166da97e5ad11f29bad86d4a67c92b6"
 checksum_source = "mise-versions"
-url = "https://github.com/rebuildup/skill-graph/releases/download/v0.3.0/skill-graph-aarch64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/rebuildup/skill-graph/releases/assets/794139065"
+url = "https://github.com/rebuildup/skill-graph/releases/download/v0.4.0/skill-graph-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/rebuildup/skill-graph/releases/assets/795567230"
 
 [[tools."github:rebuildup/skill-graph"]]
-version = "0.3.0"
+version = "0.4.0"
 backend = "github:rebuildup/skill-graph"
 specifiers = ["latest"]
 
@@ -475,10 +475,16 @@ specifiers = ["latest"]
 asset_pattern = "skill-graph-x86_64-apple-darwin.tar.gz"
 
 [tools."github:rebuildup/skill-graph"."platforms.macos-x64"]
-checksum = "sha256:07184e31cabb20652c13b1a69a47fa0e48b9732093b3df63728f0c3376c26528"
+checksum = "sha256:68ae00a2bd99272c55605d7d99c86f6959d8321c7e155aa37c60811e8d5874b4"
 checksum_source = "mise-versions"
-url = "https://github.com/rebuildup/skill-graph/releases/download/v0.3.0/skill-graph-x86_64-apple-darwin.tar.gz"
-url_api = "https://api.github.com/repos/rebuildup/skill-graph/releases/assets/794139108"
+url = "https://github.com/rebuildup/skill-graph/releases/download/v0.4.0/skill-graph-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/rebuildup/skill-graph/releases/assets/795567283"
+
+[[tools."github:rebuildup/skill-graph"]]
+version = "0.4.0"
+backend = "github:rebuildup/skill-graph"
+specifiers = ["latest"]
+unsupported_platforms = ["windows-x64"]
 
 [[tools.herdr]]
 version = "0.9.5"
@@ -501,7 +507,7 @@ url = "https://github.com/herdrdev/herdr/releases/download/v0.9.5/herdr-macos-x8
 url_api = "https://api.github.com/repos/herdrdev/herdr/releases/assets/640898229"
 
 [[tools.infisical]]
-version = "0.45.14"
+version = "0.45.15"
 backend = "github:Infisical/cli"
 specifiers = ["latest"]
 
@@ -509,28 +515,28 @@ specifiers = ["latest"]
 asset_pattern = "cli_{{ version }}_{{ os(macos='darwin') }}_{{ arch(x64='amd64') }}.tar.gz"
 
 [tools.infisical."platforms.linux-x64"]
-checksum = "sha256:aee706dfee561432cf85ed4d33a2ab8d3576cec55a34e0ae92c2350f35929b1e"
+checksum = "sha256:5d9d97903c519445271a354fdc05607fde4a614064bae380b8c437e6a12568ab"
 checksum_source = "mise-versions"
-url = "https://github.com/Infisical/cli/releases/download/v0.45.14/cli_0.45.14_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/774073334"
+url = "https://github.com/Infisical/cli/releases/download/v0.45.15/cli_0.45.15_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/795659480"
 
 [tools.infisical."platforms.macos-arm64"]
-checksum = "sha256:67a7f6147f40c2482ce8ca3e3344a087c69eb7d4642699b6eb9bb22beee6db3e"
+checksum = "sha256:4ff478c4e19452de6418e053f4158a8866d97ab6788470d4392fbe9d3f1377e5"
 checksum_source = "mise-versions"
-url = "https://github.com/Infisical/cli/releases/download/v0.45.14/cli_0.45.14_darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/774059142"
+url = "https://github.com/Infisical/cli/releases/download/v0.45.15/cli_0.45.15_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/795642410"
 
 [tools.infisical."platforms.macos-x64"]
-checksum = "sha256:3587350a5f4c0eb1a88fa5f2e45a2caa28226d602afd845cae7fbdb4b89a042a"
+checksum = "sha256:5dff1929ddbc779fd9e5892d6ec35438d2ba985bd6b7595913d9136bd4fea28f"
 checksum_source = "mise-versions"
-url = "https://github.com/Infisical/cli/releases/download/v0.45.14/cli_0.45.14_darwin_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/774059138"
+url = "https://github.com/Infisical/cli/releases/download/v0.45.15/cli_0.45.15_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/795642415"
 
 [tools.infisical."platforms.windows-x64"]
-checksum = "sha256:05c963fb59826b3adeb3fa8f8ed4bc2acc76d3d8ef3a45e2d64c56a5c2b4a3bc"
+checksum = "sha256:95ae86e1b6b71866985beb092616cebd3b33fd8ba92d90f59c03c5baefa23c76"
 checksum_source = "mise-versions"
-url = "https://github.com/Infisical/cli/releases/download/v0.45.14/cli_0.45.14_windows_amd64.tar.gz"
-url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/774064979"
+url = "https://github.com/Infisical/cli/releases/download/v0.45.15/cli_0.45.15_windows_amd64.tar.gz"
+url_api = "https://api.github.com/repos/Infisical/cli/releases/assets/795654945"
 
 [[tools.jq]]
 version = "1.8.2"
