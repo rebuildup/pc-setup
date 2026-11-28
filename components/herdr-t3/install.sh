@@ -108,8 +108,23 @@ git -C "$target" checkout --quiet "$ref"
 commit="$(git -C "$target" rev-parse HEAD)"
 log "building $name ($commit)"
 
+# `mise install --locked` must see only the checkout's own mise.toml /
+# mise.lock. On managed machines the user-global config
+# (~/.config/mise/config.toml, symlinked to pc-setup's mise.global.toml)
+# is also discovered as an ancestor config and pins machine-global tools
+# that are absent from the repo lockfile, failing --locked installs
+# (rebuildup/pc-setup#245). Point the global config at an empty file and
+# ignore the user config locations; the data dir (installs, trust) is
+# untouched so already-installed tool versions are reused.
+MISE_EMPTY_GLOBAL="$STATE_DIR/mise-empty-global.toml"
+: > "$MISE_EMPTY_GLOBAL"
+MISE_ISOLATED_ENV=(
+  "MISE_GLOBAL_CONFIG_FILE=$MISE_EMPTY_GLOBAL"
+  "MISE_IGNORED_CONFIG_PATHS=$HOME/.config/mise${MISE_IGNORED_CONFIG_PATHS:+:$MISE_IGNORED_CONFIG_PATHS}"
+)
+
 (cd "$target" \
-  && mise install --locked >/dev/null \
+  && env "${MISE_ISOLATED_ENV[@]}" mise install --locked >/dev/null \
   && bun install --frozen-lockfile \
   && CSC_IDENTITY_AUTO_DISCOVERY=false bun run desktop:pack) \
   || die "build failed for $name; installed app left untouched"
