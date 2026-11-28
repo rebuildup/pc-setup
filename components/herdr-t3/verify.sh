@@ -36,10 +36,40 @@ if [[ -f "$INSTALLED_FILE" ]]; then
 fi
 echo "[herdr-t3] installed: $name @ ${commit:0:12} -> $app (v$version, $bid)"
 
-# Launch Services / Spotlight discovery (not just file existence).
-mdfind "kMDItemCFBundleIdentifier == '$BUNDLE_ID'" 2>/dev/null | grep -Fqx "$app" \
-  || fail "Spotlight/Launch Services does not resolve $BUNDLE_ID to $app"
+# Launch Services discovery (not just file existence).
+# `lsregister -f` re-registers the app, then poll the LaunchServices
+# database itself through NSWorkspace — the same lookup `open -b`,
+# Launchpad and Spotlight app results are built on.
+#
+# Do NOT gate on `mdfind kMDItemCFBundleIdentifier`: that reads the
+# Spotlight *index*, which lags registration and can stay read-only or
+# disabled on machines whose data volume is mounted read-only or full —
+# in that state mdfind can never return the bundle and verify would
+# false-FAIL forever regardless of retries (rebuildup/pc-setup#245).
+LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+[[ -x "$LSREGISTER" ]] && "$LSREGISTER" -f "$app" >/dev/null 2>&1 || true
+ls_ok=0
+for _ in $(seq 1 15); do
+  resolved="$(osascript -l JavaScript -e \
+    'ObjC.import("AppKit"); var u = $.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier("'"$BUNDLE_ID"'"); u ? ObjC.unwrap(u.path) : ""' \
+    2>/dev/null || true)"
+  if [[ "$resolved" == "$app" ]]; then
+    ls_ok=1
+    break
+  fi
+  sleep 1
+done
+[[ "$ls_ok" == "1" ]] \
+  || fail "Launch Services does not resolve $BUNDLE_ID to $app after 15s"
 echo "[herdr-t3] launch services: $app"
+
+# Informational only: whether the Spotlight index currently knows the app.
+# Index health is machine state outside this component's control.
+if mdfind "kMDItemCFBundleIdentifier == '$BUNDLE_ID'" 2>/dev/null | grep -Fqx "$app"; then
+  echo "[herdr-t3] spotlight index: resolved"
+else
+  echo "[herdr-t3] note: Spotlight index does not list $BUNDLE_ID (non-fatal; index may be read-only or still catching up)" >&2
+fi
 
 if [[ "$LIVE" == "1" ]]; then
   # Layer 1: the installed app process is actually running.
